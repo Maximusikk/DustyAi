@@ -97,3 +97,27 @@ MOCK = {
         {"DisplayName": "LDPlayer 9", "DisplayVersion": "9.0", "SizeMB": 3000},
     ],
 }
+
+MOCK["smart_temp"] = [
+    {"name": "dtuv0qr3", "path": "C:\\Users\\demo\\AppData\\Local\\Temp\\dtuv0qr3", "size_gb": 5.3, "age_days": 41,
+     "reason": "Крупная папка, к которой не прикасались больше недели — вероятно, распакованный установщик."},
+    {"name": "vs_installer_9f2a", "path": "C:\\Users\\demo\\AppData\\Local\\Temp\\vs_installer_9f2a", "size_gb": 0.4,
+     "age_days": 12, "reason": "Похоже на остатки установщика (по имени папки)."},
+]
+MOCK["python"] = [
+    {"version": "3.13", "path": "C:\\Python313", "size_gb": 1.9,
+     "packages": [["torch", 1200], ["numpy", 60], ["pip", 12]], "in_use": [], "mcp": False},
+    {"version": "3.12", "path": "C:\\Python312", "size_gb": 0.2, "packages": [["mcp", 8], ["pip", 12]],
+     "in_use": ["C:\\Python312\\python.exe -m mcp_server_fetch"], "mcp": True},
+    {"version": "3.11", "path": "C:\\Python311", "size_gb": 6.9, "packages": [["torch", 4500], ["scipy", 110]],
+     "in_use": [], "mcp": False},
+]
+MOCK["dups"] = [
+    {"size_gb": 1.8, "wasted_gb": 1.8, "files": [
+        {"path": "C:\\Users\\demo\\Downloads\\ubuntu-24.04.iso", "date": "2025-11-02", "original": True},
+        {"path": "C:\\Users\\demo\\Downloads\\ubuntu-24.04 (1).iso", "date": "2025-11-20", "original": False}]},
+    {"size_gb": 0.6, "wasted_gb": 1.2, "files": [
+        {"path": "C:\\Users\\demo\\Documents\\backup.zip", "date": "2025-08-01", "original": True},
+        {"path": "C:\\Users\\demo\\Downloads\\backup.zip", "date": "2025-09-14", "original": False},
+        {"path": "C:\\Users\\demo\\Downloads\\backup (2).zip", "date": "2025-10-01", "original": False}]},
+]

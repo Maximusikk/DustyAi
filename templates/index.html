@@ -7,6 +7,7 @@ h1{margin:8px 0;font-size:34px}.tag{color:var(--muted);max-width:560px;margin:0 
 .bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
 #msg{margin-top:10px;color:var(--muted);min-height:22px;font-size:13px}
+.hist{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:13px}.hist:hover{color:var(--accent)}
 @media(max-width:600px){.list{columns:1}}
 </style>{% endblock %}
 {% block body %}
@@ -16,11 +17,16 @@ h1{margin:8px 0;font-size:34px}.tag{color:var(--muted);max-width:560px;margin:0 
 <b>Что проверяется</b>
 <ul class="list">
 {% for i in catalog.SAFE + catalog.REVIEW %}<li>{{ i.icon }} <b>{{ i.name }}</b></li>{% endfor %}
-<li>💽 <b>Диски</b></li><li>🧩 <b>Тяжёлые программы</b></li>
+<li>📁 <b>Остатки установщиков в Temp</b></li><li>🐍 <b>Установки Python</b></li><li>🧬 <b>Дубликаты файлов</b></li><li>💽 <b>Диски</b></li><li>🧩 <b>Тяжёлые программы</b></li>
 </ul>
 <button class="btn primary" id="go" onclick="go()">Начать сканирование</button>
 <div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
 </div>
+{% if history %}
+<div class="card" style="margin-top:14px"><b>Последние сканирования</b>
+{% for h in history %}<a href="/history/{{ h.name }}" class="hist"><span class="mono">{{ h.scanned_at }}</span>
+<span class="mono">{{ h.total_gb }} ГБ можно освободить{% if h.mock %} · демо{% endif %}</span></a>{% endfor %}</div>
+{% endif %}
 {% endblock %}
 {% block script %}<script>
 function go(){document.getElementById('go').disabled=true;document.getElementById('bar').style.display='block';startScan();}

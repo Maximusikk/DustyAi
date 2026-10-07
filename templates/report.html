@@ -24,20 +24,22 @@ th{color:var(--muted);font-weight:500;font-size:13px}td.n{text-align:right}
 .empty{color:var(--muted)}
 </style>{% endblock %}
 {% macro size_cls(gb) %}{{ 'g' if gb < 5 else 'a' }}{% endmacro %}
-{% macro card(i, zone) %}
+{% macro card(i, zone, ro) %}
 <div class="card item {{ 'gone' if i.size_gb == 0 }}" id="item-{{ i.id }}">
   <div><h3>{{ i.icon }} {{ i.name }}</h3><div class="path mono">{{ i.resolved }}</div></div>
   <div class="size mono {{ 'g' if zone == 'safe' else 'a' }}"><span class="sz">{{ i.size_gb }}</span> ГБ</div>
   <p>{{ i.desc }}</p>
   <p class="restore"><b>Что восстановится:</b> {{ i.restore }}</p>
   <div style="grid-column:1/-1">
-  {% if i.deletable %}<button class="btn del" onclick="del('{{ i.id }}',this)">Удалить</button>
+  {% if ro %}<span class="manual">Сохранённый отчёт — только просмотр.</span>
+  {% elif i.deletable %}<button class="btn del" onclick="del('{{ i.id }}',this)">Удалить</button>
   {% else %}<span class="manual">Удаляйте вручную — решение за вами: приложение не удаляет это автоматически.</span>{% endif %}
   </div>
 </div>
 {% endmacro %}
 {% block body %}
-<div class="topbar"><div class="logo">🧹 PC Cleaner</div><a class="btn" href="/">← Новое сканирование</a></div>
+<div class="topbar"><div class="logo">🧹 PC Cleaner</div><div style="display:flex;gap:8px"><a class="btn" href="/export">⬇ Экспорт JSON</a><a class="btn" href="/">← Новое сканирование</a></div></div>
+{% if d.readonly %}<div class="demo">Сохранённый отчёт от {{ d.scanned_at }} — только просмотр, удаление отключено.</div>{% endif %}
 {% if d.mock %}<div class="demo">Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</div>{% endif %}
 
 <div class="tiles">
@@ -54,10 +56,34 @@ th{color:var(--muted);font-weight:500;font-size:13px}td.n{text-align:right}
 {% endfor %}
 
 <h2>Безопасно удалить <span class="badge b-g">НИЗКИЙ РИСК</span></h2>
-{% for i in d.safe %}{{ card(i,'safe') }}{% else %}<p class="empty">Здесь чисто 🎉</p>{% endfor %}
+{% for i in d.safe %}{{ card(i,'safe',d.readonly) }}{% else %}<p class="empty">Здесь чисто 🎉</p>{% endfor %}
+
+{% if d.temp_items %}
+<h2>Остатки установщиков в Temp <span class="badge b-g">НИЗКИЙ РИСК</span></h2>
+<p class="path">Папки старше 7 дней. Их размер уже входит в «Temp» выше и отдельно не суммируется.</p>
+{% for i in d.temp_items %}{{ card(i,'safe',d.readonly) }}{% endfor %}
+{% endif %}
 
 <h2>На ваше усмотрение <span class="badge b-a">СМОТРИТЕ ОПИСАНИЕ</span></h2>
-{% for i in d.review %}{{ card(i,'review') }}{% else %}<p class="empty">Ничего не найдено.</p>{% endfor %}
+{% for i in d.review %}{{ card(i,'review',d.readonly) }}{% else %}<p class="empty">Ничего не найдено.</p>{% endfor %}
+
+<h2>Дубликаты файлов <span class="badge b-a">ОСТАНЕТСЯ ОДНА КОПИЯ</span></h2>
+<p class="path">Файлы больше 50 МБ в Загрузках и Документах с одинаковым содержимым (MD5). Последнюю копию удалить нельзя.</p>
+{% for g in d.dups %}<div class="card item" style="grid-template-columns:1fr">
+  <h3>{{ g.size_gb }} ГБ × {{ g.files|length }} <span class="mono a" style="font-size:14px">— лишнее: {{ g.wasted_gb }} ГБ</span></h3>
+  {% for f in g.files %}<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+    <div><div class="path mono" style="color:var(--fg)">{{ f.path }}</div><div class="path">{{ f.date }}{% if f.original %} · самая старая{% endif %}</div></div>
+    {% if not d.readonly %}<button class="btn del" onclick="del('{{ f.id }}',this)">Удалить</button>{% endif %}</div>{% endfor %}
+</div>{% else %}<p class="empty">Дубликатов не найдено.</p>{% endfor %}
+
+<h2>Установки Python <span class="badge b-r">ТОЛЬКО ПРОСМОТР</span></h2>
+{% for p in d.python %}<div class="card item" style="grid-template-columns:1fr auto">
+  <div><h3>🐍 Python {{ p.version }}</h3><div class="path mono">{{ p.path }}</div></div>
+  <div class="size mono a">{{ p.size_gb }} ГБ</div>
+  {% if p.packages %}<p>Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="mono">{{ n }}</span> {{ mb }} МБ{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  {% if p.in_use %}<p style="color:var(--red)">⚠ Сейчас используется{% if p.mcp %} (похоже, MCP-сервером){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} и ещё {{ p.in_use|length - 1 }}{% endif %}. Не удаляйте.</p>
+  {% else %}<p>Запущенных процессов с этой установкой не найдено. Перед удалением проверьте venv и скрипты, которые её вызывают — делайте это через «Параметры → Приложения».</p>{% endif %}
+</div>{% else %}<p class="empty">Установки Python не найдены (команда <span class="mono">py -0p</span>).</p>{% endfor %}
 
 <h2>Тяжёлые программы <span class="badge b-a">ТОЛЬКО ПРОСМОТР</span></h2>
 <div class="card">
@@ -74,6 +100,7 @@ th{color:var(--muted);font-weight:500;font-size:13px}td.n{text-align:right}
 {% endblock %}
 {% block script %}<script>
 const armed = new Map();
+try{const m=sessionStorage.getItem('toast');if(m){sessionStorage.removeItem('toast');toast(m)}}catch(_){}
 async function del(id, btn){
   if(!armed.get(id)){
     btn.textContent='Точно удалить?';btn.classList.add('arm');
@@ -90,7 +117,9 @@ async function del(id, btn){
     document.getElementById('t-safe').textContent=j.safe_gb;
     document.getElementById('t-review').textContent=j.review_gb;
     document.getElementById('t-total').textContent=j.total_gb;
-    btn.textContent='Готово';toast('Освобождено '+j.freed_gb+' ГБ');
+    btn.textContent='Готово';const m='Освобождено '+j.freed_gb+' ГБ';
+    if(j.reload){try{sessionStorage.setItem('toast',m)}catch(_){};location.reload();return}
+    toast(m);
   }catch(e){btn.disabled=false;btn.classList.remove('arm');btn.textContent='Удалить';toast('Ошибка: '+e.message,true)}
 }
 </script>{% endblock %}
