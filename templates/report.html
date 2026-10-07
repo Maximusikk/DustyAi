@@ -95,7 +95,11 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 .modal h3{margin:0 0 6px;font-size:18px}.modal ul{margin:12px 0;padding:0;list-style:none;max-height:240px;overflow:auto}
 .modal li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border)}
 .modal .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
-.kv{margin:10px 0}.kv b{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.kv{margin:10px 0}
+.procs{display:flex;flex-direction:column;gap:4px;margin:8px 0}
+.proc{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:10px;cursor:pointer}
+.proc.off{opacity:.55;cursor:not-allowed}.proc input{margin-top:3px}
+.warnbox{background:var(--b-bg);color:var(--b);border-radius:10px;padding:8px 12px;font-size:13px;margin:8px 0}.kv b{display:block;font-size:12px;color:var(--muted);font-weight:500}
 </style>{% endblock %}
 
 {% macro ico(img, emoji) %}<span class="app-ico">{% if img %}<img src="{{ img }}" alt="">{% else %}{{ emoji }}{% endif %}</span>{% endmacro %}
@@ -237,6 +241,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 
 {% block script %}<script>
 const ROWS = {{ rows|tojson }};
+const CAN_ELEVATE = {{ 'true' if CAN_ELEVATE else 'false' }};
 const DRIVES = {{ d.drives|tojson }};
 const DUPS = {{ d.dups|map(attribute='drives')|list|tojson }}.map((dr, i) => ({drives: dr, wasted: {{ d.dups|map(attribute='wasted_gb')|list|tojson }}[i]}));
 const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];
@@ -400,18 +405,61 @@ function ask(items){
     clearTimeout(t); run(items.map(i => i.id), e.target);
   };
 }
+let freedTotal = 0;   // освобождено за всю операцию, включая повторы после закрытия программ
 async function run(ids, btn){
-  btn.disabled = true; btn.textContent = 'Удаляю…';
+  btn.disabled = true; btn.textContent = 'Удаляю…'; freedTotal = 0;
   try{
     const r = await post('/delete_batch', {ids}); const j = await r.json();
     if(!r.ok) throw new Error(j.error || 'Ошибка');
-    let m = j.freed_gb > 0 ? 'Освобождено ' + fmt(j.freed_gb) : 'Ничего не освобождено';
-    const warn = j.results.find(r => r.ok && r.warn);
-    if(warn) m += ' · ' + warn.warn;
-    if(j.failed.length) m += (warn ? ' · ' : ' · ') + j.failed[0].error + (j.failed.length > 1 ? ` (и ещё ${j.failed.length - 1})` : '');
-    try{ sessionStorage.setItem('toast', m) }catch(_){}
-    location.reload();
+    finish(j, ids);
   }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
+}
+function finish(j, ids, closed){
+  freedTotal += j.freed_gb || 0;
+  const locked = j.results.filter(r => r.locked);
+  if(locked.length) return showLocked(locked, ids);
+  reloadWithToast(j, closed);
+}
+function reloadWithToast(j, closed){
+  let m = freedTotal > 0 ? 'Освобождено ' + fmt(freedTotal) : 'Ничего не освобождено';
+  if(closed && closed.length) m += ' · закрыто: ' + closed.join(', ');
+  const failed = (j && j.failed) || [];
+  if(failed.length) m += ' · ' + failed[0].error + (failed.length > 1 ? ` (и ещё ${failed.length - 1})` : '');
+  try{ sessionStorage.setItem('toast', m) }catch(_){}
+  location.reload();
+}
+function showLocked(locked, ids){
+  const procs = new Map();     // дедупликация по pid: одна программа может держать файлы в нескольких пунктах
+  locked.forEach(r => r.locked.procs.forEach(p => procs.set(p.pid, p)));
+  const items = locked.map(r => { const row = ROWS.find(x => x.id === r.id); const l = r.locked;
+    return `<li><div style="min-width:0"><div class="cut"><b>${esc(row ? row.name : r.id)}</b></div>
+      <div class="path">${l.count} файл(ов) заняты: ${l.files.map(esc).join(', ')}${l.count > l.files.length ? '…' : ''}</div></div></li>` }).join('');
+  const plist = [...procs.values()].map(p => `<label class="proc ${p.protected ? 'off' : ''}">
+    <input type="checkbox" data-pid="${p.pid}" ${p.protected ? 'disabled' : 'checked'}>
+    <span><b>${esc(p.app || p.proc)}</b> <span class="path mono">PID ${p.pid}</span>${p.protected ? `<span class="path"> — ${esc(p.why)}, закрыть нельзя</span>` : ''}</span></label>`).join('');
+  const noProcs = !procs.size;
+  openModal(`<h3>Часть файлов занята программами</h3>
+    <div class="sub">Windows не даёт удалить файлы, пока их держит другая программа. Остальное уже удалено.</div>
+    <ul>${items}</ul>
+    ${noProcs ? `<div class="kv">Не удалось определить, какая программа держит файлы — возможно, они защищены системой и нужны права администратора.${CAN_ELEVATE ? ' Кнопка «🛡 Запустить от администратора» в боковой панели поможет.' : ''}</div>`
+      : `<div class="kv"><b>Закрыть эти программы и повторить?</b></div><div class="procs">${plist}</div>
+      <div class="warnbox">Несохранённые данные в закрываемых программах могут пропасть — сначала сохраните работу.</div>
+      <label class="proc"><input type="checkbox" id="force"><span>Если программа не закрылась сама — завершить принудительно <span class="path">(данные точно не сохранятся)</span></span></label>`}
+    <div class="acts"><button class="btn" id="skip">Оставить как есть</button>
+    ${noProcs ? '' : '<button class="btn" id="again">Повторить без закрытия</button><button class="btn danger" id="killgo">Закрыть выбранные и удалить</button>'}</div>`);
+  $('#skip').onclick = () => { closeModal(); reloadWithToast({failed: []}) };
+  if(noProcs) return;
+  const retry = async (kill, btn) => {
+    const pids = kill ? [...document.querySelectorAll('[data-pid]:checked')].map(c => +c.dataset.pid) : [];
+    const force = kill && $('#force').checked; btn.disabled = true; btn.textContent = kill ? 'Закрываю программы…' : 'Повторяю…';
+    try{
+      const j = await (await post('/api/unlock-retry', {ids: locked.map(r => r.id), pids, force})).json();
+      if(!j.ok) throw new Error(j.error || 'Ошибка');
+      if(j.still_running && j.still_running.length) toast('Не все программы закрылись — можно завершить принудительно', true);
+      finish(j, ids, j.closed);
+    }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
+  };
+  $('#again').onclick = e => retry(false, e.target); $('#killgo').onclick = e => retry(true, e.target);
 }
 function askUninstall(id, name){
   openModal(`<h3>Удалить «${esc(name)}»?</h3>

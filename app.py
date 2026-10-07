@@ -19,7 +19,8 @@ from flask import Flask, jsonify, redirect, render_template, request
 import catalog
 import scanners
 from util import (IS_WINDOWS, drive_of, expand, extract_icons, first_existing, folder_size, gb, list_drives,
-                  is_admin, lp, ps_json, purge, run_ps, running_blockers, running_names, system_drive, _rm)
+                  close_processes, describe_lockers, find_lockers, is_admin, lp, process_names, ps_json, purge, run_ps,
+                  running_blockers, running_names, system_drive, _rm)
 
 APP_NAME = "Dusty Ai"
 ADMIN = is_admin()
@@ -43,6 +44,15 @@ _lock = threading.Lock()
 scan_state = {"status": "idle", "progress": 0, "message": ""}
 scan_data = {}
 _drive_cache = {"t": 0.0, "v": []}
+_mock_unlocked = set()
+MOCK_LOCKED = {
+    "user_temp": {"files": ["~DF3A91.tmp", "pycharm-cache.lock", "chrome_scoped_dir"], "procs": [
+        {"pid": 5151, "app": "PyCharm", "proc": "pycharm64", "protected": False, "why": ""},
+        {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""},
+        {"pid": 1200, "app": "Проводник Windows", "proc": "explorer", "protected": True, "why": "системный процесс"}]},
+    "chrome_ai_model": {"files": ["weights.bin"], "procs": [
+        {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""}]},
+}
 
 
 # ───────────────────────────────── диски ─────────────────────────────────
@@ -219,6 +229,7 @@ def mock_extras(data, sel):
 def do_scan(opts):
     try:
         mock = not IS_WINDOWS
+        _mock_unlocked.clear()
         set_state(status="scanning", progress=2, message="Определяю диски…")
         all_drives = get_drives(force=True)
         sel = [d["Name"] for d in all_drives if d["Name"] in opts["drives"] and d.get("scannable")]
@@ -330,7 +341,7 @@ def do_scan(opts):
 
 def public_data(d):
     """Данные отчёта без служебного реестра динамических id."""
-    return {k: v for k, v in d.items() if k not in ("dynamic", "readonly")}
+    return {k: v for k, v in d.items() if k not in ("dynamic", "readonly", "_locks")}
 
 
 def save_history(data):
@@ -364,23 +375,25 @@ def list_history(limit=3):
 # ─────────────────────────────── удаление ───────────────────────────────
 
 def delete_item(item):
-    """Удаляет по каталогу, пропуская занятые файлы. Возвращает (освобождено ГБ, осталось ГБ, пропущено файлов)."""
+    """Удаляет по каталогу, пропуская занятые файлы.
+    Возвращает (освобождено ГБ, осталось ГБ, пропущено файлов, образцы путей пропущенных)."""
     path = expand(item["path"])
     if not os.path.isdir(path):
-        return 0.0, 0.0, 0
+        return 0.0, 0.0, 0, []
     before = folder_size(path, 120)
-    skipped = 0
+    skipped, locked = 0, []
     if item["kind"] == "contents":
         with os.scandir(path) as it:
             for e in list(it):
                 if e.is_dir(follow_symlinks=False):
-                    skipped += purge(e.path)
-                else:
-                    skipped += not _rm(e.path)
+                    skipped += purge(e.path, collect=locked)
+                elif not _rm(e.path):
+                    skipped += 1
+                    locked.append(e.path)
     else:
-        skipped = purge(path)
+        skipped = purge(path, collect=locked)
     after = folder_size(path, 120) if os.path.isdir(path) else 0
-    return round(max(before - after, 0) / 1024 ** 3, 4), gb(after), skipped
+    return round(max(before - after, 0) / 1024 ** 3, 4), gb(after), skipped, locked
 
 
 def err(msg, code):
@@ -699,8 +712,14 @@ def perform_delete(item_id, running=None):
         return fail("Сейчас идёт установка (" + ", ".join(installing) + ") — дождитесь её завершения, "
                     "иначе её можно повредить", 409)
     hints = running_blockers(item.get("blockers", []) if kind == "static" else [], running)
-    skipped = 0
+    skipped, locked_paths = 0, []
 
+    if mock and item_id in MOCK_LOCKED and item_id not in _mock_unlocked:  # демо: показываем, как выглядит «файл занят»
+        lock = {"count": 7, "files": MOCK_LOCKED[item_id]["files"], "procs": MOCK_LOCKED[item_id]["procs"]}
+        with _lock:
+            scan_data.setdefault("_locks", {})[item_id] = {p["pid"]: p for p in lock["procs"] if not p["protected"]}
+        return {"ok": False, "id": item_id, "freed_gb": 0, "locked": lock,
+                "error": "Часть файлов занята программами"}, 409
     freed = remaining = 0.0
     group = None
     pool = {"static": lambda: scan_data["safe"] + scan_data["review"], "temp": lambda: scan_data["temp_items"],
@@ -713,21 +732,21 @@ def perform_delete(item_id, running=None):
         if mock:
             freed = entry["size_gb"]
         else:
-            freed, remaining, skipped = delete_item(item)
+            freed, remaining, skipped, locked_paths = delete_item(item)
     elif kind == "temp":
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_smart_temp(item["path"]):
                 return fail("Папка изменилась или больше не подходит под правила — пересканируйте", 409)
-            freed, remaining, skipped = delete_item({"path": item["path"], "kind": "folder"})
+            freed, remaining, skipped, locked_paths = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "junk":
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_junk(item["path"], [f"{L}:\\" for L in scanned]):
                 return fail("Папка больше не подходит под правила — пересканируйте", 409)
-            freed, remaining, skipped = delete_item({"path": item["path"], "kind": "folder"})
+            freed, remaining, skipped, locked_paths = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "recycle":
         freed = entry["size_gb"]
         if not mock:
@@ -771,8 +790,11 @@ def perform_delete(item_id, running=None):
                 return fail(f"Не удалось удалить файл: {e}", 500)
             freed = gb(size)
 
+    lock = lock_info(item_id, skipped, locked_paths) if skipped else None
     if skipped and freed == 0:
-        return fail(skipped_message(item_id, skipped, hints), 409)
+        out = {"ok": False, "id": item_id, "freed_gb": 0, "locked": lock,
+               "error": skipped_message(item_id, skipped, hints)}
+        return out, 409
 
     with _lock:
         d = scan_data
@@ -797,7 +819,17 @@ def perform_delete(item_id, running=None):
     out = {"ok": True, "id": item_id, "freed_gb": freed, "kind": kind, "remaining_gb": remaining, "skipped": skipped}
     if skipped:
         out["warn"] = skipped_message(item_id, skipped, hints)
+        out["locked"] = lock
     return out, 200
+
+
+def lock_info(item_id, skipped, paths):
+    """Кто держит пропущенные файлы. Список процессов запоминаем на сервере: закрывать потом
+    можно только их (клиент присылает pid, но мы сверяем с этим списком)."""
+    procs = describe_lockers(find_lockers(paths)) if IS_WINDOWS else []
+    with _lock:
+        scan_data.setdefault("_locks", {})[item_id] = {p["pid"]: p for p in procs if not p["protected"]}
+    return {"count": skipped, "files": [os.path.basename(p) for p in paths[:3]], "procs": procs}
 
 
 def skipped_message(item_id, skipped, hints):
@@ -833,7 +865,40 @@ def delete_batch():
         payload, _ = perform_delete(item_id, running)
         results.append(payload)
     freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 4)
-    return jsonify(ok=True, results=results, freed_gb=freed, failed=[r for r in results if not r["ok"]])
+    return jsonify(ok=True, results=results, freed_gb=freed,
+                   failed=[r for r in results if not r["ok"] and not r.get("locked")])
+
+
+@app.post("/api/unlock-retry")
+def unlock_retry():
+    """Закрывает выбранные пользователем программы, которые держат файлы, и повторяет удаление.
+    Закрыть можно только процессы из нашего же списка блокировщиков (id из клиента сверяются с ним)."""
+    body = request.get_json(silent=True) or {}
+    ids = [i for i in body.get("ids") or [] if isinstance(i, str)][:50]
+    want = {int(p) for p in body.get("pids") or [] if isinstance(p, int)}
+    force = bool(body.get("force"))
+    with _lock:
+        if scan_data.get("readonly"):
+            return err("Это сохранённый отчёт — он только для просмотра", 403)
+        mock = scan_data.get("mock", False)
+        allowed = {}
+        for i in ids:
+            allowed.update(scan_data.get("_locks", {}).get(i, {}))
+    pids = sorted(want & set(allowed))
+    closed, still = [], []
+    if pids and mock:
+        closed = [allowed[p]["app"] for p in pids]
+        _mock_unlocked.update(ids)
+    elif pids:
+        now = process_names(pids)  # pid мог достаться другой программе, пока пользователь думал
+        safe = [p for p in pids if now.get(p) and now[p] == (allowed[p].get("proc") or "").lower()]
+        still = close_processes(safe, force)
+        closed = [allowed[p]["app"] for p in safe if p not in still]
+    running = running_names()
+    results = [perform_delete(i, running)[0] for i in ids]
+    freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 4)
+    return jsonify(ok=True, results=results, freed_gb=freed, closed=closed, still_running=still,
+                   failed=[r for r in results if not r["ok"] and not r.get("locked")])
 
 
 @app.post("/api/elevate")

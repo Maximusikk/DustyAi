@@ -180,13 +180,17 @@ def _rm(path):
             return False
 
 
-def purge(path, remove_root=True):
+def purge(path, remove_root=True, collect=None):
     """Удаляет папку целиком, но то, что занято программами или требует прав, пропускает.
-    Возвращает число пропущенных файлов — чтобы честно сказать об этом пользователю."""
+    Возвращает число пропущенных файлов; их пути (образцы) складывает в collect."""
     skipped = 0
     for dirpath, dirs, files in os.walk(lp(path), topdown=False):
         for f in files:
-            skipped += not _rm(os.path.join(dirpath, f))
+            p = os.path.join(dirpath, f)
+            if not _rm(p):
+                skipped += 1
+                if collect is not None and len(collect) < 300:  # образцы для поиска «кто держит файл»
+                    collect.append(p[4:] if p.startswith("\\\\?\\") else p)
         for d in dirs:
             p = os.path.join(dirpath, d)
             try:
@@ -212,3 +216,112 @@ def is_admin():
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:  # noqa: BLE001
         return False
+
+
+# ───────────────────── кто держит файл (Windows Restart Manager) ─────────────────────
+
+PROTECTED_PROCS = {"system", "registry", "smss", "csrss", "wininit", "winlogon", "services", "lsass", "svchost",
+                   "dwm", "explorer", "fontdrvhost", "sihost", "taskhostw", "ctfmon", "searchhost", "searchindexer",
+                   "runtimebroker", "audiodg", "wuauserv", "msmpeng", "securityhealthservice"}
+
+
+def find_lockers(paths):
+    """Какие процессы держат указанные файлы. Windows Restart Manager — штатный способ,
+    им же пользуются установщики. Возвращает [{pid, app, kind}]; вне Windows — пусто."""
+    if not IS_WINDOWS or not paths:
+        return []
+    import ctypes
+    from ctypes import wintypes
+    rm = ctypes.WinDLL("rstrtmgr")
+
+    class FILETIME(ctypes.Structure):
+        _fields_ = [("lo", wintypes.DWORD), ("hi", wintypes.DWORD)]
+
+    class RM_UNIQUE_PROCESS(ctypes.Structure):
+        _fields_ = [("pid", wintypes.DWORD), ("start", FILETIME)]
+
+    class RM_PROCESS_INFO(ctypes.Structure):
+        _fields_ = [("Process", RM_UNIQUE_PROCESS), ("app", ctypes.c_wchar * 256), ("service", ctypes.c_wchar * 64),
+                    ("kind", ctypes.c_int), ("status", ctypes.c_ulong), ("session", wintypes.DWORD),
+                    ("restartable", wintypes.BOOL)]
+
+    session, key = wintypes.DWORD(0), ctypes.create_unicode_buffer(33)
+    if rm.RmStartSession(ctypes.byref(session), 0, key) != 0:
+        return []
+    try:
+        files = (ctypes.c_wchar_p * len(paths))(*paths)
+        if rm.RmRegisterResources(session, len(paths), files, 0, None, 0, None) != 0:
+            return []
+        needed, count, reasons = wintypes.UINT(0), wintypes.UINT(0), wintypes.DWORD(0)
+        r = rm.RmGetList(session, ctypes.byref(needed), ctypes.byref(count), None, ctypes.byref(reasons))
+        if r == 0 or not needed.value:
+            return []
+        if r != 234:  # ERROR_MORE_DATA — штатный ответ «дайте буфер побольше»
+            return []
+        infos = (RM_PROCESS_INFO * needed.value)()
+        count = wintypes.UINT(needed.value)
+        if rm.RmGetList(session, ctypes.byref(needed), ctypes.byref(count), infos, ctypes.byref(reasons)) != 0:
+            return []
+        return [{"pid": infos[i].Process.pid, "app": infos[i].app or infos[i].service, "kind": infos[i].kind}
+                for i in range(count.value)]
+    except Exception:  # noqa: BLE001 — определить не вышло, это не причина падать
+        return []
+    finally:
+        rm.RmEndSession(session)
+
+
+def describe_lockers(raw):
+    """Дополняет список именами процессов и помечает те, которые закрывать из приложения нельзя."""
+    if not raw:
+        return []
+    ids = ",".join(str(p["pid"]) for p in raw)
+    names = {r["Id"]: (r.get("ProcessName") or "") for r in ps_json(
+        f"Get-Process -Id {ids} -EA SilentlyContinue | Select Id,ProcessName | ConvertTo-Json -Compress")}
+    own = {os.getpid(), os.getppid()}
+    out, seen = [], set()
+    for p in raw:
+        if p["pid"] in seen:
+            continue
+        seen.add(p["pid"])
+        proc = names.get(p["pid"], "")
+        why = ("это само приложение" if p["pid"] in own else
+               "системный процесс" if proc.lower() in PROTECTED_PROCS or p["kind"] in (3, 4, 1000) else "")
+        out.append({"pid": p["pid"], "app": p["app"] or proc, "proc": proc, "protected": bool(why), "why": why})
+    return out
+
+
+def wait_exit(pids, timeout=6.0):
+    """Ждёт завершения процессов. Возвращает те, что всё ещё работают."""
+    if not IS_WINDOWS:
+        return []
+    import ctypes
+    k = ctypes.windll.kernel32
+    k.OpenProcess.restype = ctypes.c_void_p
+    k.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    alive, stop = [], time.monotonic() + timeout
+    for pid in pids:
+        h = k.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not h:
+            continue  # процесса уже нет
+        left = max(int((stop - time.monotonic()) * 1000), 0)
+        if k.WaitForSingleObject(h, left) != 0:
+            alive.append(pid)
+        k.CloseHandle(ctypes.c_void_p(h))
+    return alive
+
+
+def close_processes(pids, force=False):
+    """Просит программы закрыться (taskkill без /F: как нажатие на крестик). С force — завершает принудительно.
+    Возвращает pid, которые остались работать."""
+    for pid in pids:
+        subprocess.run(["taskkill", "/PID", str(int(pid))] + (["/F"] if force else []),
+                       capture_output=True, timeout=15)
+    return wait_exit(pids, 2.0 if force else 8.0)
+
+
+def process_names(pids):
+    if not pids:
+        return {}
+    ids = ",".join(str(int(p)) for p in pids)
+    return {r["Id"]: (r.get("ProcessName") or "").lower() for r in ps_json(
+        f"Get-Process -Id {ids} -EA SilentlyContinue | Select Id,ProcessName | ConvertTo-Json -Compress")}
