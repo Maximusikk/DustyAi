@@ -181,23 +181,25 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 </div></div>
 
 <div class="panel" id="p-over"><div class="card ov"><h3>Обзор дисков</h3>
-  <div class="hint">Крупнейшие папки и файлы: на системном диске — профиль и AppData, на остальных — весь диск. Здесь всё только показывается — решение за вами.</div>
+  <div class="hint">Крупнейшие папки и файлы по всему диску (на системном без самого Windows), плюс профиль и AppData. Здесь всё только показывается — решение за вами.</div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
   <div class="blk" data-drives="{{ L }}"><h4>{{ L }}: {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h4>
   {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень большой — обзор неполный (ограничение по времени).</p>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
-    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb|size }}</span></div>{% endfor %}
+    {% for t in o.top_dirs %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm" data-reveal="{{ t.id }}">Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
     {% if o.big_files %}<h4 style="margin-top:18px">Крупные файлы (от 500 МБ)</h4>
-    {% for f in o.big_files %}<div class="big"><div style="min-width:0"><div class="t cut" title="{{ f.path }}">{{ f.name }}</div><div class="path mono">{{ f.path }}</div></div>
+    {% for f in o.big_files %}<div class="big"><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="app-ico">{{ f.icon or '📄' }}</span><div style="min-width:0"><div class="t cut" title="{{ f.path }}">{{ f.name }}</div><div class="path">{{ f.kind or 'Файл' }}</div><div class="path mono">{{ f.path }}</div></div></div>
       <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb }} ГБ</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>{% endfor %}{% endif %}
-  {% elif L == d.system_drive and d.profile %}
-    <p class="path">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
+  {% endif %}
+  {% if L == d.system_drive and d.profile %}
+    <p class="path" style="margin-top:18px">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
     {% for g in d.profile %}<h4 style="margin-top:16px">{{ g.title }}</h4>
     {% set mx = (g.entries[0].size_gb if g.entries else 1) or 1 %}
     {% for t in g.entries %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span>
       <div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div>
       <span class="v mono">{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span><button class="btn sm" data-reveal="{{ t.id }}">Показать</button></div>{% endfor %}{% endfor %}
-  {% else %}<p class="path">Системный диск проверяется по известным местам — смотрите вкладки «Очистка», «Python» и «Программы».</p>{% endif %}
+  {% endif %}
+  {% if not o and not (L == d.system_drive and d.profile) %}<p class="path">Для этого диска обзор не запускался — включите «Глубокий скан» при новом сканировании.</p>{% endif %}
   </div>{% endfor %}
 </div></div>
 

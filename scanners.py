@@ -246,9 +246,46 @@ JUNK_NAMES = {"node_modules": "Зависимости Node.js", ".venv": "Вир
               ".tox": "Окружения tox"}
 JUNK_MIN_MB = 50
 BIG_FILE_MB = 500
-SKIP_TOP = {"$recycle.bin", "system volume information", "windows", "program files", "program files (x86)",
-            "programdata", "recovery", "$windows.~bt", "config.msi", "msocache"}
+# на несистемных дисках пропускаем только служебное; на системном — ещё сам Windows (его не чистят руками)
+SKIP_TOP = {"$recycle.bin", "system volume information", "recovery", "$windows.~bt", "$windows.~ws",
+            "config.msi", "msocache", "$winreagent"}
+SKIP_TOP_SYSTEM = SKIP_TOP | {"windows"}
 ROOT_FILES = "(файлы в корне диска)"
+
+FILE_KINDS = [  # (расширения, подпись, иконка)
+    ({".gguf", ".safetensors", ".ckpt", ".pt", ".pth", ".onnx", ".h5", ".tflite"}, "ИИ-модель (веса)", "🧠"),
+    ({".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow2"}, "Образ виртуального диска (ВМ/WSL/Docker)", "💽"),
+    ({".iso", ".img", ".wim", ".esd"}, "Образ диска / установщик системы", "📀"),
+    ({".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".xz", ".bz2"}, "Архив", "🗜️"),
+    ({".dmp", ".mdmp", ".hdmp"}, "Дамп памяти", "💥"),
+    ({".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"}, "Видео", "🎞️"),
+    ({".exe", ".msi", ".msix", ".appx"}, "Установщик / программа", "📦"),
+    ({".bin"}, "Бинарный файл (часто веса модели или данные игры)", "📄"),
+    ({".bak", ".old", ".tmp", ".log"}, "Резервная копия / временный / лог", "🗃️"),
+    ({".sys"}, "Системный файл (подкачка/гибернация) — не удалять вручную", "🔒"),
+]
+
+
+def classify_file(name):
+    ext = os.path.splitext(name)[1].lower()
+    for exts, label, icon in FILE_KINDS:
+        if ext in exts:
+            return label, icon
+    return "Файл", "📄"
+
+
+def protected_prefixes():
+    """Папки установленных программ и системы: node_modules/venv внутри них — часть самих программ
+    (например Electron-приложений), удалять их нельзя."""
+    raw = [expand(r) for r in ("%ProgramFiles%", "%ProgramFiles(x86)%", "%ProgramData%", "%SystemRoot%")]
+    profile = expand("%USERPROFILE%")
+    raw.append(os.path.join(profile, "AppData"))
+    return [os.path.normcase(p) for p in raw if "%" not in p]
+
+
+def junk_allowed(path):
+    p = os.path.normcase(path)
+    return not any(p == pre or p.startswith(pre + os.sep) for pre in protected_prefixes())
 
 
 def _reparse(e):
@@ -259,20 +296,15 @@ def _reparse(e):
         return False
 
 
-def scan_drive_deep(letter, deadline=90):
-    """Обход несистемного диска: крупнейшие папки верхнего уровня, крупные файлы,
-    «мусор разработчика» (node_modules, venv, __pycache__). Не пересекает junction, лимит по времени."""
-    root = f"{letter}:\\"
-    top, big, junk = {}, [], []
-    stop, partial = time.monotonic() + deadline, False
-    stack = [(root, None)]
+def _walk(path, stop):
+    """Обход одной ветки. Возвращает (размер, крупные файлы, мусор разработчика, оборвано ли по времени)."""
+    size, big, junk, cut = 0, [], [], False
+    stack = [path]
     while stack:
         if time.monotonic() > stop:
-            partial = True
-            break
-        path, topname = stack.pop()
+            return size, big, junk, True
         try:
-            it = list(os.scandir(path))
+            it = list(os.scandir(stack.pop()))
         except OSError:
             continue
         for e in it:
@@ -280,34 +312,89 @@ def scan_drive_deep(letter, deadline=90):
                 if _reparse(e):
                     continue
                 if e.is_dir(follow_symlinks=False):
-                    low = e.name.lower()
-                    if topname is None and low in SKIP_TOP:
-                        continue
-                    tn = topname or e.name
-                    if low in JUNK_NAMES:
-                        size = folder_size(e.path, 30)
-                        top[tn] = top.get(tn, 0) + size
-                        if size >= JUNK_MIN_MB * 1024 ** 2:
+                    if e.name.lower() in JUNK_NAMES and junk_allowed(e.path):
+                        js = folder_size(e.path, 30)
+                        size += js
+                        if js >= JUNK_MIN_MB * 1024 ** 2:
                             junk.append(dict(id=short_id("junk_", e.path), name=e.name, path=e.path,
-                                             what=JUNK_NAMES[low], size=size))
+                                             what=JUNK_NAMES[e.name.lower()], size=js))
                     else:
-                        stack.append((e.path, tn))
+                        stack.append(e.path)
                 else:
-                    size = e.stat(follow_symlinks=False).st_size
-                    tn = topname or ROOT_FILES
-                    top[tn] = top.get(tn, 0) + size
-                    if size >= BIG_FILE_MB * 1024 ** 2:
-                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=size))
+                    sz = e.stat(follow_symlinks=False).st_size
+                    size += sz
+                    if sz >= BIG_FILE_MB * 1024 ** 2:
+                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz))
             except OSError:
                 continue
+    return size, big, junk, cut
+
+
+def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
+    """Обход диска целиком: крупнейшие папки верхнего уровня, крупные файлы с типом, мусор разработчика.
+    Работает параллельно: корень и папки второго уровня (например, каждый профиль в Users) идут отдельными
+    задачами. Не пересекает junction, общий лимит по времени. На системном диске пропускает сам Windows."""
+    root = root or f"{letter}:\\"
+    skip = SKIP_TOP_SYSTEM if system else SKIP_TOP
+    stop = time.monotonic() + deadline
+    top, big, junk, partial, jobs = {}, [], [], False, []
+
+    def add(tn, size):
+        top[tn] = top.get(tn, 0) + size
+
+    try:
+        entries = list(os.scandir(root))
+    except OSError:
+        entries = []
+    for e in entries:
+        try:
+            if _reparse(e):
+                continue
+            if e.is_dir(follow_symlinks=False):
+                if e.name.lower() in skip:
+                    continue
+                try:  # второй уровень: больше параллелизма там, где одна папка огромна (Users, Program Files)
+                    kids = list(os.scandir(e.path))
+                except OSError:
+                    continue
+                for k in kids:
+                    if _reparse(k):
+                        continue
+                    if k.is_dir(follow_symlinks=False):
+                        jobs.append((e.name, k.path))
+                    else:
+                        sz = k.stat(follow_symlinks=False).st_size
+                        add(e.name, sz)
+                        if sz >= BIG_FILE_MB * 1024 ** 2:
+                            big.append(dict(id=short_id("big_", k.path), name=k.name, path=k.path, size=sz))
+            else:
+                sz = e.stat(follow_symlinks=False).st_size
+                add(ROOT_FILES, sz)
+                if sz >= BIG_FILE_MB * 1024 ** 2:
+                    big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz))
+        except OSError:
+            continue
+    # папка уровня 1 с файлами, но без подпапок, всё равно должна попасть в список
+    for e in entries:
+        if e.is_dir(follow_symlinks=False) and e.name.lower() not in skip:
+            top.setdefault(e.name, 0)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for (tn, _), (sz, b, j, cut) in zip(jobs, ex.map(lambda job: _walk(job[1], stop), jobs)):
+            add(tn, sz)
+            big += b
+            junk += j
+            partial |= cut
     top_dirs = [dict(name=n, path=(root + n) if n != ROOT_FILES else root, size_gb=gb(s))
-                for n, s in sorted(top.items(), key=lambda x: -x[1])[:12] if s > 0]
+                for n, s in sorted(top.items(), key=lambda x: -x[1])[:(20 if system else 12)] if s > 0]
     big.sort(key=lambda f: -f["size"])
     junk.sort(key=lambda j: -j["size"])
-    return dict(
-        top_dirs=top_dirs, partial=partial,
-        big_files=[dict(f, size_gb=gb(f.pop("size"))) for f in big[:15]],
-        junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]])
+    big_out = []
+    for f in big[:20]:
+        label, icon = classify_file(f["name"])
+        big_out.append(dict(f, size_gb=gb(f.pop("size")), kind=label, icon=icon))
+    return dict(top_dirs=top_dirs, partial=partial, big_files=big_out,
+                junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]])
 
 
 def scan_recycle(letter):
@@ -319,7 +406,7 @@ def verify_junk(path, allowed_roots):
     try:
         if os.path.islink(path) or not os.path.isdir(path):
             return False
-        if os.path.basename(path.rstrip("\\/")).lower() not in JUNK_NAMES:
+        if os.path.basename(path.rstrip("\\/")).lower() not in JUNK_NAMES or not junk_allowed(path):
             return False
         np = _norm(path)
         return any(np.startswith(_norm(r)) for r in allowed_roots)

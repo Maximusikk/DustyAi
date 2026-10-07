@@ -165,12 +165,17 @@ def assemble_extras(data, deep, recycle):
     for letter, res in deep.items():
         for f in res["big_files"]:
             f.setdefault("id", scanners.short_id("big_", f["path"]))
+            f.setdefault("kind", "Файл")
+            f.setdefault("icon", "📄")
             f["drive"] = letter
             dyn[f["id"]] = {"type": "bigfile", "path": f["path"]}
         for j in res["junk"]:
             item = extra_item("junk", j)
             data["junk"].append(item)
             dyn[item["id"]] = {"type": "junk", "path": j["path"]}
+        for t in res["top_dirs"]:
+            t["id"] = scanners.short_id("td_", t["path"])
+            dyn[t["id"]] = {"type": "bigfile", "path": t["path"]}  # только показать в проводнике
         data["overview"][letter] = {"top_dirs": res["top_dirs"], "big_files": res["big_files"], "partial": res["partial"]}
     for letter, size in recycle.items():
         if size > 0:
@@ -276,8 +281,9 @@ def do_scan(opts):
                 tasks["profile"] = ("обзор профиля и AppData", scanners.scan_profile_overview)
             for L in sel:
                 tasks[f"recycle:{L}"] = (f"корзина {L}:", lambda L=L: scanners.scan_recycle(L))
-                if L != sysd:
-                    tasks[f"deep:{L}"] = (f"обзор диска {L}:", lambda L=L: scanners.scan_drive_deep(L))
+                if L != sysd or opts.get("deep_system", True):
+                    tasks[f"deep:{L}"] = (f"обзор диска {L}: целиком", lambda L=L: scanners.scan_drive_deep(
+                        L, deadline=150 if L == sysd else 90, system=(L == sysd)))
             results, done = {}, 0
             with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
                 futs = {pool.submit(fn): (key, label) for key, (label, fn) in tasks.items()}
@@ -604,7 +610,8 @@ def scan():
         if scan_state["status"] == "scanning":
             return jsonify(ok=True, already=True)
         scan_state.update(status="scanning", progress=0, message="Запуск…")
-    opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True))}
+    opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True)),
+            "deep_system": bool(body.get("deep_system", True))}
     threading.Thread(target=do_scan, args=(opts,), daemon=True).start()
     return jsonify(ok=True)
 

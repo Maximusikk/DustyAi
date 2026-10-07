@@ -195,3 +195,19 @@ MOCK["profile"] = [
         {"name": "Tencent", "path": "C:\\Users\\demo\\AppData\\Roaming\\Tencent", "size_gb": 5.5, "partial": False},
         {"name": "DingTalk", "path": "C:\\Users\\demo\\AppData\\Roaming\\DingTalk", "size_gb": 4.3, "partial": True}]},
 ]
+
+MOCK["deep"]["C"] = {"partial": False,
+    "top_dirs": [
+        {"name": "Users", "path": "C:\\Users", "size_gb": 96.4},
+        {"name": "Program Files", "path": "C:\\Program Files", "size_gb": 41.2},
+        {"name": "llama", "path": "C:\\llama", "size_gb": 17.3},
+        {"name": "ProgramData", "path": "C:\\ProgramData", "size_gb": 12.8},
+        {"name": "Program Files (x86)", "path": "C:\\Program Files (x86)", "size_gb": 9.6},
+        {"name": "(файлы в корне диска)", "path": "C:\\", "size_gb": 7.9}],
+    "big_files": [
+        {"name": "qwen3-27b-q4_k_m.gguf", "path": "C:\\llama\\models\\qwen3-27b-q4_k_m.gguf", "size_gb": 16.4, "kind": "ИИ-модель (веса)", "icon": "🧠"},
+        {"name": "pagefile.sys", "path": "C:\\pagefile.sys", "size_gb": 7.25, "kind": "Системный файл (подкачка/гибернация) — не удалять вручную", "icon": "🔒"},
+        {"name": "ext4.vhdx", "path": "C:\\Users\\demo\\AppData\\Local\\Packages\\wsl\\ext4.vhdx", "size_gb": 3.2, "kind": "Образ виртуального диска (ВМ/WSL/Docker)", "icon": "💽"},
+        {"name": "llama-server-cuda.bin", "path": "C:\\llama\\llama-server-cuda.bin", "size_gb": 0.9, "kind": "Бинарный файл (часто веса модели или данные игры)", "icon": "📄"}],
+    "junk": [
+        {"name": "node_modules", "path": "C:\\Users\\demo\\work\\site\\node_modules", "what": "Зависимости Node.js", "size_gb": 0.8}]}
