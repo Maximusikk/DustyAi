@@ -30,9 +30,26 @@ app.jinja_env.globals.update(APP_NAME=APP_NAME, IS_ADMIN=ADMIN, CAN_ELEVATE=IS_W
 
 @app.template_filter("size")
 def size_filter(g):
-    """ГБ → «512 МБ» / «1.4 ГБ»: мелочь в гигабайтах выглядит как «0.0»."""
+    """ГБ → «512 МБ» / «1,4 ГБ»: мелочь в гигабайтах выглядит как «0,0». Запятая — по-русски,
+    неразрывный пробел — чтобы число не отрывалось от единицы при переносе.
+    Точность: ≥100 ГБ — целые, ≥10 — один знак, иначе два."""
     g = g or 0
-    return f"{g:.2f}".rstrip("0").rstrip(".") + " ГБ" if g >= 1 else f"{round(g * 1024)} МБ"
+    if g < 1:
+        return f"{round(g * 1024)}\u00a0МБ"
+    s = f"{g:.{0 if g >= 100 else 1 if g >= 10 else 2}f}"
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s.replace(".", ",") + "\u00a0ГБ"
+
+
+@app.template_filter("num")
+def num_filter(v, digits=1):
+    """Число с русской запятой без хвоста нулей: 103.0 → «103», 7.60 → «7,6»."""
+    s = f"{(v or 0):.{digits}f}"
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return (s or "0").replace(".", ",")
+
 
 HOST, PORT = "127.0.0.1", 5000
 SCANS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans")
@@ -1046,6 +1063,20 @@ def free_port(preferred=PORT):
                 continue
 
 
+def window_background():
+    """Цвет окна до загрузки страницы: в тёмной теме Windows не мигаем белым при старте."""
+    if IS_WINDOWS:
+        try:
+            import winreg
+            key = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+                if winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0:
+                    return "#0a0d13"
+        except OSError:
+            pass
+    return "#f2f4f9"
+
+
 def main():
     """Flask в фоновом потоке + нативное окно (pywebview). Без pywebview — браузер."""
     from werkzeug.serving import make_server
@@ -1058,7 +1089,8 @@ def main():
         try:
             import webview
             webview.settings["ALLOW_DOWNLOADS"] = True
-            webview.create_window(APP_NAME, url, width=1360, height=860, min_size=(1000, 640))
+            webview.create_window(APP_NAME, url, width=1360, height=860, min_size=(1000, 640),
+                                  background_color=window_background(), text_select=True)  # пути и AI-текст можно копировать
             webview.start()  # блокирует до закрытия окна
             server.shutdown()
             return

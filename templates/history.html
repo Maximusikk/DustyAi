@@ -1,15 +1,46 @@
 {% extends "base.html" %}
+{% from "_macros.html" import day, hm %}
 {% block title %}История — {{ APP_NAME }}{% endblock %}
 {% block head %}<style>
-.hist{display:grid;grid-template-columns:1fr auto auto;gap:18px;padding:14px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none;align-items:center}
-.hist:first-of-type{border-top:0}.hist:hover .when{color:var(--accent)}
+.hist-list{display:flex;flex-direction:column;gap:10px}
+.hist{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:16px 20px;border-radius:var(--r-lg);
+  color:var(--fg);text-decoration:none;transition:border-color .15s,box-shadow .15s,transform .15s var(--ease)}
+.hist:hover{border-color:var(--accent-line);box-shadow:var(--sh-2);transform:translateY(-1px)}
+.hist .ico{width:44px;height:44px;border-radius:13px;background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+.hist .ico .ic{width:21px;height:21px}
+.hist .when b{font-size:15px;font-weight:600}
+.hist .when .tag{margin-left:8px;vertical-align:1px}
+.hist .when small,.hist .amount small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.hist .amount{text-align:right}
+.hist .amount b{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.hist .go{color:var(--faint);transition:transform .15s,color .15s}
+.hist:hover .go{transform:translateX(3px);color:var(--accent-ink)}
+@media (max-width:640px){.hist{grid-template-columns:auto 1fr auto}.hist .go{display:none}}
 </style>{% endblock %}
 {% block body %}
-<div class="eyebrow">{{ APP_NAME }}</div><h1>История сканирований</h1>
-<p class="sub" style="margin-bottom:20px">Сохранённые отчёты открываются только для просмотра — удалять из них нельзя.</p>
-<div class="card">
-{% for h in history %}<a class="hist" href="/history/{{ h.name }}"><span class="when mono">{{ h.scanned_at }}{% if h.mock %} · демо{% endif %}</span>
-<span class="mono">{{ h.total_gb }} ГБ можно освободить</span><span class="mono" style="color:var(--muted)">диски: {{ h.drives }}</span></a>
-{% else %}<p style="color:var(--muted);margin:0">Сканирований пока нет. <a href="/" style="color:var(--accent)">Запустить первое</a></p>{% endfor %}
+<header class="page-head">
+  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>История сканирований</h1>
+    <p class="sub">Сохранённые отчёты открываются только для просмотра — удалять из них нельзя.</p></div>
+  <a class="btn primary" href="/"><svg class="ic"><use href="#i-scan"/></svg>Новое сканирование</a>
+</header>
+{% if history %}
+<div class="hist-list">
+{% for h in history %}
+  <a class="hist card" href="/history/{{ h.name }}">
+    <span class="ico"><svg class="ic"><use href="#i-history"/></svg></span>
+    <span class="when"><b>{{ day(h.scanned_at) }}</b>{% if h.mock %}<span class="tag">демо</span>{% endif %}
+      <small class="num">{{ hm(h.scanned_at) }} · диски: {{ h.drives }}{% if h.free_c is not none %} · свободно {{ h.free_c|num(0) }}&nbsp;ГБ{% endif %}</small></span>
+    <span class="amount"><b class="num">{{ h.total_gb|size }}</b><small>можно освободить</small></span>
+    <svg class="ic go"><use href="#i-chevron-right"/></svg>
+  </a>
+{% endfor %}
 </div>
+{% else %}
+<div class="card"><div class="empty">
+  <div class="em-ico"><svg class="ic"><use href="#i-history"/></svg></div>
+  <b>Сканирований пока нет</b>
+  <span>Результаты каждого сканирования сохраняются здесь — к ним можно вернуться позже.</span>
+  <a class="btn primary" href="/" style="margin-top:14px"><svg class="ic"><use href="#i-play"/></svg>Запустить первое</a>
+</div></div>
+{% endif %}
 {% endblock %}
