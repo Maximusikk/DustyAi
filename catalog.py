@@ -71,6 +71,37 @@ DO_NOT_TOUCH = [
     dict(name="Профили браузеров", icon="🔒", reason="Пароли, закладки и сессии."),
 ]
 
+
+SAFE += [
+    {'id': 'd3d_cache', 'name': 'Кэш шейдеров DirectX', 'icon': '🎮', 'path': '%LOCALAPPDATA%\\D3DSCache', 'kind': 'folder', 'deletable': True, 'blockers': [], 'desc': 'Скомпилированные шейдеры игр и приложений.', 'restore': 'Пересоздаётся при запуске игр — первые минуты возможны микрофризы.'},
+    {'id': 'nvidia_cache', 'name': 'Кэш шейдеров NVIDIA', 'icon': '🟩', 'path': '%LOCALAPPDATA%\\NVIDIA\\DXCache', 'kind': 'folder', 'deletable': True, 'blockers': [], 'desc': 'Шейдерный кэш видеодрайвера NVIDIA.', 'restore': 'Драйвер пересоздаст его сам.'},
+    {'id': 'wer_reports', 'name': 'Отчёты об ошибках Windows', 'icon': '📋', 'path': '%LOCALAPPDATA%\\Microsoft\\Windows\\WER', 'kind': 'folder', 'deletable': True, 'blockers': [], 'desc': 'Архив отчётов о сбоях программ, которые Windows собирает для отправки в Microsoft.', 'restore': 'Ничего. Новые отчёты появятся только при новых сбоях.'},
+    {'id': 'inet_cache', 'name': 'Кэш Internet Explorer / WebView', 'icon': '🌐', 'path': '%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache', 'kind': 'folder', 'deletable': True, 'blockers': [], 'desc': 'Кэш страниц и картинок встроенных веб-компонентов Windows.', 'restore': 'Скачается заново при необходимости.'},
+    {'id': 'vscode_vsix', 'name': 'Кэш расширений VS Code (VSIX)', 'icon': '🧩', 'path': '%APPDATA%\\Code\\CachedExtensionVSIXs', 'kind': 'folder', 'deletable': True, 'blockers': ['code'], 'desc': 'Скачанные установщики расширений — после установки не нужны.', 'restore': 'VS Code скачает заново при переустановке расширения.', 'icon_src': ['%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe', '%ProgramFiles%\\Microsoft VS Code\\Code.exe']},
+    {'id': 'vscode_cached', 'name': 'Кэш данных VS Code', 'icon': '🧩', 'path': '%APPDATA%\\Code\\CachedData', 'kind': 'folder', 'deletable': True, 'blockers': ['code'], 'desc': 'Скомпилированный кэш кода редактора.', 'restore': 'VS Code пересоздаст при запуске.', 'icon_src': ['%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe', '%ProgramFiles%\\Microsoft VS Code\\Code.exe']},
+    {'id': 'vscode_logs', 'name': 'Логи VS Code', 'icon': '🧩', 'path': '%APPDATA%\\Code\\logs', 'kind': 'folder', 'deletable': True, 'blockers': ['code'], 'desc': 'Журналы работы редактора и расширений.', 'restore': 'Ничего.', 'icon_src': ['%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe', '%ProgramFiles%\\Microsoft VS Code\\Code.exe']},
+    {'id': 'chrome_ai_model', 'name': 'Встроенная ИИ-модель Chrome', 'icon': '🧠', 'path': '%LOCALAPPDATA%\\Google\\Chrome\\User Data\\OptGuideOnDeviceModel', 'kind': 'folder', 'deletable': True, 'blockers': ['chrome'], 'desc': 'Локальная языковая модель Chrome (до нескольких ГБ). Не профиль и не закладки.', 'restore': 'Chrome может скачать её снова; отключается в настройках Chrome.', 'icon_src': ['%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe', '%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe']},
+]
+
+REVIEW += [
+    {'id': 'npm_cache_local', 'name': 'Кэш npm (Local)', 'icon': '📦', 'path': '%LOCALAPPDATA%\\npm-cache', 'kind': 'folder', 'deletable': True, 'blockers': ['node', 'npm'], 'desc': 'Основной кэш npm на современных версиях: скачанные пакеты.', 'restore': 'npm скачает пакеты заново.', 'icon_src': ['%ProgramFiles%\\nodejs\\node.exe']},
+    {'id': 'pnpm_cache', 'name': 'Кэш pnpm', 'icon': '📦', 'path': '%LOCALAPPDATA%\\pnpm-cache', 'kind': 'folder', 'deletable': True, 'blockers': ['node', 'pnpm'], 'desc': 'Метаданные и кэш пакетов pnpm.', 'restore': 'pnpm скачает заново.', 'icon_src': ['%ProgramFiles%\\nodejs\\node.exe']},
+    {'id': 'yarn_cache', 'name': 'Кэш Yarn', 'icon': '🧶', 'path': '%LOCALAPPDATA%\\Yarn\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['node', 'yarn'], 'desc': 'Кэш скачанных пакетов Yarn.', 'restore': 'Yarn скачает заново.', 'icon_src': ['%ProgramFiles%\\nodejs\\node.exe']},
+    {'id': 'go_build', 'name': 'Кэш сборки Go', 'icon': '🐹', 'path': '%LOCALAPPDATA%\\go-build', 'kind': 'folder', 'deletable': True, 'blockers': ['go'], 'desc': 'Результаты предыдущих сборок Go.', 'restore': 'Следующая сборка будет дольше, дальше всё вернётся.', 'icon_src': ['%ProgramFiles%\\Go\\bin\\go.exe']},
+    {'id': 'maven_repo', 'name': 'Репозиторий Maven', 'icon': '☕', 'path': '%USERPROFILE%\\.m2\\repository', 'kind': 'folder', 'deletable': True, 'blockers': ['java', 'mvn', 'idea64'], 'desc': 'Все скачанные Java-зависимости.', 'restore': 'Maven скачает зависимости при следующей сборке.'},
+    {'id': 'uv_cache', 'name': 'Кэш uv', 'icon': '🐍', 'path': '%LOCALAPPDATA%\\uv\\cache', 'kind': 'folder', 'deletable': True, 'blockers': [], 'desc': 'Кэш менеджера пакетов Python uv.', 'restore': 'uv скачает пакеты заново.'},
+    {'id': 'poetry_cache', 'name': 'Кэш Poetry', 'icon': '🐍', 'path': '%LOCALAPPDATA%\\pypoetry\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['poetry'], 'desc': 'Кэш пакетов и виртуальных окружений Poetry.', 'restore': 'Poetry пересоздаст при установке.'},
+    {'id': 'conda_pkgs', 'name': 'Пакеты conda', 'icon': '🐍', 'path': '%USERPROFILE%\\.conda\\pkgs', 'kind': 'folder', 'deletable': True, 'blockers': ['conda'], 'desc': 'Кэш распакованных пакетов conda.', 'restore': 'conda скачает пакеты при создании окружения.'},
+    {'id': 'composer_cache', 'name': 'Кэш Composer (PHP)', 'icon': '🐘', 'path': '%LOCALAPPDATA%\\Composer', 'kind': 'folder', 'deletable': True, 'blockers': ['php', 'composer'], 'desc': 'Кэш пакетов PHP-менеджера Composer.', 'restore': 'Composer скачает заново.'},
+    {'id': 'pub_cache', 'name': 'Кэш Dart/Flutter pub', 'icon': '🎯', 'path': '%LOCALAPPDATA%\\Pub\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['dart', 'flutter'], 'desc': 'Скачанные пакеты Dart и Flutter.', 'restore': '`flutter pub get` скачает заново.'},
+    {'id': 'puppeteer_cache', 'name': 'Браузеры Puppeteer', 'icon': '🎭', 'path': '%USERPROFILE%\\.cache\\puppeteer', 'kind': 'folder', 'deletable': True, 'blockers': ['node'], 'desc': 'Chrome, который скачал Puppeteer для автотестов.', 'restore': 'Скачается при следующем запуске Puppeteer.'},
+    {'id': 'cypress_cache', 'name': 'Бинарники Cypress', 'icon': '🌲', 'path': '%LOCALAPPDATA%\\Cypress\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['Cypress', 'node'], 'desc': 'Скачанные версии Cypress.', 'restore': '`npx cypress install` скачает заново.'},
+    {'id': 'chrome_cache', 'name': 'Кэш Chrome', 'icon': '🌐', 'path': '%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['chrome'], 'desc': 'Кэш страниц основного профиля. Пароли, закладки и сессии НЕ затрагиваются.', 'restore': 'Страницы подгрузятся заново — первое открытие сайтов чуть медленнее.', 'icon_src': ['%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe', '%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe']},
+    {'id': 'edge_cache', 'name': 'Кэш Edge', 'icon': '🌐', 'path': '%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['msedge'], 'desc': 'Кэш страниц основного профиля. Пароли, закладки и сессии НЕ затрагиваются.', 'restore': 'Страницы подгрузятся заново.', 'icon_src': ['%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe', '%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe']},
+    {'id': 'discord_cache', 'name': 'Кэш Discord', 'icon': '💬', 'path': '%APPDATA%\\discord\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['Discord'], 'desc': 'Кэш картинок и вложений из чатов.', 'restore': 'Подгрузится заново при просмотре.', 'icon_src': ['%LOCALAPPDATA%\\Discord\\app-*\\Discord.exe']},
+    {'id': 'spotify_cache', 'name': 'Кэш Spotify', 'icon': '🎧', 'path': '%LOCALAPPDATA%\\Spotify\\Data', 'kind': 'folder', 'deletable': True, 'blockers': ['Spotify'], 'desc': 'Закэшированные треки для офлайна и ускорения. Плейлисты и аккаунт не затрагиваются.', 'restore': 'Треки подгрузятся заново.', 'icon_src': ['%APPDATA%\\Spotify\\Spotify.exe']},
+]
+
 # Вычищаем только эти id — это и есть белый список для POST /delete
 ALL_ITEMS = {i["id"]: i for i in SAFE + REVIEW}
 DELETABLE_IDS = {i["id"] for i in ALL_ITEMS.values() if i["deletable"]}
@@ -90,7 +121,9 @@ MOCK = {
     "sizes": {"user_temp": 1.4, "local_temp": 5.3, "crash_dumps": 0.3, "windows_temp": 0.6,
               "pip_cache": 0.9, "gradle_cache": 3.1, "npm_cache": 0.3, "nuget_cache": 1.2,
               "cargo_registry": 0.8, "arduino_staging": 2.35, "huggingface_cache": 1.2,
-              "playwright_browsers": 3.8, "ollama_models": 7.6},
+              "playwright_browsers": 3.8, "ollama_models": 7.6,
+              "go_build": 3.1, "npm_cache_local": 0.94, "pnpm_cache": 1.0, "chrome_ai_model": 4.0,
+              "vscode_vsix": 0.4, "d3d_cache": 0.5, "chrome_cache": 0.7, "maven_repo": 2.2},
     "programs": [
         {"DisplayName": "Visual Studio Community 2022", "DisplayVersion": "17.9", "SizeMB": 9800},
         {"DisplayName": "Windows Software Development Kit", "DisplayVersion": "10.0.22621", "SizeMB": 2300},
