@@ -190,18 +190,18 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 </div></div>
 
 <div class="panel" id="p-bf"><div class="card"><div class="tbl-head"><div><h3>Крупные файлы</h3>
-  <div class="hint" style="margin:2px 0 0">Файлы от 500 МБ по всем просканированным дискам. Удаляются навсегда, поэтому смотрите на тип и дату. Файлы в папках программ и системы только показываются.</div></div>
+  <div class="hint" style="margin:2px 0 0">Файлы от 500 МБ по всем просканированным дискам. Удаляются навсегда, поэтому смотрите на тип и дату. Если файл — часть программы или пакета, приложение предупредит о последствиях. Папку Windows и файл подкачки удалить нельзя.</div></div>
   {% if not d.readonly %}<button class="btn danger" id="bf-bulk" disabled>🗑 Удалить выбранное (0)</button>{% endif %}</div>
   <div class="chips" id="bf-types"></div>
   {% for f in d.bigfiles %}<div class="big" data-drives="{{ f.drive }}" data-kind="{{ f.kind }}">
     <div style="display:flex;gap:12px;align-items:center;min-width:0">
-      {% if f.deletable and not d.readonly %}<input type="checkbox" data-bf="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}">{% else %}<span style="width:16px;flex:none"></span>{% endif %}
+      {% if f.deletable and not d.readonly %}<input type="checkbox" data-bf="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}" data-warn="{{ f.warn }}">{% else %}<span style="width:16px;flex:none"></span>{% endif %}
       <span class="app-ico">{{ f.icon or '📄' }}</span>
       <div style="min-width:0"><div class="cut" style="font-weight:500" title="{{ f.path }}">{{ f.name }}</div>
         <div class="path">{{ f.kind or 'Файл' }}{% if f.date %} · изменён {{ f.date }}{% if f.age_days is not none %} ({{ f.age_days }} дн. назад){% endif %}{% endif %}</div>
         <div class="path mono">{{ f.path }}</div>
-        {% if not f.deletable %}<div class="path" style="color:var(--b)">Только просмотр: {{ f.why }}</div>{% endif %}</div></div>
-    <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>
+        {% if not f.deletable %}<div class="path" style="color:var(--b);word-break:normal">Только просмотр: {{ f.why }}</div>{% elif f.warn %}<div class="path" style="color:var(--b);word-break:normal">⚠ {{ f.warn }}</div>{% endif %}</div></div>
+    <div style="display:flex;gap:10px;align-items:center;flex:none"><b class="mono" style="white-space:nowrap">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>
   {% endfor %}<div class="empty none">Крупных файлов не найдено. Они ищутся при глубоком скане диска.</div>
 </div></div>
 
@@ -446,7 +446,7 @@ document.addEventListener('change', e => {
   const n = document.querySelectorAll('[data-bf]:checked').length; b.textContent = `🗑 Удалить выбранное (${n})`; b.disabled = !n;
 });
 $('#bf-bulk')?.addEventListener('click', () => ask([...document.querySelectorAll('[data-bf]:checked')]
-  .map(c => ({id:c.dataset.bf, name:c.dataset.name, size_gb:parseFloat(c.dataset.gb)}))));
+  .map(c => ({id:c.dataset.bf, name:c.dataset.name, size_gb:parseFloat(c.dataset.gb), warn:c.dataset.warn}))));
 
 // ── downloads
 function dlSelected(){ return [...document.querySelectorAll('[data-dl]:checked')] }
@@ -475,7 +475,7 @@ function askSelected(){ ask(ROWS.filter(r => sel.has(r.id))) }
 function ask(items){
   const ids = new Set(items.map(i => i.id));  // остаток Temp входит в размер родителя: не считаем дважды
   const total = items.filter(i => !(i.parent_id && ids.has(i.parent_id))).reduce((s,i) => s + i.size_gb, 0);
-  const list = items.slice(0,8).map(i => `<li><span class="cut">${esc(i.name)}</span><span class="mono">${fmt(i.size_gb)}</span></li>`).join('')
+  const list = items.slice(0,8).map(i => `<li style="flex-wrap:wrap"><span class="cut">${esc(i.name)}</span><span class="mono">${fmt(i.size_gb)}</span>${i.warn ? `<span class="path" style="flex-basis:100%;color:var(--b);word-break:normal">⚠ ${esc(i.warn)}</span>` : ''}</li>`).join('')
     + (items.length > 8 ? `<li><span>…и ещё ${items.length-8}</span><span></span></li>` : '');
   openModal(`<h3>Удалить ${items.length} ${plural(items.length)}?</h3>
     <div class="sub">Освободится примерно <b class="mono">${fmt(total)}</b>. ${items.some(i=>i.bin)?'Всё содержимое корзины будет удалено безвозвратно.':items.some(i=>i.dup)?'Удаляется навсегда, идентичная копия остаётся.':'Файлы удаляются навсегда, в корзину они не попадают.'}</div>

@@ -255,7 +255,7 @@ ROOT_FILES = "(файлы в корне диска)"
 FILE_KINDS = [  # (расширения, подпись, иконка)
     ({".gguf", ".safetensors", ".ckpt", ".pt", ".pth", ".onnx", ".h5", ".tflite"}, "ИИ-модель (веса)", "🧠"),
     ({".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow2"}, "Образ виртуального диска (ВМ/WSL/Docker)", "💽"),
-    ({".iso", ".img", ".wim", ".esd"}, "Образ диска / установщик системы", "📀"),
+    ({".iso", ".img", ".ima", ".wim", ".esd"}, "Образ диска / установщик системы", "📀"),
     ({".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".xz", ".bz2"}, "Архив", "🗜️"),
     ({".dmp", ".mdmp", ".hdmp"}, "Дамп памяти", "💥"),
     ({".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"}, "Видео", "🎞️"),
@@ -492,21 +492,38 @@ def scan_profile_overview(top=12, deadline=25):
     return groups
 
 
-BIG_NEVER_EXT = {".sys", ".dll"}
 BIG_MIN_DELETE_MB = 100
+SYSTEM_FILES = {"pagefile.sys", "hiberfil.sys", "swapfile.sys"}
 
 
 def big_deletable(path):
-    """Можно ли предлагать удаление крупного файла. Не из папок программ и системы и не системные типы:
-    внутри них лежат данные установленных приложений (игры, WSL-диски в AppData, драйверы)."""
-    if os.path.splitext(path)[1].lower() in BIG_NEVER_EXT:
-        return False, "системный тип файла"
-    p = os.path.normcase(path)
-    if any(p.startswith(pre + os.sep) for pre in protected_prefixes()):
-        return False, "лежит в папке программ или системы (Program Files, ProgramData, AppData, Windows)"
-    if os.path.basename(p) in ("pagefile.sys", "hiberfil.sys", "swapfile.sys"):
-        return False, "системный файл"
+    """Можно ли удалить крупный файл из приложения. Блокируем только то, что реально ломает систему:
+    папку Windows и файлы подкачки/гибернации (их к тому же не отдаёт сама ОС). Всё остальное решает
+    пользователь, а о последствиях ему говорит big_warning."""
+    if os.path.basename(path).lower() in SYSTEM_FILES:
+        return False, "файл подкачки/гибернации — им управляет Windows (отключается в настройках системы)"
+    root = os.path.normcase(expand("%SystemRoot%"))
+    if "%" not in root and os.path.normcase(path).startswith(root + os.sep):
+        return False, "папка Windows — удаление может сломать систему"
     return True, ""
+
+
+def big_warning(path):
+    """Предупреждение, если файл — часть чего-то установленного. Пустая строка — просто пользовательский файл."""
+    p = os.path.normcase(path)
+    ext = os.path.splitext(p)[1]
+    if "site-packages" in p:
+        return "Часть установленного Python-пакета — после удаления пакет перестанет работать (переустановка: pip install --force-reinstall)."
+    if any(p.startswith(pre + os.sep) for pre in protected_prefixes()):
+        if os.path.normcase(os.path.join(expand("%USERPROFILE%"), "AppData")) in p:
+            where = "данные приложения в AppData"
+        else:
+            where = "папка установленных программ или общих данных"
+        extra = " Для драйверов и системных библиотек это опасно." if ext in (".sys", ".dll") else ""
+        return f"Лежит в: {where}. Программа, которой это принадлежит, может перестать работать — лучше удалить её через «Программы».{extra}"
+    if ext in (".sys", ".dll"):
+        return "Библиотека или драйвер — программа, которой он принадлежит, может перестать работать."
+    return ""
 
 
 def verify_bigfile(path):

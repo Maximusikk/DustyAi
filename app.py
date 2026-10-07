@@ -158,13 +158,25 @@ def extra_item(kind, d):
                 restore="Восстановить файлы из корзины после очистки будет нельзя.")
 
 
+def _mock_big_warning(f):
+    low = f["path"].lower()
+    if "site-packages" in low:
+        return scanners_warn_site
+    if "\\appdata\\" in low:
+        return "Лежит в: данные приложения в AppData. Программа, которой это принадлежит, может перестать работать — лучше удалить её через «Программы»."
+    return ""
+
+
+scanners_warn_site = "Часть установленного Python-пакета — после удаления пакет перестанет работать (переустановка: pip install --force-reinstall)."
+
+
 def _mock_big_deletable(f):
     """В демо считаем так же, как в жизни, но по виртуальным путям."""
     low = f["path"].lower()
-    if low.endswith((".sys", ".dll")):
-        return False, "системный тип файла"
-    if "\\appdata\\" in low or "\\program files" in low:
-        return False, "лежит в папке программ или системы (Program Files, ProgramData, AppData, Windows)"
+    if low.endswith(("pagefile.sys", "hiberfil.sys", "swapfile.sys")):
+        return False, "файл подкачки/гибернации — им управляет Windows (отключается в настройках системы)"
+    if "\\windows\\" in low:
+        return False, "папка Windows — удаление может сломать систему"
     return True, ""
 
 
@@ -181,6 +193,7 @@ def assemble_extras(data, deep, recycle):
             f["drive"] = letter
             ok, why = scanners.big_deletable(f["path"]) if not data["mock"] else _mock_big_deletable(f)
             f["deletable"], f["why"] = ok, why
+            f["warn"] = (scanners.big_warning(f["path"]) if not data["mock"] else _mock_big_warning(f)) if ok else ""
             dyn[f["id"]] = {"type": "bigdel" if ok else "bigfile", "path": f["path"]}
             data["bigfiles"].append(f)
         for j in res["junk"]:
