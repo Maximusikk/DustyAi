@@ -205,9 +205,9 @@ MOCK["deep"]["C"] = {"partial": False,
         {"name": "Program Files (x86)", "path": "C:\\Program Files (x86)", "size_gb": 9.6},
         {"name": "(файлы в корне диска)", "path": "C:\\", "size_gb": 7.9}],
     "big_files": [
-        {"name": "qwen3-27b-q4_k_m.gguf", "path": "C:\\llama\\models\\qwen3-27b-q4_k_m.gguf", "size_gb": 16.4, "kind": "ИИ-модель (веса)", "icon": "🧠"},
-        {"name": "pagefile.sys", "path": "C:\\pagefile.sys", "size_gb": 7.25, "kind": "Системный файл (подкачка/гибернация) — не удалять вручную", "icon": "🔒"},
-        {"name": "ext4.vhdx", "path": "C:\\Users\\demo\\AppData\\Local\\Packages\\wsl\\ext4.vhdx", "size_gb": 3.2, "kind": "Образ виртуального диска (ВМ/WSL/Docker)", "icon": "💽"},
-        {"name": "llama-server-cuda.bin", "path": "C:\\llama\\llama-server-cuda.bin", "size_gb": 0.9, "kind": "Бинарный файл (часто веса модели или данные игры)", "icon": "📄"}],
+        {"name": "qwen3-27b-q4_k_m.gguf", "path": "C:\\llama\\models\\qwen3-27b-q4_k_m.gguf", "size_gb": 16.4, "kind": "ИИ-модель (веса)", "icon": "🧠", "date": "2026-03-02", "age_days": 219},
+        {"name": "pagefile.sys", "path": "C:\\pagefile.sys", "size_gb": 7.25, "date": "2026-10-07", "age_days": 0, "kind": "Системный файл (подкачка/гибернация) — не удалять вручную", "icon": "🔒"},
+        {"name": "ext4.vhdx", "path": "C:\\Users\\demo\\AppData\\Local\\Packages\\wsl\\ext4.vhdx", "size_gb": 3.2, "date": "2026-08-14", "age_days": 54, "kind": "Образ виртуального диска (ВМ/WSL/Docker)", "icon": "💽"},
+        {"name": "llama-server-cuda.bin", "path": "C:\\llama\\llama-server-cuda.bin", "size_gb": 0.9, "date": "2026-03-02", "age_days": 219, "kind": "Бинарный файл (часто веса модели или данные игры)", "icon": "📄"}],
     "junk": [
         {"name": "node_modules", "path": "C:\\Users\\demo\\work\\site\\node_modules", "what": "Зависимости Node.js", "size_gb": 0.8}]}

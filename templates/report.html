@@ -43,6 +43,13 @@
 .rbin .nm{font-weight:600}.rbin .sz{font-weight:700;font-size:18px;text-align:right}
 .rbin .hint2{color:var(--muted);font-size:12px;grid-column:2/3}
 .rbin .btn{grid-column:3;grid-row:2;justify-self:end}
+.tbl-head>div:first-child{flex:1 1 360px;min-width:0}
+.big input[type=checkbox]{margin:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+.chip2{border:1px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;font-size:13px;padding:5px 12px;border-radius:99px;cursor:pointer}
+.chip2:hover{color:var(--fg)}.chip2.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip2 b{font-weight:600;margin-left:4px}
+.big.kf{display:none}
 .none{display:none}.none.show{display:block}
 [hidden]{display:none!important}
 .charts{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
@@ -163,6 +170,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 
 <div class="tabs" id="tabs">
   <button class="tab on" data-p="clean">Очистка<span id="c-clean">{{ rows|length }}</span></button>
+  <button class="tab" data-p="bf">Крупные файлы<span id="c-bf">0</span></button>
   <button class="tab" data-p="over">Обзор дисков<span id="c-over">0</span></button>
   <button class="tab" data-p="dl">Загрузки<span id="c-dl">0</span></button>
   <button class="tab" data-p="dups">Дубликаты<span id="c-dups">{{ d.dups|length }}</span></button>
@@ -174,10 +182,27 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 <div class="panel on" id="p-clean"><div class="card">
   <div class="tbl-head"><div><h3>Можно очистить</h3><div class="hint" style="margin:2px 0 0">Отметьте то, что больше не нужно</div></div>
   <button class="btn danger" id="bulk" disabled onclick="askSelected()">🗑 Удалить выбранное (0)</button></div>
+  <div class="chips" id="riskf"></div>
   <table id="tbl"><colgroup><col style="width:44px"><col style="width:23%"><col style="width:27%"><col style="width:78px"><col style="width:96px"><col><col style="width:56px"></colgroup>
   <thead><tr><th><input type="checkbox" id="all" title="Выбрать всё безопасное"></th><th>Название</th><th>Путь</th><th>Риск</th><th>Размер</th><th>Причина</th><th></th></tr></thead>
   <tbody id="rows"></tbody></table>
   <div class="empty none" id="none-clean">Здесь чисто 🎉</div>
+</div></div>
+
+<div class="panel" id="p-bf"><div class="card"><div class="tbl-head"><div><h3>Крупные файлы</h3>
+  <div class="hint" style="margin:2px 0 0">Файлы от 500 МБ по всем просканированным дискам. Удаляются навсегда, поэтому смотрите на тип и дату. Файлы в папках программ и системы только показываются.</div></div>
+  {% if not d.readonly %}<button class="btn danger" id="bf-bulk" disabled>🗑 Удалить выбранное (0)</button>{% endif %}</div>
+  <div class="chips" id="bf-types"></div>
+  {% for f in d.bigfiles %}<div class="big" data-drives="{{ f.drive }}" data-kind="{{ f.kind }}">
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">
+      {% if f.deletable and not d.readonly %}<input type="checkbox" data-bf="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}">{% else %}<span style="width:16px;flex:none"></span>{% endif %}
+      <span class="app-ico">{{ f.icon or '📄' }}</span>
+      <div style="min-width:0"><div class="cut" style="font-weight:500" title="{{ f.path }}">{{ f.name }}</div>
+        <div class="path">{{ f.kind or 'Файл' }}{% if f.date %} · изменён {{ f.date }}{% if f.age_days is not none %} ({{ f.age_days }} дн. назад){% endif %}{% endif %}</div>
+        <div class="path mono">{{ f.path }}</div>
+        {% if not f.deletable %}<div class="path" style="color:var(--b)">Только просмотр: {{ f.why }}</div>{% endif %}</div></div>
+    <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>
+  {% endfor %}<div class="empty none">Крупных файлов не найдено. Они ищутся при глубоком скане диска.</div>
 </div></div>
 
 <div class="panel" id="p-over"><div class="card ov"><h3>Обзор дисков</h3>
@@ -187,9 +212,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
   {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень большой — обзор неполный (ограничение по времени).</p>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
     {% for t in o.top_dirs %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm" data-reveal="{{ t.id }}">Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
-    {% if o.big_files %}<h4 style="margin-top:18px">Крупные файлы (от 500 МБ)</h4>
-    {% for f in o.big_files %}<div class="big"><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="app-ico">{{ f.icon or '📄' }}</span><div style="min-width:0"><div class="t cut" title="{{ f.path }}">{{ f.name }}</div><div class="path">{{ f.kind or 'Файл' }}</div><div class="path mono">{{ f.path }}</div></div></div>
-      <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb }} ГБ</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>{% endfor %}{% endif %}
+
   {% endif %}
   {% if L == d.system_drive and d.profile %}
     <p class="path" style="margin-top:18px">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
@@ -291,7 +314,7 @@ function applyDrive(d){
     const show = inCur(el.dataset.drives.split(' ')); el.hidden = !show;
     const p = el.closest('.panel').id.slice(2); if(show) counts[p] = (counts[p]||0) + 1;
   });
-  ['over','dl','dups','py','prog'].forEach(p => {
+  ['bf','over','dl','dups','py','prog'].forEach(p => {
     const n = counts[p] || 0; $('#c-'+p).textContent = n;
     const none = $('#p-'+p+' .none'); if(none) none.classList.toggle('show', !n);
   });
@@ -300,13 +323,33 @@ function applyDrive(d){
   $('#hero-title').textContent = cur === 'ALL' ? 'Все диски' : 'Диск ' + cur + ':';
   $('#st-free-l').textContent = cur === 'ALL' ? 'Свободно на дисках' : 'Свободно на ' + cur + ':';
   $('#st-free').textContent = dr.reduce((s,x) => s + x.FreeGB, 0).toFixed(1);
-  renderRows(); updateBulk(); renderCharts(); renderRecycle();
+  renderRows(); updateBulk(); renderCharts(); renderRecycle(); renderBfChips(); renderRiskChips();
 }
 document.querySelectorAll('#dsw button').forEach(b => b.onclick = () => applyDrive(b.dataset.d));
 document.querySelectorAll('.dv.can').forEach(c => c.onclick = () => applyDrive(c.dataset.card));
 
 function curRows(){ return ROWS.filter(r => inCur([r.drive])) }
-function tableRows(){ return curRows().filter(r => r.kind !== 'recycle') }   // корзина показывается отдельной плашкой
+function tableRows(){ return curRows().filter(r => r.kind !== 'recycle') }
+let riskF = 'ALL', bfF = 'ALL';
+const shownRows = () => tableRows().filter(r => riskF === 'ALL' || r.cat === riskF);
+
+// ── фильтр по риску над таблицей очистки
+function renderRiskChips(){
+  const all = tableRows(), n = c => all.filter(r => r.cat === c).length;
+  const defs = [['ALL','Все',all.length],['A','A · безопасно',n('A')],['B','B · на усмотрение',n('B')],['C','C · вручную',n('C')]];
+  $('#riskf').innerHTML = defs.map(([k,l,c]) => `<button class="chip2 ${riskF===k?'on':''}" data-risk="${k}">${l}<b>${c}</b></button>`).join('');
+}
+// ── фильтр по типу крупных файлов
+function renderBfChips(){
+  const box = $('#bf-types'); if(!box) return;
+  const items = [...document.querySelectorAll('#p-bf .big[data-kind]')].filter(el => !el.hidden);
+  const kinds = {}; items.forEach(el => { const k = el.dataset.kind; kinds[k] = (kinds[k]||0) + 1 });
+  if(bfF !== 'ALL' && !kinds[bfF]) bfF = 'ALL';
+  const short = k => k.split(' (')[0].split(' — ')[0];
+  box.innerHTML = Object.keys(kinds).length > 1 ? [['ALL','Все',items.length], ...Object.entries(kinds).sort((a,b) => b[1]-a[1]).map(([k,c]) => [k, short(k), c])]
+    .map(([k,l,c]) => `<button class="chip2 ${bfF===k?'on':''}" data-bfk="${esc(k)}">${esc(l)}<b>${c}</b></button>`).join('') : '';
+  document.querySelectorAll('#p-bf .big[data-kind]').forEach(el => el.classList.toggle('kf', bfF !== 'ALL' && el.dataset.kind !== bfF));
+}   // корзина показывается отдельной плашкой
 
 // ── корзина: по плашке на каждый просканированный диск
 function renderRecycle(){
@@ -324,7 +367,7 @@ function renderRecycle(){
 const catTitle = {A:'Безопасно', B:'На усмотрение', C:'Только вручную'};
 function renderRows(){
   const tb = $('#rows'); if(!tb) return;
-  const rows = tableRows();
+  const rows = shownRows();
   tb.innerHTML = rows.map(r => `<tr class="row" data-id="${esc(r.id)}">
     <td><input type="checkbox" data-id="${esc(r.id)}" ${r.deletable?'':'disabled'} title="${r.deletable?'':'Удаляется только вручную'}"></td>
     <td><div class="name"><span class="app-ico">${r.img?`<img src="${esc(r.img)}" alt="">`:esc(r.icon)}</span>
@@ -364,6 +407,10 @@ document.addEventListener('click', e => {
     if(a.dataset.act === 'del') ask([r]);
     return;
   }
+  const rk = e.target.closest('[data-risk]');
+  if(rk){ riskF = rk.dataset.risk; sel.clear(); renderRiskChips(); renderRows(); updateBulk(); return }
+  const bk = e.target.closest('[data-bfk]');
+  if(bk){ bfF = bk.dataset.bfk; renderBfChips(); return }
   const bn = e.target.closest('[data-bin]');
   if(bn){ const r = ROWS.find(x => x.kind === 'recycle' && x.drive === bn.dataset.bin); return ask([{...r, name: 'Корзина ' + r.drive + ':', bin: true}]) }
   const d = e.target.closest('[data-dup]');
@@ -391,6 +438,15 @@ async function aiRun(){
   b.disabled = false;
 }
 $('#ai-btn').addEventListener('click', aiRun);
+
+// ── крупные файлы
+document.addEventListener('change', e => {
+  if(!e.target.matches('[data-bf]')) return;
+  const b = $('#bf-bulk'); if(!b) return;
+  const n = document.querySelectorAll('[data-bf]:checked').length; b.textContent = `🗑 Удалить выбранное (${n})`; b.disabled = !n;
+});
+$('#bf-bulk')?.addEventListener('click', () => ask([...document.querySelectorAll('[data-bf]:checked')]
+  .map(c => ({id:c.dataset.bf, name:c.dataset.name, size_gb:parseFloat(c.dataset.gb)}))));
 
 // ── downloads
 function dlSelected(){ return [...document.querySelectorAll('[data-dl]:checked')] }

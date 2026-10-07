@@ -158,17 +158,31 @@ def extra_item(kind, d):
                 restore="Восстановить файлы из корзины после очистки будет нельзя.")
 
 
+def _mock_big_deletable(f):
+    """В демо считаем так же, как в жизни, но по виртуальным путям."""
+    low = f["path"].lower()
+    if low.endswith((".sys", ".dll")):
+        return False, "системный тип файла"
+    if "\\appdata\\" in low or "\\program files" in low:
+        return False, "лежит в папке программ или системы (Program Files, ProgramData, AppData, Windows)"
+    return True, ""
+
+
 def assemble_extras(data, deep, recycle):
     """Кладёт результаты обзора дисков в отчёт и регистрирует динамические id."""
     dyn = data["dynamic"]
-    data["overview"], data["junk"], data["recycle"] = {}, [], []
+    data["overview"], data["junk"], data["recycle"], data["bigfiles"] = {}, [], [], []
     for letter, res in deep.items():
         for f in res["big_files"]:
             f.setdefault("id", scanners.short_id("big_", f["path"]))
-            f.setdefault("kind", "Файл")
-            f.setdefault("icon", "📄")
+            kind, icon = scanners.classify_file(f["name"])
+            f.setdefault("kind", kind)
+            f.setdefault("icon", icon)
             f["drive"] = letter
-            dyn[f["id"]] = {"type": "bigfile", "path": f["path"]}
+            ok, why = scanners.big_deletable(f["path"]) if not data["mock"] else _mock_big_deletable(f)
+            f["deletable"], f["why"] = ok, why
+            dyn[f["id"]] = {"type": "bigdel" if ok else "bigfile", "path": f["path"]}
+            data["bigfiles"].append(f)
         for j in res["junk"]:
             item = extra_item("junk", j)
             data["junk"].append(item)
@@ -177,6 +191,7 @@ def assemble_extras(data, deep, recycle):
             t["id"] = scanners.short_id("td_", t["path"])
             dyn[t["id"]] = {"type": "bigfile", "path": t["path"]}  # только показать в проводнике
         data["overview"][letter] = {"top_dirs": res["top_dirs"], "big_files": res["big_files"], "partial": res["partial"]}
+    data["bigfiles"].sort(key=lambda f: -f["size_gb"])
     for letter, size in recycle.items():
         if size > 0:
             item = extra_item("recycle", {"drive": letter, "size_gb": size})
@@ -442,6 +457,10 @@ def with_defaults(d):
     for k in ("junk", "recycle", "dups", "python", "programs", "temp_items", "protected", "downloads", "profile"):
         d.setdefault(k, [])
     d.setdefault("overview", {})
+    if "bigfiles" not in d:  # отчёты, сохранённые до отдельной вкладки
+        d["bigfiles"] = [dict(f, drive=L, deletable=False, why="сохранённый отчёт")
+                         for L, o in d["overview"].items() for f in o.get("big_files", [])]
+        d["bigfiles"].sort(key=lambda f: -f["size_gb"])
     for x in d.get("drives", []):
         x.setdefault("scanned", x["Name"] in d["scanned"])
         x.setdefault("Type", "local")
@@ -705,7 +724,7 @@ def perform_delete(item_id, running=None):
 
     if item_id in catalog.DELETABLE_IDS:
         kind, item = "static", catalog.ALL_ITEMS[item_id]
-    elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle", "download"):
+    elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle", "download", "bigdel"):
         kind, item = dyn["type"], dyn
     else:
         return fail("Этот пункт нельзя удалять через приложение", 403)
@@ -763,6 +782,26 @@ def perform_delete(item_id, running=None):
             run_ps(f"Clear-RecycleBin -DriveLetter {letter} -Force -ErrorAction SilentlyContinue", timeout=120)
             remaining = scanners.scan_recycle(letter)
             freed = round(max(entry["size_gb"] - remaining, 0), 2)
+    elif kind == "bigdel":
+        with _lock:
+            entry = find_item(scan_data["bigfiles"], item_id)
+        if not entry:
+            return fail("Файл не найден в отчёте — пересканируйте", 404)
+        if mock:
+            freed = entry["size_gb"]
+        else:
+            if not scanners.verify_bigfile(item["path"]):
+                return fail("Файл нельзя удалить из приложения (системный, в папке программ или уже удалён)", 409)
+            try:
+                size = os.path.getsize(item["path"])
+                os.remove(lp(item["path"]))
+            except PermissionError:
+                lock = lock_info(item_id, 1, [item["path"]])
+                return {"ok": False, "id": item_id, "freed_gb": 0, "locked": lock,
+                        "error": "Файл занят программой или защищён"}, 409
+            except OSError as e:
+                return fail(f"Не удалось удалить файл: {e}", 500)
+            freed = gb(size)
     elif kind == "download":
         with _lock:
             entry = find_item(scan_data["downloads"], item_id)
@@ -805,7 +844,12 @@ def perform_delete(item_id, running=None):
 
     with _lock:
         d = scan_data
-        if kind == "download":
+        if kind == "bigdel":
+            d["bigfiles"].remove(entry)
+            for o in d["overview"].values():
+                o["big_files"] = [f for f in o["big_files"] if f["id"] != item_id]
+            d["dynamic"].pop(item_id, None)
+        elif kind == "download":
             d["downloads"].remove(entry)
             d["dynamic"].pop(item_id, None)
         elif kind in pool:

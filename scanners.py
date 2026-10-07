@@ -321,10 +321,11 @@ def _walk(path, stop):
                     else:
                         stack.append(e.path)
                 else:
-                    sz = e.stat(follow_symlinks=False).st_size
+                    st = e.stat(follow_symlinks=False)
+                    sz = st.st_size
                     size += sz
                     if sz >= BIG_FILE_MB * 1024 ** 2:
-                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz))
+                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
             except OSError:
                 continue
     return size, big, junk, cut
@@ -363,15 +364,17 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
                     if k.is_dir(follow_symlinks=False):
                         jobs.append((e.name, k.path))
                     else:
-                        sz = k.stat(follow_symlinks=False).st_size
+                        st = k.stat(follow_symlinks=False)
+                        sz = st.st_size
                         add(e.name, sz)
                         if sz >= BIG_FILE_MB * 1024 ** 2:
-                            big.append(dict(id=short_id("big_", k.path), name=k.name, path=k.path, size=sz))
+                            big.append(dict(id=short_id("big_", k.path), name=k.name, path=k.path, size=sz, mt=st.st_mtime))
             else:
-                sz = e.stat(follow_symlinks=False).st_size
+                st = e.stat(follow_symlinks=False)
+                sz = st.st_size
                 add(ROOT_FILES, sz)
                 if sz >= BIG_FILE_MB * 1024 ** 2:
-                    big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz))
+                    big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
         except OSError:
             continue
     # папка уровня 1 с файлами, но без подпапок, всё равно должна попасть в список
@@ -392,7 +395,10 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
     big_out = []
     for f in big[:20]:
         label, icon = classify_file(f["name"])
-        big_out.append(dict(f, size_gb=gb(f.pop("size")), kind=label, icon=icon))
+        mt = f.pop("mt", None)
+        big_out.append(dict(f, size_gb=gb(f.pop("size")), kind=label, icon=icon,
+                            date=time.strftime("%Y-%m-%d", time.localtime(mt)) if mt else "",
+                            age_days=int((time.time() - mt) / 86400) if mt else None))
     return dict(top_dirs=top_dirs, partial=partial, big_files=big_out,
                 junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]])
 
@@ -484,3 +490,29 @@ def scan_profile_overview(top=12, deadline=25):
                  for e, sz, cut in sized[:top] if sz > 0]
         groups.append(dict(title=title, root=root, entries=items))
     return groups
+
+
+BIG_NEVER_EXT = {".sys", ".dll"}
+BIG_MIN_DELETE_MB = 100
+
+
+def big_deletable(path):
+    """Можно ли предлагать удаление крупного файла. Не из папок программ и системы и не системные типы:
+    внутри них лежат данные установленных приложений (игры, WSL-диски в AppData, драйверы)."""
+    if os.path.splitext(path)[1].lower() in BIG_NEVER_EXT:
+        return False, "системный тип файла"
+    p = os.path.normcase(path)
+    if any(p.startswith(pre + os.sep) for pre in protected_prefixes()):
+        return False, "лежит в папке программ или системы (Program Files, ProgramData, AppData, Windows)"
+    if os.path.basename(p) in ("pagefile.sys", "hiberfil.sys", "swapfile.sys"):
+        return False, "системный файл"
+    return True, ""
+
+
+def verify_bigfile(path):
+    try:
+        if os.path.islink(path) or not os.path.isfile(path):
+            return False
+        return big_deletable(path)[0] and os.path.getsize(path) >= BIG_MIN_DELETE_MB * 1024 ** 2
+    except OSError:
+        return False
