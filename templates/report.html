@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Отчёт — PC Cleaner{% endblock %}
+{% block head %}<style>
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.tile .v{font-size:28px;font-weight:700}.tile .l{color:var(--muted);font-size:13px}
+.g{color:var(--accent)}.a{color:var(--amber)}
+.drive{margin-bottom:10px}.drive .row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.track{height:8px;background:var(--border);border-radius:99px;overflow:hidden}.track i{display:block;height:100%}
+h2{margin:36px 0 12px;font-size:18px;display:flex;align-items:center;gap:10px}
+.badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;border:1px solid}
+.b-g{color:var(--accent);border-color:var(--accent)}.b-a{color:var(--amber);border-color:var(--amber)}
+.b-r{color:var(--red);border-color:var(--red)}
+.item{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin-bottom:10px}
+.item h3{margin:0;font-size:16px}.item .size{font-size:18px;font-weight:600;text-align:right}
+.item p{margin:0;color:var(--muted);font-size:14px;grid-column:1/-1}
+.path{font-size:12px;color:var(--muted);word-break:break-all}
+.restore b{color:var(--fg);font-weight:500}
+.item.gone{opacity:.45}
+button.del{border-color:var(--red);color:var(--red)}button.del.arm{background:var(--red);color:#2a0a0a;font-weight:600}
+.manual{font-size:12px;color:var(--muted);border:1px dashed var(--border);border-radius:8px;padding:6px 10px}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:500;font-size:13px}td.n{text-align:right}
+.demo{background:#2a2410;border:1px solid var(--amber);color:var(--amber);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
+.empty{color:var(--muted)}
+</style>{% endblock %}
+{% macro size_cls(gb) %}{{ 'g' if gb < 5 else 'a' }}{% endmacro %}
+{% macro card(i, zone) %}
+<div class="card item {{ 'gone' if i.size_gb == 0 }}" id="item-{{ i.id }}">
+  <div><h3>{{ i.icon }} {{ i.name }}</h3><div class="path mono">{{ i.resolved }}</div></div>
+  <div class="size mono {{ 'g' if zone == 'safe' else 'a' }}"><span class="sz">{{ i.size_gb }}</span> ГБ</div>
+  <p>{{ i.desc }}</p>
+  <p class="restore"><b>Что восстановится:</b> {{ i.restore }}</p>
+  <div style="grid-column:1/-1">
+  {% if i.deletable %}<button class="btn del" onclick="del('{{ i.id }}',this)">Удалить</button>
+  {% else %}<span class="manual">Удаляйте вручную — решение за вами: приложение не удаляет это автоматически.</span>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+{% block body %}
+<div class="topbar"><div class="logo">🧹 PC Cleaner</div><a class="btn" href="/">← Новое сканирование</a></div>
+{% if d.mock %}<div class="demo">Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</div>{% endif %}
+
+<div class="tiles">
+  <div class="card tile"><div class="v mono g"><span id="t-safe">{{ d.safe_gb }}</span> ГБ</div><div class="l">Безопасно удалить</div></div>
+  <div class="card tile"><div class="v mono a"><span id="t-review">{{ d.review_gb }}</span> ГБ</div><div class="l">На усмотрение</div></div>
+  <div class="card tile"><div class="v mono"><span id="t-total">{{ d.total_gb }}</span> ГБ</div><div class="l">Итого можно освободить</div></div>
+  <div class="card tile"><div class="v mono">{{ d.free_c if d.free_c is not none else '—' }} ГБ</div><div class="l">Диск C: свободно</div></div>
+</div>
+
+{% for dr in d.drives %}
+<div class="drive"><div class="row"><span class="mono">{{ dr.Name }}:</span>
+<span class="mono">занято {{ dr.UsedGB }} из {{ dr.TotalGB }} ГБ · свободно {{ dr.FreeGB }}</span></div>
+<div class="track"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--accent)' if dr.Pct < 70 else ('var(--amber)' if dr.Pct <= 85 else 'var(--red)') }}"></i></div></div>
+{% endfor %}
+
+<h2>Безопасно удалить <span class="badge b-g">НИЗКИЙ РИСК</span></h2>
+{% for i in d.safe %}{{ card(i,'safe') }}{% else %}<p class="empty">Здесь чисто 🎉</p>{% endfor %}
+
+<h2>На ваше усмотрение <span class="badge b-a">СМОТРИТЕ ОПИСАНИЕ</span></h2>
+{% for i in d.review %}{{ card(i,'review') }}{% else %}<p class="empty">Ничего не найдено.</p>{% endfor %}
+
+<h2>Тяжёлые программы <span class="badge b-a">ТОЛЬКО ПРОСМОТР</span></h2>
+<div class="card">
+{% if d.programs %}<table><tr><th>Программа</th><th>Версия</th><th class="n">Размер</th></tr>
+{% for p in d.programs %}<tr><td>{{ p.DisplayName }}</td><td class="mono">{{ p.DisplayVersion or '' }}</td>
+<td class="n mono">{{ (p.SizeMB / 1024) | round(1) }} ГБ</td></tr>{% endfor %}</table>
+<p class="path">Удаляйте через «Параметры → Приложения»: системные компоненты (Windows SDK, .NET) — только штатным деинсталлятором.</p>
+{% else %}<span class="empty">Программ больше 300 МБ не найдено.</span>{% endif %}
+</div>
+
+<h2>Не трогать <span class="badge b-r">🔒 ЗАЩИЩЕНО</span></h2>
+<div class="card">{% for p in d.protected %}<div style="padding:6px 0"><b class="mono">{{ p.icon }} {{ p.name }}</b>
+<div class="path">{{ p.reason }}</div></div>{% endfor %}</div>
+{% endblock %}
+{% block script %}<script>
+const armed = new Map();
+async function del(id, btn){
+  if(!armed.get(id)){
+    btn.textContent='Точно удалить?';btn.classList.add('arm');
+    armed.set(id, setTimeout(()=>{armed.delete(id);btn.textContent='Удалить';btn.classList.remove('arm')},4000));
+    return;
+  }
+  clearTimeout(armed.get(id));armed.delete(id);btn.disabled=true;btn.textContent='Удаляю…';
+  try{
+    const r=await fetch('/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const j=await r.json();
+    if(!j.ok)throw new Error(j.error||'Не удалось удалить');
+    const el=document.getElementById('item-'+id);
+    el.querySelector('.sz').textContent=0;el.classList.add('gone');
+    document.getElementById('t-safe').textContent=j.safe_gb;
+    document.getElementById('t-review').textContent=j.review_gb;
+    document.getElementById('t-total').textContent=j.total_gb;
+    btn.textContent='Готово';toast('Освобождено '+j.freed_gb+' ГБ');
+  }catch(e){btn.disabled=false;btn.classList.remove('arm');btn.textContent='Удалить';toast('Ошибка: '+e.message,true)}
+}
+</script>{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block head %}<style>
+.hero{text-align:center;padding:48px 0 28px}.hero .emoji{font-size:64px}
+h1{margin:8px 0;font-size:34px}.tag{color:var(--muted);max-width:560px;margin:0 auto}
+.list{columns:2;column-gap:24px;margin:14px 0 22px;padding-left:18px;color:var(--muted)}
+.list li{margin-bottom:4px}.list b{color:var(--fg);font-weight:500}
+.bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+#msg{margin-top:10px;color:var(--muted);min-height:22px;font-size:13px}
+@media(max-width:600px){.list{columns:1}}
+</style>{% endblock %}
+{% block body %}
+<div class="hero"><div class="emoji">🧹</div><h1>PC Cleaner</h1>
+<p class="tag">Не «удалить всё», а «вот что здесь лежит и почему». Находит кэши, остатки установщиков и ИИ-модели, объясняет что это и удаляет в один клик. Всё работает локально.</p></div>
+<div class="card">
+<b>Что проверяется</b>
+<ul class="list">
+{% for i in catalog.SAFE + catalog.REVIEW %}<li>{{ i.icon }} <b>{{ i.name }}</b></li>{% endfor %}
+<li>💽 <b>Диски</b></li><li>🧩 <b>Тяжёлые программы</b></li>
+</ul>
+<button class="btn primary" id="go" onclick="go()">Начать сканирование</button>
+<div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
+</div>
+{% endblock %}
+{% block script %}<script>
+function go(){document.getElementById('go').disabled=true;document.getElementById('bar').style.display='block';startScan();}
+async function poll(){
+  const s=await (await fetch('/status')).json();
+  document.getElementById('fill').style.width=s.progress+'%';
+  document.getElementById('msg').textContent=s.message;
+  if(s.status==='done'){location.href='/report';return}
+  if(s.status==='error'){document.getElementById('go').disabled=false;toast(s.message,true);return}
+  setTimeout(poll,800);
+}
+</script>{% endblock %}
