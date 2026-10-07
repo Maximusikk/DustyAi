@@ -9,6 +9,8 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -440,6 +442,106 @@ def with_defaults(d):
     return d
 
 
+
+# ───────────────────────────── AI-сводка (Cloudflare Workers AI) ─────────────────────────────
+
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"
+CF_BASE = "https://api.cloudflare.com/client/v4"
+_ai_cache = {}
+
+
+class AIError(Exception):
+    """Ошибка AI-сводки; текст безопасен для показа пользователю (токен в нём не бывает)."""
+
+    def __init__(self, message, code=502):
+        super().__init__(message)
+        self.code = code
+
+
+def read_env_file(path=ENV_FILE):
+    """Минимальный разбор .env (KEY=VALUE, # комментарии, кавычки) — без внешних библиотек."""
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                out[k.strip()] = v.strip().strip("\"'")
+    except OSError:
+        pass
+    return out
+
+
+def cf_setting(name):
+    """Переменная окружения важнее .env; заглушку из .env.example считаем «не задано»."""
+    v = os.environ.get(name) or read_env_file().get(name) or ""
+    return "" if v.startswith("your_") else v
+
+
+def summary_facts(d, drive=None):
+    """Данные для промпта: топ-5 находок и суммы по зонам A/B/C. Только названия и размеры —
+    пути к файлам наружу не отправляются."""
+    rows = [r for r in build_rows(d) if r["kind"] != "temp" and (not drive or r["drive"] == drive)]
+    dup_gb = sum(g["wasted_gb"] for g in d["dups"] if not drive or drive in g.get("drives", []))
+    zones = {"A": 0.0, "B": dup_gb, "C": 0.0}
+    for r in rows:
+        zones[r["cat"]] += r["size_gb"]
+    top = [{"name": r["name"][:60], "gb": r["size_gb"], "zone": r["cat"]} for r in rows[:5]]
+    return top, {k: round(v, 2) for k, v in zones.items()}
+
+
+def build_prompt(d, drive=None):
+    top, zones = summary_facts(d, drive)
+    lines = "\n".join(f"- {t['name']}: {t['gb']} ГБ (зона {t['zone']})" for t in top) or "- ничего не найдено"
+    return (
+        "Ты — ассистент по очистке Windows. Вот результаты сканирования ПК:\n"
+        f"Топ-5 находок:\n{lines}\n"
+        f"Суммарно: зона A (безопасно удалить) — {zones['A']} ГБ, зона B (на усмотрение) — {zones['B']} ГБ, "
+        f"зона C (только вручную) — {zones['C']} ГБ.\n"
+        "Напиши сводку: 1) главный вывод одной фразой, 2) что удалить первым и почему, "
+        "3) что точно не трогать. Кратко, 4-5 предложений, без воды."
+    )
+
+
+def cloudflare_ai_summary(data, drive=None):
+    """Запрашивает у Cloudflare Workers AI краткую сводку по результатам скана."""
+    account, token = cf_setting("CF_ACCOUNT_ID"), cf_setting("CF_API_TOKEN")
+    if not token:
+        raise AIError("CF_API_TOKEN not set", 400)
+    if not account:
+        raise AIError("CF_ACCOUNT_ID not set", 400)
+    base = os.environ.get("CF_API_BASE", CF_BASE).rstrip("/")
+    url = f"{base}/accounts/{account}/ai/run/{CF_MODEL}"
+    body = json.dumps({"messages": [{"role": "user", "content": build_prompt(data, drive)}],
+                       "max_tokens": 300}).encode("utf-8")
+    req = urllib.request.Request(url, data=body, method="POST", headers={
+        "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            payload = json.load(resp)
+    except urllib.error.HTTPError as e:
+        try:
+            msgs = [x.get("message", "") for x in json.load(e).get("errors", [])]
+        except (ValueError, OSError):
+            msgs = []
+        hint = {401: "токен недействителен", 403: "у токена нет права Workers AI",
+                429: "превышен лимит запросов"}.get(e.code, "")
+        raise AIError(f"Cloudflare вернул {e.code}" + (f": {hint}" if hint else "")
+                      + (f" ({'; '.join(m for m in msgs if m)[:200]})" if any(msgs) else ""))
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise AIError(f"Нет связи с Cloudflare: {getattr(e, 'reason', e)}")
+    except ValueError:
+        raise AIError("Cloudflare вернул некорректный ответ")
+    text = ((payload.get("result") or {}).get("response") or "").strip()
+    if not payload.get("success", True) or not text:
+        errs = "; ".join(x.get("message", "") for x in payload.get("errors") or [])[:200]
+        raise AIError("Пустой ответ модели" + (f": {errs}" if errs else ""))
+    return text
+
+
 # ───────────────────────────────── маршруты ─────────────────────────────────
 
 @app.get("/")
@@ -486,6 +588,29 @@ def report():
         d = with_defaults(dict(scan_data))
         rows = build_rows(d)
     return render_template("report.html", d=d, rows=rows, active="report")
+
+
+@app.get("/api/ai-summary")
+def api_ai_summary():
+    """AI-сводка по текущему отчёту. Запрос уходит наружу, поэтому только по явному клику
+    со страницы приложения: чужие сайты (cross-site) не могут тратить токен."""
+    if request.headers.get("Sec-Fetch-Site") == "cross-site":
+        return jsonify(summary=None, error="forbidden"), 403
+    drive = (request.args.get("drive") or "").upper()[:1] or None
+    with _lock:
+        if not scan_data:
+            return jsonify(summary=None, error="Сначала запустите сканирование"), 400
+        d = with_defaults(dict(scan_data))
+        key = (d.get("scanned_at"), d.get("total_gb"), drive)
+    if not request.args.get("refresh") and key in _ai_cache:
+        return jsonify(summary=_ai_cache[key], cached=True)
+    try:
+        summary = cloudflare_ai_summary(d, drive)
+    except AIError as e:
+        return jsonify(summary=None, error=str(e)), e.code
+    _ai_cache.clear()
+    _ai_cache[key] = summary
+    return jsonify(summary=summary)
 
 
 @app.get("/export")

@@ -69,7 +69,7 @@ h1{margin:4px 0 4px;font-size:30px;letter-spacing:-.02em}
   <a class="nav {{ 'on' if active == 'home' }}" href="/"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
   <a class="nav {{ 'on' if active == 'report' }}" href="/report"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg>Отчёт</a>
   <a class="nav {{ 'on' if active == 'history' }}" href="/history"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>История</a>
-  <div class="side-foot">🔒 Всё работает локально — данные никуда не отправляются.</div>
+  <div class="side-foot">🔒 Всё работает локально. Наружу уходит только AI-анализ — и только по вашей кнопке.</div>
 </aside>
 <main><div class="wrap">{% block body %}{% endblock %}</div></main>
 <div id="toasts"></div>

@@ -28,6 +28,14 @@
 .ob .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ob .rail{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
 .ob .rail i{display:block;height:100%;border-radius:99px;background:var(--s1)}.ob .v{text-align:right;color:var(--muted)}
 .big{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.ai{border-left:4px solid var(--a);margin-bottom:16px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.ai .ai-head{display:flex;flex-direction:column;gap:6px;min-width:190px}
+.ai .ai-head small{color:var(--muted);font-size:12px;max-width:230px}
+.ai .ai-body{flex:1;min-width:260px;line-height:1.6;white-space:pre-wrap}
+.ai .ai-body.err{color:var(--c)}.ai .ai-body.muted{color:var(--muted)}
+.spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--a);border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.btn.ai-btn{background:var(--a-bg);border-color:var(--a);color:var(--a);font-weight:600}
 .none{display:none}.none.show{display:block}
 [hidden]{display:none!important}
 .charts{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
@@ -132,6 +140,12 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
   <div class="card"><h3>По уровню риска</h3><div class="hint">A — безопасно · B — на усмотрение · C — только вручную</div>
     <div class="bars" id="bars"></div>
     <div class="bar-labels"><div>A</div><div>B</div><div>C</div></div></div>
+</div>
+
+<div class="card ai" id="ai">
+  <div class="ai-head"><button class="btn ai-btn" id="ai-btn">✨ AI-анализ</button>
+    <small>По кнопке в Cloudflare Workers AI уходят только названия и размеры топ-5 находок и суммы по зонам — без путей к файлам.</small></div>
+  <div class="ai-body muted" id="ai-out">Нажмите кнопку — модель кратко объяснит, что удалить первым и что не трогать.</div>
 </div>
 
 <div class="tabs" id="tabs">
@@ -328,6 +342,24 @@ document.addEventListener('click', e => {
   const v = e.target.closest('[data-reveal]');
   if(v) openLoc(v.dataset.reveal);
 });
+
+// ── AI-сводка
+const aiFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+async function aiRun(){
+  const b = $('#ai-btn'), out = $('#ai-out');
+  b.disabled = true; out.className = 'ai-body muted'; out.innerHTML = '<span class="spin"></span>Анализирую результаты…';
+  try{
+    const q = cur === 'ALL' ? '' : '?drive=' + encodeURIComponent(cur);
+    const r = await fetch('/api/ai-summary' + q); const j = await r.json();
+    if(j.summary){ out.className = 'ai-body'; out.innerHTML = aiFmt(j.summary); b.textContent = '✨ Обновить анализ' }
+    else{
+      out.className = 'ai-body err';
+      out.textContent = (j.error || 'Не удалось получить сводку') + (/not set/.test(j.error || '') ? '. Добавьте ключи Cloudflare в файл .env — см. README, раздел «AI-анализ».' : '');
+    }
+  }catch(e){ out.className = 'ai-body err'; out.textContent = 'Ошибка: ' + e.message }
+  b.disabled = false;
+}
+$('#ai-btn').addEventListener('click', aiRun);
 
 // ── downloads
 function dlSelected(){ return [...document.querySelectorAll('[data-dl]:checked')] }
