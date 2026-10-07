@@ -23,6 +23,13 @@ APP_NAME = "Dusty Ai"
 app = Flask(__name__)
 app.jinja_env.globals["APP_NAME"] = APP_NAME
 
+
+@app.template_filter("size")
+def size_filter(g):
+    """ГБ → «512 МБ» / «1.4 ГБ»: мелочь в гигабайтах выглядит как «0.0»."""
+    g = g or 0
+    return f"{g:.2f}".rstrip("0").rstrip(".") + " ГБ" if g >= 1 else f"{round(g * 1024)} МБ"
+
 HOST, PORT = "127.0.0.1", 5000
 SCANS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans")
 HISTORY_KEEP = 20
@@ -166,6 +173,11 @@ def register_dynamic(data):
     for g in data["dups"]:
         for f in g["files"]:
             dyn[f["id"]] = {"type": "dup", "path": f["path"], "group": g["hash"]}
+    for f in data.get("downloads", []):
+        dyn[f["id"]] = {"type": "download", "path": f["path"]}
+    for grp in data.get("profile", []):
+        for i in grp["entries"]:
+            dyn[i["id"]] = {"type": "bigfile", "path": i["path"]}  # только показать в проводнике
     for p in data["programs"]:
         dyn[p["id"]] = {"type": "uninstall", "cmd": p.pop("_cmd", None), "name": p["DisplayName"]}
 
@@ -191,6 +203,11 @@ def mock_extras(data, sel):
         p = dict(p, drive="C", _cmd="mock")
         p["id"] = scanners.short_id("app_", p["DisplayName"])
         data["programs"].append(p)
+    if "C" in sel:
+        for f in catalog.MOCK["downloads"]:
+            data["downloads"].append(dict(f, id=scanners.short_id("dl_", f["path"])))
+        data["profile"] = [dict(g, entries=[dict(i, id=scanners.short_id("pf_", i["path"])) for i in g["entries"]])
+                           for g in catalog.MOCK["profile"]]
     deep = {L: {**catalog.MOCK["deep"][L]} for L in sel if L in catalog.MOCK["deep"]}
     recycle = {L: catalog.MOCK["recycle"][L] for L in sel if L in catalog.MOCK["recycle"]}
     return deep, recycle
@@ -209,6 +226,7 @@ def do_scan(opts):
 
         data = {"drives": all_drives, "scanned": sel, "system_drive": sysd, "programs": [], "python": [],
                 "dups": [], "temp_items": [], "junk": [], "recycle": [], "overview": {}, "dynamic": {},
+                "downloads": [], "profile": [],
                 "protected": catalog.DO_NOT_TOUCH, "mock": mock, "readonly": False,
                 "scanned_at": time.strftime("%Y-%m-%d %H:%M:%S")}
         for d in data["drives"]:
@@ -238,6 +256,10 @@ def do_scan(opts):
             roots = [r for r in scanners.dup_roots() if drive_of(r) in sel]
             if want_dups and roots:
                 tasks["dups"] = ("дубликаты файлов", lambda: scanners.scan_duplicates(roots=roots))
+            if drive_of(scanners.downloads_root(), sysd) in sel:
+                tasks["downloads"] = ("крупные файлы в Загрузках", scanners.scan_downloads)
+            if opts.get("profile", True) and drive_of(expand("%USERPROFILE%"), sysd) in sel:
+                tasks["profile"] = ("обзор профиля и AppData", scanners.scan_profile_overview)
             for L in sel:
                 tasks[f"recycle:{L}"] = (f"корзина {L}:", lambda L=L: scanners.scan_recycle(L))
                 if L != sysd:
@@ -258,6 +280,8 @@ def do_scan(opts):
             data["programs"] = [p for p in (results.get("programs") or []) if p["drive"] in sel]
             data["python"] = [p for p in (results.get("python") or []) if drive_of(p["path"]) in sel]
             data["dups"] = results.get("dups") or []
+            data["downloads"] = results.get("downloads") or []
+            data["profile"] = results.get("profile") or []
             for p in data["python"]:
                 p["drive"] = drive_of(p["path"])
             deep = {k[5:]: v for k, v in results.items() if k.startswith("deep:") and v}
@@ -399,7 +423,7 @@ def with_defaults(d):
     """Старые сохранённые отчёты не знают про новые поля."""
     d.setdefault("scanned", [x["Name"] for x in d.get("drives", [])] or ["C"])
     d.setdefault("system_drive", "C")
-    for k in ("junk", "recycle", "dups", "python", "programs", "temp_items", "protected"):
+    for k in ("junk", "recycle", "dups", "python", "programs", "temp_items", "protected", "downloads", "profile"):
         d.setdefault(k, [])
     d.setdefault("overview", {})
     for x in d.get("drives", []):
@@ -409,6 +433,8 @@ def with_defaults(d):
     for p in d["programs"]:
         p.setdefault("drive", "C")
         p.setdefault("id", scanners.short_id("app_", p.get("DisplayName", "")))
+    for f in d["downloads"]:
+        f["drive"] = drive_of(f["path"], d["system_drive"])
     for g in d["dups"]:
         g["drives"] = sorted({drive_of(f["path"]) for f in g["files"]})
     return d
@@ -441,7 +467,7 @@ def scan():
         if scan_state["status"] == "scanning":
             return jsonify(ok=True, already=True)
         scan_state.update(status="scanning", progress=0, message="Запуск…")
-    opts = {"drives": letters, "dups": bool(body.get("dups", True))}
+    opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True))}
     threading.Thread(target=do_scan, args=(opts,), daemon=True).start()
     return jsonify(ok=True)
 
@@ -514,7 +540,7 @@ def perform_delete(item_id, running=None):
     if item_id in catalog.DELETABLE_IDS:
         kind, item = "static", catalog.ALL_ITEMS[item_id]
         blockers = item["blockers"] + catalog.GLOBAL_BLOCKERS
-    elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle"):
+    elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle", "download"):
         kind, item = dyn["type"], dyn
         blockers = {"temp": ["vs_installer", "devenv"] + catalog.GLOBAL_BLOCKERS,
                     "junk": catalog.GLOBAL_BLOCKERS + dev}.get(kind, [])
@@ -561,6 +587,22 @@ def perform_delete(item_id, running=None):
             run_ps(f"Clear-RecycleBin -DriveLetter {letter} -Force -ErrorAction SilentlyContinue", timeout=120)
             remaining = scanners.scan_recycle(letter)
             freed = round(max(entry["size_gb"] - remaining, 0), 2)
+    elif kind == "download":
+        with _lock:
+            entry = find_item(scan_data["downloads"], item_id)
+        if not entry:
+            return fail("Файл не найден в отчёте — пересканируйте", 404)
+        if mock:
+            freed = entry["size_gb"]
+        else:
+            if not scanners.verify_download(item["path"]):
+                return fail("Файл не в Загрузках или уже удалён — пересканируйте", 409)
+            try:
+                size = os.path.getsize(item["path"])
+                os.remove(lp(item["path"]))
+            except OSError as e:
+                return fail(f"Не удалось удалить файл: {e}", 500)
+            freed = gb(size)
     else:  # dup
         with _lock:
             group = next((g for g in scan_data["dups"] if g["hash"] == item["group"]), None)
@@ -581,7 +623,10 @@ def perform_delete(item_id, running=None):
 
     with _lock:
         d = scan_data
-        if kind in pool:
+        if kind == "download":
+            d["downloads"].remove(entry)
+            d["dynamic"].pop(item_id, None)
+        elif kind in pool:
             entry["size_gb"] = remaining
             if kind == "temp":
                 for i in d["safe"]:  # размер Temp уменьшился на освобождённое

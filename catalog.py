@@ -174,3 +174,24 @@ MOCK["deep"] = {
               {"name": "node_modules", "path": "D:\\Projects\\blog\\node_modules", "what": "Зависимости Node.js", "size_gb": 0.9},
               {"name": ".venv", "path": "D:\\Projects\\ml\\.venv", "what": "Виртуальное окружение Python", "size_gb": 5.2}]},
 }
+
+MOCK["downloads"] = [
+    {"name": "Windows11_24H2.iso", "path": "C:\\Users\\demo\\Downloads\\Windows11_24H2.iso", "size_gb": 5.4, "date": "2025-06-12", "age_days": 482, "installer": True},
+    {"name": "Docker Desktop Installer.exe", "path": "C:\\Users\\demo\\Downloads\\Docker Desktop Installer.exe", "size_gb": 0.6, "date": "2025-09-03", "age_days": 399, "installer": True},
+    {"name": "conference_recording.mp4", "path": "C:\\Users\\demo\\Downloads\\conference_recording.mp4", "size_gb": 3.2, "date": "2026-09-30", "age_days": 7, "installer": False},
+    {"name": "dataset_v2.zip", "path": "C:\\Users\\demo\\Downloads\\dataset_v2.zip", "size_gb": 2.1, "date": "2026-03-18", "age_days": 203, "installer": True},
+]
+MOCK["profile"] = [
+    {"title": "Профиль пользователя", "root": "C:\\Users\\demo", "entries": [
+        {"name": "Downloads", "path": "C:\\Users\\demo\\Downloads", "size_gb": 31.0, "partial": False},
+        {"name": "Documents", "path": "C:\\Users\\demo\\Documents", "size_gb": 7.1, "partial": False},
+        {"name": ".gradle", "path": "C:\\Users\\demo\\.gradle", "size_gb": 3.1, "partial": False},
+        {"name": ".minecraft", "path": "C:\\Users\\demo\\.minecraft", "size_gb": 4.3, "partial": False}]},
+    {"title": "AppData\\Local", "root": "C:\\Users\\demo\\AppData\\Local", "entries": [
+        {"name": "JetBrains", "path": "C:\\Users\\demo\\AppData\\Local\\JetBrains", "size_gb": 5.1, "partial": False},
+        {"name": "Programs", "path": "C:\\Users\\demo\\AppData\\Local\\Programs", "size_gb": 4.4, "partial": False},
+        {"name": "pnpm", "path": "C:\\Users\\demo\\AppData\\Local\\pnpm", "size_gb": 3.6, "partial": False}]},
+    {"title": "AppData\\Roaming", "root": "C:\\Users\\demo\\AppData\\Roaming", "entries": [
+        {"name": "Tencent", "path": "C:\\Users\\demo\\AppData\\Roaming\\Tencent", "size_gb": 5.5, "partial": False},
+        {"name": "DingTalk", "path": "C:\\Users\\demo\\AppData\\Roaming\\DingTalk", "size_gb": 4.3, "partial": True}]},
+]

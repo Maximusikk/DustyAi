@@ -137,6 +137,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 <div class="tabs" id="tabs">
   <button class="tab on" data-p="clean">Очистка<span id="c-clean">{{ rows|length }}</span></button>
   <button class="tab" data-p="over">Обзор дисков<span id="c-over">0</span></button>
+  <button class="tab" data-p="dl">Загрузки<span id="c-dl">0</span></button>
   <button class="tab" data-p="dups">Дубликаты<span id="c-dups">{{ d.dups|length }}</span></button>
   <button class="tab" data-p="py">Python<span id="c-py">{{ d.python|length }}</span></button>
   <button class="tab" data-p="prog">Программы<span id="c-prog">{{ d.programs|length }}</span></button>
@@ -153,17 +154,35 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 </div></div>
 
 <div class="panel" id="p-over"><div class="card ov"><h3>Обзор дисков</h3>
-  <div class="hint">Крупнейшие папки и файлы на несистемных дисках. Крупные файлы только показываются — решение за вами.</div>
+  <div class="hint">Крупнейшие папки и файлы: на системном диске — профиль и AppData, на остальных — весь диск. Здесь всё только показывается — решение за вами.</div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
   <div class="blk" data-drives="{{ L }}"><h4>{{ L }}: {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h4>
   {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень большой — обзор неполный (ограничение по времени).</p>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
-    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb }} ГБ</span></div>{% endfor %}
+    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb|size }}</span></div>{% endfor %}
     {% if o.big_files %}<h4 style="margin-top:18px">Крупные файлы (от 500 МБ)</h4>
     {% for f in o.big_files %}<div class="big"><div style="min-width:0"><div class="t cut" title="{{ f.path }}">{{ f.name }}</div><div class="path mono">{{ f.path }}</div></div>
       <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb }} ГБ</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>{% endfor %}{% endif %}
-  {% else %}<p class="path">Системный диск проверяется по известным местам — смотрите вкладку «Очистка», «Python» и «Программы».</p>{% endif %}
+  {% elif L == d.system_drive and d.profile %}
+    <p class="path">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
+    {% for g in d.profile %}<h4 style="margin-top:16px">{{ g.title }}</h4>
+    {% set mx = (g.entries[0].size_gb if g.entries else 1) or 1 %}
+    {% for t in g.entries %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span>
+      <div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div>
+      <span class="v mono">{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span><button class="btn sm" data-reveal="{{ t.id }}">Показать</button></div>{% endfor %}{% endfor %}
+  {% else %}<p class="path">Системный диск проверяется по известным местам — смотрите вкладки «Очистка», «Python» и «Программы».</p>{% endif %}
   </div>{% endfor %}
+</div></div>
+
+<div class="panel" id="p-dl"><div class="card"><div class="tbl-head"><div><h3>Крупные файлы в Загрузках</h3>
+  <div class="hint" style="margin:2px 0 0">Файлы от 50 МБ, самые большие сверху. Удаляются навсегда — решайте сами, что ещё нужно.</div></div>
+  {% if not d.readonly %}<button class="btn danger" id="dl-bulk" disabled>🗑 Удалить выбранное (0)</button>{% endif %}</div>
+  {% for f in d.downloads %}<div class="big" data-drives="{{ f.drive }}">
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">{% if not d.readonly %}<input type="checkbox" data-dl="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}">{% endif %}
+      <div style="min-width:0"><div class="cut" style="font-weight:500" title="{{ f.path }}">{{ f.name }}</div>
+      <div class="path">{{ f.date }} · {{ f.age_days }} дн. назад{% if f.installer and f.age_days > 90 %} · <span style="color:var(--b)">старый установщик/архив</span>{% endif %}</div></div></div>
+    <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>
+  {% endfor %}<div class="empty none">Крупных файлов в Загрузках нет.</div>
 </div></div>
 
 <div class="panel" id="p-dups"><div class="card"><h3>Дубликаты файлов</h3>
@@ -242,7 +261,7 @@ function applyDrive(d){
     const show = inCur(el.dataset.drives.split(' ')); el.hidden = !show;
     const p = el.closest('.panel').id.slice(2); if(show) counts[p] = (counts[p]||0) + 1;
   });
-  ['over','dups','py','prog'].forEach(p => {
+  ['over','dl','dups','py','prog'].forEach(p => {
     const n = counts[p] || 0; $('#c-'+p).textContent = n;
     const none = $('#p-'+p+' .none'); if(none) none.classList.toggle('show', !n);
   });
@@ -309,6 +328,15 @@ document.addEventListener('click', e => {
   const v = e.target.closest('[data-reveal]');
   if(v) openLoc(v.dataset.reveal);
 });
+
+// ── downloads
+function dlSelected(){ return [...document.querySelectorAll('[data-dl]:checked')] }
+document.addEventListener('change', e => {
+  if(!e.target.matches('[data-dl]')) return;
+  const b = $('#dl-bulk'); if(!b) return;
+  const n = dlSelected().length; b.textContent = `🗑 Удалить выбранное (${n})`; b.disabled = !n;
+});
+$('#dl-bulk')?.addEventListener('click', () => ask(dlSelected().map(c => ({id:c.dataset.dl, name:c.dataset.name, size_gb:parseFloat(c.dataset.gb)}))));
 
 // ── modal
 function openModal(html){ $('#modal-body').innerHTML = html; $('#modal').classList.add('open') }

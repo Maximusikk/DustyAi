@@ -7,7 +7,9 @@ import os
 import re
 import time
 
-from util import IS_WINDOWS, expand, folder_size, gb, ps_json
+from concurrent.futures import ThreadPoolExecutor
+
+from util import IS_WINDOWS, expand, folder_size, folder_size_ex, gb, ps_json
 
 TEMP_ROOTS = ["%TEMP%", "%LOCALAPPDATA%\\Temp"]
 TEMP_PATTERNS = ("vs_", "setup", "installer")
@@ -323,3 +325,75 @@ def verify_junk(path, allowed_roots):
         return any(np.startswith(_norm(r)) for r in allowed_roots)
     except OSError:
         return False
+
+
+# ───────────────────────────── Загрузки ─────────────────────────────
+
+DL_MIN_MB = 50
+DL_TOP = 25
+INSTALLER_EXT = {".exe", ".msi", ".iso", ".zip", ".7z", ".rar", ".msix", ".appx", ".dmg", ".img"}
+
+
+def downloads_root():
+    return expand("%USERPROFILE%\\Downloads")
+
+
+def scan_downloads(deadline=30):
+    """Крупнейшие файлы в Загрузках с датами — пользователь сам решает, что из этого ещё нужно."""
+    root, now, stop = downloads_root(), time.time(), time.monotonic() + deadline
+    files = []
+    for dirpath, dirs, names in os.walk(root):
+        if time.monotonic() > stop:
+            break
+        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(dirpath, d))]
+        for n in names:
+            p = os.path.join(dirpath, n)
+            try:
+                if os.path.islink(p):
+                    continue
+                st = os.stat(p)
+            except OSError:
+                continue
+            if st.st_size >= DL_MIN_MB * 1024 ** 2:
+                files.append((p, n, st.st_size, st.st_mtime))
+    files.sort(key=lambda f: -f[2])
+    return [dict(id=short_id("dl_", p), name=n, path=p, size_gb=gb(sz), date=time.strftime("%Y-%m-%d", time.localtime(mt)),
+                 age_days=int((now - mt) / 86400), installer=os.path.splitext(n)[1].lower() in INSTALLER_EXT)
+            for p, n, sz, mt in files[:DL_TOP]]
+
+
+def verify_download(path):
+    """Файл должен лежать внутри Загрузок и не быть ссылкой."""
+    try:
+        if os.path.islink(path) or not os.path.isfile(path):
+            return False
+        return _norm(path).startswith(_norm(downloads_root()) + os.sep)
+    except OSError:
+        return False
+
+
+# ───────────────────────── обзор профиля и AppData ─────────────────────────
+
+PROFILE_ROOTS = [("Профиль пользователя", "%USERPROFILE%", {"appdata"}),
+                 ("AppData\\Local", "%LOCALAPPDATA%", set()),
+                 ("AppData\\Roaming", "%APPDATA%", set())]
+
+
+def scan_profile_overview(top=12, deadline=25):
+    """Крупнейшие папки профиля. Только показываем — ничего заранее не помечаем как мусор:
+    так видно любые «жирные» программы, о которых каталог не знает."""
+    groups = []
+    for title, env, skip in PROFILE_ROOTS:
+        root = expand(env)
+        try:
+            kids = [e for e in os.scandir(root) if e.is_dir(follow_symlinks=False) and not _reparse(e)
+                    and e.name.lower() not in skip]
+        except OSError:
+            continue
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            sized = list(ex.map(lambda e: (e, *folder_size_ex(e.path, deadline)), kids))
+        sized.sort(key=lambda x: -x[1])
+        items = [dict(id=short_id("pf_", e.path), name=e.name, path=e.path, size_gb=gb(sz), partial=cut)
+                 for e, sz, cut in sized[:top] if sz > 0]
+        groups.append(dict(title=title, root=root, entries=items))
+    return groups

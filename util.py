@@ -44,12 +44,14 @@ def expand(path):
     return os.path.expandvars(path)
 
 
-def folder_size(path, deadline=SIZE_TIMEOUT):
-    """Размер папки в байтах. Не следует по симлинкам/junction, глотает ошибки доступа."""
-    total, stop = 0, time.monotonic() + deadline
+def folder_size_ex(path, deadline=SIZE_TIMEOUT):
+    """Размер папки в байтах и флаг «замер оборвался по времени». Не следует по симлинкам/junction,
+    глотает ошибки доступа."""
+    total, stop, cut = 0, time.monotonic() + deadline, False
     stack = [lp(path)]
     while stack:
         if time.monotonic() > stop:
+            cut = True
             break
         try:
             with os.scandir(stack.pop()) as it:
@@ -65,7 +67,11 @@ def folder_size(path, deadline=SIZE_TIMEOUT):
                         pass
         except OSError:
             pass
-    return total
+    return total, cut
+
+
+def folder_size(path, deadline=SIZE_TIMEOUT):
+    return folder_size_ex(path, deadline)[0]
 
 
 def gb(nbytes):

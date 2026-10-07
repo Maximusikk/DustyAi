@@ -31,6 +31,7 @@
   <div class="tbl-head"><div><h3>Какие диски сканировать</h3><div class="hint" style="margin:2px 0 0">Можно выбрать один или несколько. Сетевые диски не трогаем.</div></div>
     <div class="quick"><button class="btn sm" onclick="pick('sys')">Только системный</button><button class="btn sm" onclick="pick('all')">Все локальные</button></div></div>
   <div class="drives" id="drives"><div class="empty">Определяю диски…</div></div>
+  <label class="opt"><input type="checkbox" id="profile" checked> Показать, что занимает место в профиле и AppData <span class="sub">(крупнейшие папки, только просмотр)</span></label>
   <label class="opt"><input type="checkbox" id="dups" checked> Искать дубликаты файлов в Загрузках и Документах <span class="sub">(дольше на несколько секунд)</span></label>
 </div>
 <div class="card">
@@ -40,6 +41,8 @@
   <div class="chip"><span class="app-ico">📁</span>Остатки установщиков в Temp</div>
   <div class="chip"><span class="app-ico">🐍</span>Установки Python</div>
   <div class="chip"><span class="app-ico">🧬</span>Дубликаты файлов</div>
+  <div class="chip"><span class="app-ico">⬇️</span>Крупные файлы в Загрузках</div>
+  <div class="chip"><span class="app-ico">🔎</span>Обзор профиля и AppData</div>
   <div class="chip"><span class="app-ico">🧩</span>Тяжёлые программы</div>
   </div>
   <button class="btn primary" id="go" onclick="go()" disabled style="margin-top:6px">Начать сканирование</button>
@@ -81,7 +84,7 @@ const $ = id => document.getElementById(id);
 async function go(){
   $('go').disabled = true; $('bar').style.display = 'block';
   const r = await fetch('/scan', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({drives:[...pickedSet], dups: $('dups').checked})});
+    body: JSON.stringify({drives:[...pickedSet], dups: $('dups').checked, profile: $('profile').checked})});
   if(r.ok) poll();
 }
 async function poll(){
