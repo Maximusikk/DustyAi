@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}История — PC Cleaner{% endblock %}
+{% block head %}<style>
+.hist{display:grid;grid-template-columns:1fr auto auto;gap:18px;padding:14px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none;align-items:center}
+.hist:first-of-type{border-top:0}.hist:hover .when{color:var(--accent)}
+</style>{% endblock %}
+{% block body %}
+<div class="eyebrow">PC Cleaner</div><h1>История сканирований</h1>
+<p class="sub" style="margin-bottom:20px">Сохранённые отчёты открываются только для просмотра — удалять из них нельзя.</p>
+<div class="card">
+{% for h in history %}<a class="hist" href="/history/{{ h.name }}"><span class="when mono">{{ h.scanned_at }}{% if h.mock %} · демо{% endif %}</span>
+<span class="mono">{{ h.total_gb }} ГБ можно освободить</span><span class="mono" style="color:var(--muted)">C: свободно {{ h.free_c if h.free_c is not none else '—' }} ГБ</span></a>
+{% else %}<p style="color:var(--muted);margin:0">Сканирований пока нет. <a href="/" style="color:var(--accent)">Запустить первое</a></p>{% endfor %}
+</div>
+{% endblock %}

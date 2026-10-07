@@ -14,8 +14,8 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 import catalog
 import scanners
-from util import (IS_WINDOWS, expand, folder_size, gb, ps_json, run_ps,
-                  running_blockers)
+from util import (IS_WINDOWS, expand, extract_icons, first_existing, folder_size, gb,
+                  ps_json, run_ps, running_blockers)
 
 app = Flask(__name__)
 
@@ -61,7 +61,7 @@ def scan_programs():
         "Get-ItemProperty $keys -EA SilentlyContinue | "
         "Where-Object { $_.DisplayName -and $_.EstimatedSize -gt 300000 } | "
         "Sort-Object EstimatedSize -Descending | Select-Object -First 12 | "
-        "Select DisplayName, DisplayVersion, InstallLocation,"
+        "Select DisplayName, DisplayVersion, InstallLocation, DisplayIcon,"
         "@{n='SizeMB';e={[math]::Round($_.EstimatedSize/1024,0)}} | ConvertTo-Json -Compress"
     )
     # Реестр врёт: если известен InstallLocation — берём реальный размер папки
@@ -69,7 +69,11 @@ def scan_programs():
         loc = p.get("InstallLocation")
         if loc and os.path.isdir(loc):
             p["SizeMB"] = round(folder_size(loc, 10) / 1024 ** 2)
-    return [p for p in programs if p.get("SizeMB", 0) > 300]
+    programs = [p for p in programs if p.get("SizeMB", 0) > 300]
+    for p in programs:
+        m = re.match(r'^"?([^",]+\.(?:exe|ico))', p.get("DisplayIcon") or "", re.I)
+        p["icon_src"] = m.group(1) if m else None
+    return programs
 
 
 def scan_item(item):
@@ -85,6 +89,33 @@ def compute_totals(d):
     d["review_gb"] = round(sum(i["size_gb"] for i in d["review"])
                            + sum(g["wasted_gb"] for g in d["dups"]), 2)
     d["total_gb"] = round(d["safe_gb"] + d["review_gb"], 2)
+
+
+def link_temp_parents(data):
+    """Привязывает остатки установщиков к пункту Temp, в размер которого они входят."""
+    for t in data["temp_items"]:
+        parent = os.path.normcase(os.path.dirname(t["path"]))
+        t["parent_id"] = next(
+            (i["id"] for i in data["safe"]
+             if os.path.normcase(i["resolved"]) == parent
+             or os.path.normcase(os.path.realpath(i["resolved"])) == os.path.normcase(os.path.realpath(parent))),
+            "local_temp" if data["mock"] else None)
+
+
+def attach_icons(data):
+    """Иконки приложений: для пунктов каталога, программ и установок Python."""
+    wanted = {}
+    for i in data["safe"] + data["review"]:
+        i["icon_exe"] = first_existing(i.get("icon_src"))
+        wanted[id(i)] = i["icon_exe"]
+    for p in data["programs"]:
+        p["icon_exe"] = p.get("icon_src")
+    for p in data["python"]:
+        p["icon_exe"] = os.path.join(p["path"], "python.exe")
+    paths = [i["icon_exe"] for i in data["safe"] + data["review"] + data["programs"] + data["python"]]
+    icons = extract_icons(paths)
+    for i in data["safe"] + data["review"] + data["programs"] + data["python"]:
+        i["icon_img"] = icons.get(i.get("icon_exe"))
 
 
 def mock_extras(data):
@@ -158,9 +189,16 @@ def do_scan():
                 progress=lambda n, t: set_state(progress=86 + int(12 * n / max(t, 1))))
             register_dynamic(data)
 
+        data["safe"] = [i for i in found if catalog.ZONE[i["id"]] == "safe" and i["exists"]]
+        data["review"] = [i for i in found if catalog.ZONE[i["id"]] == "review" and i["exists"]]
+        link_temp_parents(data)
+        if not mock:
+            set_state(progress=98, message="Загружаю иконки приложений…")
+            attach_icons(data)
+
         by_size = lambda i: -i["size_gb"]
-        data["safe"] = sorted((i for i in found if catalog.ZONE[i["id"]] == "safe" and i["exists"]), key=by_size)
-        data["review"] = sorted((i for i in found if catalog.ZONE[i["id"]] == "review" and i["exists"]), key=by_size)
+        data["safe"].sort(key=by_size)
+        data["review"].sort(key=by_size)
         compute_totals(data)
         c = next((d for d in data["drives"] if d["Name"].upper() == "C"),
                  data["drives"][0] if data["drives"] else None)
@@ -241,11 +279,35 @@ def err(msg, code):
     return jsonify(ok=False, error=msg), code
 
 
+# ───────────────────────────────── строки отчёта ─────────────────────────────────
+
+def build_rows(d):
+    """Единый список строк таблицы: A — безопасно, B — на усмотрение, C — только вручную."""
+    rows = []
+
+    def row(i, cat, kind):
+        rows.append(dict(
+            id=i["id"], name=i["name"], path=i.get("resolved") or i.get("path"), size_gb=i["size_gb"],
+            cat=cat, kind=kind, reason=i["desc"], restore=i.get("restore", ""),
+            deletable=bool(i.get("deletable")) and not d.get("readonly"),
+            icon=i.get("icon", "📁"), img=i.get("icon_img"), parent_id=i.get("parent_id")))
+
+    for i in d["safe"]:
+        row(i, "A", "static")
+    for i in d["temp_items"]:
+        row(i, "A", "temp")
+    for i in d["review"]:
+        row(i, "B" if i.get("deletable") else "C", "static")
+    rows = [r for r in rows if r["size_gb"] > 0]
+    rows.sort(key=lambda r: -r["size_gb"])
+    return rows
+
+
 # ───────────────────────────────── маршруты ─────────────────────────────────
 
 @app.get("/")
 def index():
-    return render_template("index.html", catalog=catalog, history=list_history())
+    return render_template("index.html", catalog=catalog, history=list_history(), active="home")
 
 
 @app.post("/scan")
@@ -269,7 +331,9 @@ def report():
     with _lock:
         if not scan_data:
             return redirect("/")
-        return render_template("report.html", d=dict(scan_data))
+        d = dict(scan_data)
+        rows = build_rows(d)
+    return render_template("report.html", d=d, rows=rows, active="report")
 
 
 @app.get("/export")
@@ -283,6 +347,11 @@ def export():
                               headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
+@app.get("/history")
+def history_list():
+    return render_template("history.html", history=list_history(HISTORY_KEEP), active="history")
+
+
 @app.get("/history/<name>")
 def history(name):
     if not HISTORY_RE.match(name):
@@ -291,7 +360,7 @@ def history(name):
         with open(os.path.join(SCANS_DIR, name), encoding="utf-8") as f:
             d = json.load(f)
     except (OSError, ValueError):
-        return redirect("/")
+        return redirect("/history")
     d.update(dynamic={}, readonly=True)  # старый отчёт — только просмотр
     with _lock:
         scan_data.clear()
@@ -303,12 +372,14 @@ def find_item(zone_list, item_id):
     return next((i for i in zone_list if i["id"] == item_id), None)
 
 
-@app.post("/delete")
-def delete():
-    item_id = (request.get_json(silent=True) or {}).get("id")
+def perform_delete(item_id):
+    """Удаляет один пункт. Возвращает (payload, http_code)."""
+    def fail(msg, code):
+        return {"ok": False, "id": item_id, "error": msg}, code
+
     with _lock:
         if scan_data.get("readonly"):
-            return err("Это сохранённый отчёт — он только для просмотра", 403)
+            return fail("Это сохранённый отчёт — он только для просмотра", 403)
         dyn = scan_data.get("dynamic", {}).get(item_id)
         mock = scan_data.get("mock", False)
 
@@ -319,13 +390,14 @@ def delete():
         kind, item = dyn["type"], dyn
         blockers = (["vs_installer", "devenv"] + catalog.GLOBAL_BLOCKERS) if kind == "temp" else []
     else:
-        return err("Этот пункт нельзя удалять через приложение", 403)
+        return fail("Этот пункт нельзя удалять через приложение", 403)
 
     busy = running_blockers(blockers)
     if busy:
-        return err("Сначала закройте: " + ", ".join(busy), 409)
+        return fail("Сначала закройте: " + ", ".join(busy), 409)
 
     freed = remaining = 0.0
+    group = None
     if kind == "static":
         if mock:
             freed = next((i["size_gb"] for i in scan_data["safe"] + scan_data["review"] if i["id"] == item_id), 0)
@@ -336,24 +408,24 @@ def delete():
             freed = find_item(scan_data["temp_items"], item_id)["size_gb"]
         else:
             if not scanners.verify_smart_temp(item["path"]):
-                return err("Папка изменилась или больше не подходит под правила — пересканируйте", 409)
+                return fail("Папка изменилась или больше не подходит под правила — пересканируйте", 409)
             freed, remaining = delete_item({"path": item["path"], "kind": "folder"})
     else:  # dup
         with _lock:
             group = next((g for g in scan_data["dups"] if g["hash"] == item["group"]), None)
         if not group:
-            return err("Группа дубликатов не найдена", 404)
+            return fail("Группа дубликатов не найдена", 404)
         if mock:
             freed = group["size_gb"]
         else:
             siblings = [f["path"] for f in group["files"]]
             if not scanners.verify_duplicate(item["path"], siblings):
-                return err("Нельзя удалить: не найдена идентичная копия, которая останется на диске", 409)
+                return fail("Нельзя удалить: не найдена идентичная копия, которая останется на диске", 409)
             try:
                 size = os.path.getsize(item["path"])
                 os.remove(item["path"])
             except OSError as e:
-                return err(f"Не удалось удалить файл: {e}", 500)
+                return fail(f"Не удалось удалить файл: {e}", 500)
             freed = gb(size)
 
     with _lock:
@@ -365,10 +437,8 @@ def delete():
         elif kind == "temp":
             t = find_item(d["temp_items"], item_id)
             t["size_gb"] = remaining
-            parent = os.path.normcase(os.path.dirname(t["path"]))
             for i in d["safe"]:  # размер Temp уменьшился на освобождённое
-                if os.path.normcase(os.path.realpath(i.get("resolved", ""))) == parent \
-                        or os.path.normcase(i.get("resolved", "")) == parent:
+                if i["id"] == t.get("parent_id"):
                     i["size_gb"] = round(max(i["size_gb"] - freed, 0), 2)
         else:
             group["files"] = [f for f in group["files"] if f["id"] != item_id]
@@ -379,12 +449,109 @@ def delete():
                     d["dynamic"].pop(f["id"], None)  # последняя копия больше не удаляема
                 d["dups"].remove(group)
         compute_totals(d)
-        totals = {k: d[k] for k in ("safe_gb", "review_gb", "total_gb")}
-    return jsonify(ok=True, freed_gb=freed, reload=(kind == "dup"), **totals)
+    return {"ok": True, "id": item_id, "freed_gb": freed, "kind": kind,
+            "remaining_gb": remaining}, 200
+
+
+@app.post("/delete")
+def delete():
+    item_id = (request.get_json(silent=True) or {}).get("id")
+    payload, code = perform_delete(item_id)
+    if payload["ok"]:
+        payload["reload"] = payload["kind"] == "dup"
+    else:
+        payload["error"] = payload.get("error")
+    return jsonify(payload), code
+
+
+@app.post("/delete_batch")
+def delete_batch():
+    ids = (request.get_json(silent=True) or {}).get("ids")
+    if not isinstance(ids, list) or not ids or len(ids) > 200:
+        return err("Нужен непустой список id", 400)
+    results, seen = [], set()
+    # сначала остатки Temp, потом сам Temp: так «родитель» не успеет удалить «детей» из-под ног
+    ordered = sorted((i for i in ids if isinstance(i, str)), key=lambda i: not i.startswith("tmp_"))
+    for item_id in ordered:
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        payload, _ = perform_delete(item_id)
+        results.append(payload)
+    freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 2)
+    return jsonify(ok=True, results=results, freed_gb=freed,
+                   failed=[r for r in results if not r["ok"]])
+
+
+@app.post("/open")
+def open_location():
+    """Показывает папку/файл в проводнике. Путь берётся только из каталога или отчёта."""
+    item_id = (request.get_json(silent=True) or {}).get("id")
+    path = None
+    with _lock:
+        for i in scan_data.get("safe", []) + scan_data.get("review", []) + scan_data.get("temp_items", []):
+            if i["id"] == item_id:
+                path = i.get("resolved") or i.get("path")
+        dyn = scan_data.get("dynamic", {}).get(item_id)
+        if dyn:
+            path = dyn["path"]
+    if not path:
+        return err("Неизвестный пункт", 404)
+    if not IS_WINDOWS:
+        return jsonify(ok=True, demo=True)
+    try:
+        if os.path.isfile(path):
+            subprocess.Popen(["explorer", "/select,", path])
+        elif os.path.isdir(path):
+            os.startfile(path)  # noqa: S606 — путь из белого списка
+        else:
+            return err("Папка уже не существует", 404)
+    except OSError as e:
+        return err(str(e), 500)
+    return jsonify(ok=True)
+
+
+# ─────────────────────────────── запуск в окне ───────────────────────────────
+
+def free_port(preferred=PORT):
+    import socket
+    for p in (preferred, 0):
+        with socket.socket() as s:
+            try:
+                s.bind((HOST, p))
+                return s.getsockname()[1]
+            except OSError:
+                continue
+
+
+def main():
+    """Flask в фоновом потоке + нативное окно (pywebview). Без pywebview — браузер."""
+    from werkzeug.serving import make_server
+    port = free_port()
+    server = make_server(HOST, port, app, threaded=True)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://{HOST}:{port}"
+
+    if "--browser" not in sys.argv:
+        try:
+            import webview
+            webview.settings["ALLOW_DOWNLOADS"] = True
+            webview.create_window("PC Cleaner", url, width=1360, height=860, min_size=(1000, 640))
+            webview.start()  # блокирует до закрытия окна
+            server.shutdown()
+            return
+        except ImportError:
+            print("pywebview не установлен — открываю в браузере (pip install pywebview)")
+        except Exception as e:  # noqa: BLE001 — нет WebView2 и т.п.
+            print(f"Не удалось открыть окно ({e}) — открываю в браузере")
+    if "--no-browser" not in sys.argv:
+        webbrowser.open(url)
+    print(f"PC Cleaner: {url}  (Ctrl+C — остановить)")
+    try:
+        threading.Event().wait()
+    except KeyboardInterrupt:
+        server.shutdown()
 
 
 if __name__ == "__main__":
-    if "--no-browser" not in sys.argv:
-        threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
-    print(f"PC Cleaner: http://localhost:{PORT}  (Ctrl+C — остановить)")
-    app.run(host=HOST, port=PORT, debug=False)
+    main()

@@ -1,125 +1,308 @@
 {% extends "base.html" %}
 {% block title %}Отчёт — PC Cleaner{% endblock %}
 {% block head %}<style>
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
-.tile .v{font-size:28px;font-weight:700}.tile .l{color:var(--muted);font-size:13px}
-.g{color:var(--accent)}.a{color:var(--amber)}
-.drive{margin-bottom:10px}.drive .row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
-.track{height:8px;background:var(--border);border-radius:99px;overflow:hidden}.track i{display:block;height:100%}
-h2{margin:36px 0 12px;font-size:18px;display:flex;align-items:center;gap:10px}
-.badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;border:1px solid}
-.b-g{color:var(--accent);border-color:var(--accent)}.b-a{color:var(--amber);border-color:var(--amber)}
-.b-r{color:var(--red);border-color:var(--red)}
-.item{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin-bottom:10px}
-.item h3{margin:0;font-size:16px}.item .size{font-size:18px;font-weight:600;text-align:right}
-.item p{margin:0;color:var(--muted);font-size:14px;grid-column:1/-1}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.banner{border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px;background:var(--b-bg);color:var(--b)}
+.hero-card{background:linear-gradient(135deg,var(--accent-soft),var(--surface) 60%);margin-bottom:16px}
+.hero-card .head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.hero-card .ico{width:46px;height:46px;border-radius:13px;background:var(--accent);display:grid;place-items:center;font-size:22px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px}
+.stat small{color:var(--muted);display:block}.stat b{font-size:22px}
+.drives{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+.drive .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--muted)}
+.track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}.track i{display:block;height:100%;border-radius:99px}
+.charts{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:1000px){.charts{grid-template-columns:1fr}}
+.donut-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.donut{position:relative;width:200px;height:200px;flex:none}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut circle{fill:none;stroke-width:26;transition:opacity .15s}
+.donut .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.donut .mid small{color:var(--muted)}.donut .mid b{font-size:22px}
+.legend{flex:1;min-width:240px;display:flex;flex-direction:column;gap:2px}
+.leg{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:center;padding:5px 6px;border-radius:8px;cursor:default}
+.leg:hover,.leg.hl{background:var(--surface-2)}
+.leg i{width:10px;height:10px;border-radius:3px}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bars{display:flex;gap:26px;justify-content:center;align-items:flex-end;height:210px;padding-top:6px;border-bottom:1px solid var(--border)}
+.col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:64px;gap:6px}
+.col .bar{width:100%;border-radius:4px 4px 0 0;min-height:3px;transition:height .3s}
+.col .v{font-size:13px;font-weight:600}
+.bar-labels{display:flex;gap:26px;justify-content:center;margin-top:8px}
+.bar-labels div{width:64px;text-align:center;color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;margin:6px 0 14px;flex-wrap:wrap}
+.tab{border:0;background:none;font:inherit;font-weight:500;color:var(--muted);padding:8px 14px;border-radius:10px;cursor:pointer}
+.tab.on{background:var(--surface);color:var(--fg);box-shadow:inset 0 0 0 1px var(--border)}
+.tab span{color:var(--muted);font-weight:400;margin-left:4px}
+.panel{display:none}.panel.on{display:block}
+.tbl-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{background:var(--surface-2);color:var(--muted);font-weight:500;font-size:12px;text-align:left;padding:10px 12px}
+th:first-child{border-radius:12px 0 0 12px}th:last-child{border-radius:0 12px 12px 0}
+td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.cut,.cut{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.name{display:flex;gap:11px;align-items:center;min-width:0}.name span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.sub-tag{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:0 6px;margin-left:6px}
+tr.row:hover{background:var(--surface-2)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
+.kebab{position:relative}
+.kebab>button{border:0;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px 10px;border-radius:8px}
+.kebab>button:hover{background:var(--surface-2);color:var(--fg)}
+.menu{position:absolute;right:0;top:100%;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 12px 32px rgba(0,0,0,.18);padding:6px;min-width:190px;display:none}
+.menu.open{display:block}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;color:var(--fg);padding:8px 12px;border-radius:8px;cursor:pointer}
+.menu button:hover{background:var(--surface-2)}.menu button.d{color:var(--c)}.menu button:disabled{opacity:.4;cursor:not-allowed}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;align-items:center;padding:14px 0;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}.item p{grid-column:2/-1;margin:0;color:var(--muted);font-size:13px}
 .path{font-size:12px;color:var(--muted);word-break:break-all}
-.restore b{color:var(--fg);font-weight:500}
-.item.gone{opacity:.45}
-button.del{border-color:var(--red);color:var(--red)}button.del.arm{background:var(--red);color:#2a0a0a;font-weight:600}
-.manual{font-size:12px;color:var(--muted);border:1px dashed var(--border);border-radius:8px;padding:6px 10px}
-table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--border)}
-th{color:var(--muted);font-weight:500;font-size:13px}td.n{text-align:right}
-.demo{background:#2a2410;border:1px solid var(--amber);color:var(--amber);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
-.empty{color:var(--muted)}
+.grp{padding:14px 0;border-top:1px solid var(--border)}.grp:first-child{border-top:0}
+.file{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0}
+.modal-bg{position:fixed;inset:0;background:var(--overlay);display:none;place-items:center;z-index:40;padding:16px}
+.modal-bg.open{display:grid}
+.modal{background:var(--surface);border-radius:18px;padding:24px;width:min(520px,100%);max-height:86vh;overflow:auto;border:1px solid var(--border)}
+.modal h3{margin:0 0 6px;font-size:18px}.modal ul{margin:12px 0;padding:0;list-style:none;max-height:240px;overflow:auto}
+.modal li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border)}
+.modal .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.kv{margin:10px 0}.kv b{display:block;font-size:12px;color:var(--muted);font-weight:500}
 </style>{% endblock %}
-{% macro size_cls(gb) %}{{ 'g' if gb < 5 else 'a' }}{% endmacro %}
-{% macro card(i, zone, ro) %}
-<div class="card item {{ 'gone' if i.size_gb == 0 }}" id="item-{{ i.id }}">
-  <div><h3>{{ i.icon }} {{ i.name }}</h3><div class="path mono">{{ i.resolved }}</div></div>
-  <div class="size mono {{ 'g' if zone == 'safe' else 'a' }}"><span class="sz">{{ i.size_gb }}</span> ГБ</div>
-  <p>{{ i.desc }}</p>
-  <p class="restore"><b>Что восстановится:</b> {{ i.restore }}</p>
-  <div style="grid-column:1/-1">
-  {% if ro %}<span class="manual">Сохранённый отчёт — только просмотр.</span>
-  {% elif i.deletable %}<button class="btn del" onclick="del('{{ i.id }}',this)">Удалить</button>
-  {% else %}<span class="manual">Удаляйте вручную — решение за вами: приложение не удаляет это автоматически.</span>{% endif %}
+
+{% macro ico(img, emoji) %}<span class="app-ico">{% if img %}<img src="{{ img }}" alt="">{% else %}{{ emoji }}{% endif %}</span>{% endmacro %}
+
+{% block body %}
+<div class="top">
+  <div><div class="eyebrow">PC Cleaner</div><h1>Результат сканирования</h1>
+  <p class="sub">Что лежит на диске, что это такое и что будет, если удалить</p></div>
+  <div style="display:flex;gap:8px"><a class="btn" href="/export">⬇ Экспорт JSON</a><a class="btn primary" href="/">Новое сканирование</a></div>
+</div>
+{% if d.readonly %}<div class="banner">Сохранённый отчёт от {{ d.scanned_at }} — только просмотр, удаление отключено.</div>{% endif %}
+{% if d.mock %}<div class="banner">Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</div>{% endif %}
+
+<div class="card hero-card">
+  <div class="head"><div class="ico">💽</div><div><h3 style="font-size:18px">Диск C: <span class="pill">Готово</span></h3>
+  <div class="sub mono" style="font-size:12px">{{ d.scanned_at }}</div></div></div>
+  <div class="stats">
+    <div class="stat"><small>Найдено элементов</small><b class="mono" id="st-count">{{ rows|length }}</b></div>
+    <div class="stat"><small>Можно освободить</small><b class="mono"><span id="st-total">{{ d.total_gb }}</span> ГБ</b></div>
+    <div class="stat"><small>Безопасно (A)</small><b class="mono" style="color:var(--a)">{{ d.safe_gb }} ГБ</b></div>
+    <div class="stat"><small>Диск C: свободно</small><b class="mono">{{ d.free_c if d.free_c is not none else '—' }} ГБ</b></div>
+  </div>
+  <div class="drives">
+  {% for dr in d.drives %}<div class="drive"><div class="row"><span class="mono">{{ dr.Name }}:</span>
+    <span class="mono">занято {{ dr.UsedGB }} из {{ dr.TotalGB }} ГБ</span></div>
+    <div class="track"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--a)' if dr.Pct < 70 else ('var(--s4)' if dr.Pct <= 85 else 'var(--c)') }}"></i></div></div>{% endfor %}
   </div>
 </div>
-{% endmacro %}
-{% block body %}
-<div class="topbar"><div class="logo">🧹 PC Cleaner</div><div style="display:flex;gap:8px"><a class="btn" href="/export">⬇ Экспорт JSON</a><a class="btn" href="/">← Новое сканирование</a></div></div>
-{% if d.readonly %}<div class="demo">Сохранённый отчёт от {{ d.scanned_at }} — только просмотр, удаление отключено.</div>{% endif %}
-{% if d.mock %}<div class="demo">Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</div>{% endif %}
 
-<div class="tiles">
-  <div class="card tile"><div class="v mono g"><span id="t-safe">{{ d.safe_gb }}</span> ГБ</div><div class="l">Безопасно удалить</div></div>
-  <div class="card tile"><div class="v mono a"><span id="t-review">{{ d.review_gb }}</span> ГБ</div><div class="l">На усмотрение</div></div>
-  <div class="card tile"><div class="v mono"><span id="t-total">{{ d.total_gb }}</span> ГБ</div><div class="l">Итого можно освободить</div></div>
-  <div class="card tile"><div class="v mono">{{ d.free_c if d.free_c is not none else '—' }} ГБ</div><div class="l">Диск C: свободно</div></div>
+<div class="charts">
+  <div class="card"><h3>Где занято место</h3><div class="hint">Крупнейшие находки; остатки Temp входят в размер самого Temp и здесь не дублируются</div>
+    <div class="donut-wrap"><div class="donut"><svg viewBox="0 0 200 200" id="donut" role="img" aria-label="Распределение найденного по размеру"></svg>
+      <div class="mid"><small>Всего</small><b class="mono" id="donut-total">—</b></div></div>
+      <div class="legend" id="legend"></div></div></div>
+  <div class="card"><h3>По уровню риска</h3><div class="hint">A — безопасно · B — на усмотрение · C — только вручную</div>
+    <div class="bars" id="bars"></div>
+    <div class="bar-labels"><div>A</div><div>B</div><div>C</div></div></div>
 </div>
 
-{% for dr in d.drives %}
-<div class="drive"><div class="row"><span class="mono">{{ dr.Name }}:</span>
-<span class="mono">занято {{ dr.UsedGB }} из {{ dr.TotalGB }} ГБ · свободно {{ dr.FreeGB }}</span></div>
-<div class="track"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--accent)' if dr.Pct < 70 else ('var(--amber)' if dr.Pct <= 85 else 'var(--red)') }}"></i></div></div>
-{% endfor %}
-
-<h2>Безопасно удалить <span class="badge b-g">НИЗКИЙ РИСК</span></h2>
-{% for i in d.safe %}{{ card(i,'safe',d.readonly) }}{% else %}<p class="empty">Здесь чисто 🎉</p>{% endfor %}
-
-{% if d.temp_items %}
-<h2>Остатки установщиков в Temp <span class="badge b-g">НИЗКИЙ РИСК</span></h2>
-<p class="path">Папки старше 7 дней. Их размер уже входит в «Temp» выше и отдельно не суммируется.</p>
-{% for i in d.temp_items %}{{ card(i,'safe',d.readonly) }}{% endfor %}
-{% endif %}
-
-<h2>На ваше усмотрение <span class="badge b-a">СМОТРИТЕ ОПИСАНИЕ</span></h2>
-{% for i in d.review %}{{ card(i,'review',d.readonly) }}{% else %}<p class="empty">Ничего не найдено.</p>{% endfor %}
-
-<h2>Дубликаты файлов <span class="badge b-a">ОСТАНЕТСЯ ОДНА КОПИЯ</span></h2>
-<p class="path">Файлы больше 50 МБ в Загрузках и Документах с одинаковым содержимым (MD5). Последнюю копию удалить нельзя.</p>
-{% for g in d.dups %}<div class="card item" style="grid-template-columns:1fr">
-  <h3>{{ g.size_gb }} ГБ × {{ g.files|length }} <span class="mono a" style="font-size:14px">— лишнее: {{ g.wasted_gb }} ГБ</span></h3>
-  {% for f in g.files %}<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
-    <div><div class="path mono" style="color:var(--fg)">{{ f.path }}</div><div class="path">{{ f.date }}{% if f.original %} · самая старая{% endif %}</div></div>
-    {% if not d.readonly %}<button class="btn del" onclick="del('{{ f.id }}',this)">Удалить</button>{% endif %}</div>{% endfor %}
-</div>{% else %}<p class="empty">Дубликатов не найдено.</p>{% endfor %}
-
-<h2>Установки Python <span class="badge b-r">ТОЛЬКО ПРОСМОТР</span></h2>
-{% for p in d.python %}<div class="card item" style="grid-template-columns:1fr auto">
-  <div><h3>🐍 Python {{ p.version }}</h3><div class="path mono">{{ p.path }}</div></div>
-  <div class="size mono a">{{ p.size_gb }} ГБ</div>
-  {% if p.packages %}<p>Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="mono">{{ n }}</span> {{ mb }} МБ{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
-  {% if p.in_use %}<p style="color:var(--red)">⚠ Сейчас используется{% if p.mcp %} (похоже, MCP-сервером){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} и ещё {{ p.in_use|length - 1 }}{% endif %}. Не удаляйте.</p>
-  {% else %}<p>Запущенных процессов с этой установкой не найдено. Перед удалением проверьте venv и скрипты, которые её вызывают — делайте это через «Параметры → Приложения».</p>{% endif %}
-</div>{% else %}<p class="empty">Установки Python не найдены (команда <span class="mono">py -0p</span>).</p>{% endfor %}
-
-<h2>Тяжёлые программы <span class="badge b-a">ТОЛЬКО ПРОСМОТР</span></h2>
-<div class="card">
-{% if d.programs %}<table><tr><th>Программа</th><th>Версия</th><th class="n">Размер</th></tr>
-{% for p in d.programs %}<tr><td>{{ p.DisplayName }}</td><td class="mono">{{ p.DisplayVersion or '' }}</td>
-<td class="n mono">{{ (p.SizeMB / 1024) | round(1) }} ГБ</td></tr>{% endfor %}</table>
-<p class="path">Удаляйте через «Параметры → Приложения»: системные компоненты (Windows SDK, .NET) — только штатным деинсталлятором.</p>
-{% else %}<span class="empty">Программ больше 300 МБ не найдено.</span>{% endif %}
+<div class="tabs" id="tabs">
+  <button class="tab on" data-p="clean">Очистка<span>{{ rows|length }}</span></button>
+  <button class="tab" data-p="dups">Дубликаты<span>{{ d.dups|length }}</span></button>
+  <button class="tab" data-p="py">Python<span>{{ d.python|length }}</span></button>
+  <button class="tab" data-p="prog">Программы<span>{{ d.programs|length }}</span></button>
+  <button class="tab" data-p="prot">Не трогать<span>{{ d.protected|length }}</span></button>
 </div>
 
-<h2>Не трогать <span class="badge b-r">🔒 ЗАЩИЩЕНО</span></h2>
-<div class="card">{% for p in d.protected %}<div style="padding:6px 0"><b class="mono">{{ p.icon }} {{ p.name }}</b>
-<div class="path">{{ p.reason }}</div></div>{% endfor %}</div>
+<div class="panel on" id="p-clean"><div class="card">
+  <div class="tbl-head"><div><h3>Можно очистить</h3><div class="hint" style="margin:2px 0 0">Отметьте то, что больше не нужно</div></div>
+  <button class="btn danger" id="bulk" disabled onclick="askSelected()">🗑 Удалить выбранное (0)</button></div>
+  {% if rows %}
+  <table><colgroup><col style="width:44px"><col style="width:23%"><col style="width:27%"><col style="width:78px"><col style="width:96px"><col><col style="width:56px"></colgroup>
+  <thead><tr><th><input type="checkbox" id="all" title="Выбрать всё безопасное"></th><th>Название</th><th>Путь</th><th>Риск</th><th>Размер</th><th>Причина</th><th></th></tr></thead>
+  <tbody id="rows"></tbody></table>
+  {% else %}<div class="empty">Здесь чисто 🎉</div>{% endif %}
+</div></div>
+
+<div class="panel" id="p-dups"><div class="card"><h3>Дубликаты файлов</h3>
+  <div class="hint">Файлы больше 50 МБ в Загрузках и Документах с одинаковым содержимым (MD5). Одна копия всегда остаётся.</div>
+  {% for g in d.dups %}<div class="grp">
+    <b class="mono">{{ g.size_gb }} ГБ × {{ g.files|length }}</b> <span class="mono" style="color:var(--b)">— лишнее: {{ g.wasted_gb }} ГБ</span>
+    {% for f in g.files %}<div class="file"><div style="min-width:0"><div class="path mono" style="color:var(--fg)">{{ f.path }}</div>
+      <div class="path">{{ f.date }}{% if f.original %} · самая старая{% endif %}</div></div>
+      {% if not d.readonly %}<button class="btn" style="color:var(--c)" data-dup="{{ f.id }}" data-name="{{ f.path.replace('\\','/').split('/')[-1] }}" data-gb="{{ g.size_gb }}">Удалить</button>{% endif %}</div>{% endfor %}
+  </div>{% else %}<div class="empty">Дубликатов не найдено.</div>{% endfor %}
+</div></div>
+
+<div class="panel" id="p-py"><div class="card"><h3>Установки Python</h3><div class="hint">Только просмотр: удаляйте через «Параметры → Приложения»</div>
+  {% for p in d.python %}<div class="item">{{ ico(p.icon_img, '🐍') }}
+    <div><b>Python {{ p.version }}</b><div class="path mono">{{ p.path }}</div></div><b class="mono">{{ p.size_gb }} ГБ</b>
+    {% if p.packages %}<p>Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="mono">{{ n }}</span> {{ mb }} МБ{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+    {% if p.in_use %}<p style="color:var(--c)">⚠ Сейчас используется{% if p.mcp %} (похоже, MCP-сервером){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} и ещё {{ p.in_use|length - 1 }}{% endif %}. Не удаляйте.</p>
+    {% else %}<p>Запущенных процессов с этой установкой не найдено. Перед удалением проверьте venv и скрипты, которые её вызывают.</p>{% endif %}
+  </div>{% else %}<div class="empty">Установки Python не найдены.</div>{% endfor %}
+</div></div>
+
+<div class="panel" id="p-prog"><div class="card"><h3>Тяжёлые программы</h3><div class="hint">Больше 300 МБ. Системные компоненты (Windows SDK, .NET) — только штатным деинсталлятором.</div>
+  {% for p in d.programs %}<div class="item">{{ ico(p.icon_img, '🧩') }}<div><b>{{ p.DisplayName }}</b><div class="path mono">{{ p.DisplayVersion or '' }}</div></div>
+    <b class="mono">{{ (p.SizeMB / 1024) | round(1) }} ГБ</b></div>{% else %}<div class="empty">Программ больше 300 МБ не найдено.</div>{% endfor %}
+</div></div>
+
+<div class="panel" id="p-prot"><div class="card"><h3>Не трогать</h3><div class="hint">Приложение никогда не удаляет эти места</div>
+  {% for p in d.protected %}<div class="item"><span class="app-ico">{{ p.icon }}</span><div><b class="mono">{{ p.name }}</b></div><span></span><p>{{ p.reason }}</p></div>{% endfor %}
+</div></div>
+
+<div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>
+<div class="tip" id="tip" style="position:fixed;pointer-events:none;display:none;background:var(--fg);color:var(--bg);padding:6px 10px;border-radius:8px;font-size:12px;z-index:60"></div>
 {% endblock %}
+
 {% block script %}<script>
-const armed = new Map();
-try{const m=sessionStorage.getItem('toast');if(m){sessionStorage.removeItem('toast');toast(m)}}catch(_){}
-async function del(id, btn){
-  if(!armed.get(id)){
-    btn.textContent='Точно удалить?';btn.classList.add('arm');
-    armed.set(id, setTimeout(()=>{armed.delete(id);btn.textContent='Удалить';btn.classList.remove('arm')},4000));
+const ROWS = {{ rows|tojson }};
+const DUP_GB = {{ d.dups|sum(attribute='wasted_gb') }};
+const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];
+const sel = new Set();
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = g => g >= 1 ? g.toFixed(2).replace(/\.?0+$/,'') + ' ГБ' : Math.round(g*1024) + ' МБ';
+const plural = n => { const a = n % 100, b = n % 10; return a > 10 && a < 20 ? 'элементов' : b === 1 ? 'элемент' : b > 1 && b < 5 ? 'элемента' : 'элементов' };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ── tooltip
+const tip = $('#tip');
+function tipOn(e, t){tip.textContent=t;tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px'}
+function tipOff(){tip.style.display='none'}
+
+// ── tabs
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab,.panel').forEach(e => e.classList.remove('on'));
+  b.classList.add('on'); $('#p-'+b.dataset.p).classList.add('on');
+});
+
+// ── table
+const catTitle = {A:'Безопасно', B:'На усмотрение', C:'Только вручную'};
+function renderRows(){
+  const tb = $('#rows'); if(!tb) return;
+  tb.innerHTML = ROWS.map(r => `<tr class="row" data-id="${esc(r.id)}">
+    <td><input type="checkbox" data-id="${esc(r.id)}" ${r.deletable?'':'disabled'} title="${r.deletable?'':'Удаляется только вручную'}"></td>
+    <td><div class="name"><span class="app-ico">${r.img?`<img src="${esc(r.img)}" alt="">`:esc(r.icon)}</span>
+      <span class="t" title="${esc(r.name)}">${esc(r.name)}</span>${r.kind==='temp'?'<span class="sub-tag">Temp</span>':''}</div></td>
+    <td class="cut mono" style="font-size:12px;color:var(--muted)" title="${esc(r.path)}">${esc(r.path)}</td>
+    <td><span class="badge ${r.cat}" title="${catTitle[r.cat]}">${r.cat}</span></td>
+    <td class="num mono">${fmt(r.size_gb)}</td>
+    <td class="cut" style="color:var(--muted)" title="${esc(r.reason)}">${esc(r.reason)}</td>
+    <td><div class="kebab"><button aria-label="Действия" data-menu="${esc(r.id)}">⋮</button>
+      <div class="menu"><button data-act="info">Подробности</button><button data-act="open">Показать в проводнике</button>
+      <button class="d" data-act="del" ${r.deletable?'':'disabled'}>Удалить</button></div></div></td></tr>`).join('');
+}
+function updateBulk(){
+  const ids = [...sel], b = $('#bulk'); if(!b) return;
+  b.textContent = `🗑 Удалить выбранное (${ids.length})`; b.disabled = !ids.length;
+}
+document.addEventListener('change', e => {
+  if(e.target.id === 'all'){
+    document.querySelectorAll('#rows input[type=checkbox]:not(:disabled)').forEach(c => {
+      c.checked = e.target.checked; e.target.checked ? sel.add(c.dataset.id) : sel.delete(c.dataset.id)});
+    updateBulk();
+  } else if(e.target.matches('#rows input[type=checkbox]')){
+    e.target.checked ? sel.add(e.target.dataset.id) : sel.delete(e.target.dataset.id); updateBulk();
+  }
+});
+document.addEventListener('click', e => {
+  const m = e.target.closest('[data-menu]');
+  document.querySelectorAll('.menu.open').forEach(x => { if(!m || x !== m.nextElementSibling) x.classList.remove('open') });
+  if(m){ m.nextElementSibling.classList.toggle('open'); return }
+  const a = e.target.closest('[data-act]');
+  if(a){
+    const id = a.closest('tr').dataset.id, r = ROWS.find(x => x.id === id);
+    if(a.dataset.act === 'info') showInfo(r);
+    if(a.dataset.act === 'open') openLoc(id);
+    if(a.dataset.act === 'del') ask([r]);
     return;
   }
-  clearTimeout(armed.get(id));armed.delete(id);btn.disabled=true;btn.textContent='Удаляю…';
-  try{
-    const r=await fetch('/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    const j=await r.json();
-    if(!j.ok)throw new Error(j.error||'Не удалось удалить');
-    const el=document.getElementById('item-'+id);
-    el.querySelector('.sz').textContent=0;el.classList.add('gone');
-    document.getElementById('t-safe').textContent=j.safe_gb;
-    document.getElementById('t-review').textContent=j.review_gb;
-    document.getElementById('t-total').textContent=j.total_gb;
-    btn.textContent='Готово';const m='Освобождено '+j.freed_gb+' ГБ';
-    if(j.reload){try{sessionStorage.setItem('toast',m)}catch(_){};location.reload();return}
-    toast(m);
-  }catch(e){btn.disabled=false;btn.classList.remove('arm');btn.textContent='Удалить';toast('Ошибка: '+e.message,true)}
+  const d = e.target.closest('[data-dup]');
+  if(d) ask([{id:d.dataset.dup, name:d.dataset.name, size_gb:parseFloat(d.dataset.gb), dup:true}]);
+});
+
+// ── modal
+function openModal(html){ $('#modal-body').innerHTML = html; $('#modal').classList.add('open') }
+function closeModal(){ $('#modal').classList.remove('open') }
+$('#modal').addEventListener('click', e => { if(e.target.id === 'modal') closeModal() });
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal() });
+
+function showInfo(r){
+  openModal(`<h3>${esc(r.name)}</h3><div class="path mono">${esc(r.path)}</div>
+    <div class="kv"><b>Что это</b>${esc(r.reason)}</div>
+    <div class="kv"><b>Что восстановится после удаления</b>${esc(r.restore)}</div>
+    <div class="kv"><b>Размер · риск</b><span class="mono">${fmt(r.size_gb)}</span> · <span class="badge ${r.cat}">${r.cat}</span> ${catTitle[r.cat]}</div>
+    ${r.deletable?'':'<div class="kv" style="color:var(--muted)">Приложение не удаляет это автоматически — решение за вами.</div>'}
+    <div class="acts"><button class="btn" onclick="closeModal()">Закрыть</button></div>`);
 }
+function askSelected(){ ask(ROWS.filter(r => sel.has(r.id))) }
+function ask(items){
+  // остаток Temp входит в размер родителя: не считаем дважды
+  const ids = new Set(items.map(i => i.id));
+  const total = items.filter(i => !(i.parent_id && ids.has(i.parent_id))).reduce((s,i) => s + i.size_gb, 0);
+  const list = items.slice(0,8).map(i => `<li><span class="cut">${esc(i.name)}</span><span class="mono">${fmt(i.size_gb)}</span></li>`).join('')
+    + (items.length > 8 ? `<li><span>…и ещё ${items.length-8}</span><span></span></li>` : '');
+  openModal(`<h3>Удалить ${items.length} ${plural(items.length)}?</h3>
+    <div class="sub">Освободится примерно <b class="mono">${fmt(total)}</b>. ${items.some(i=>i.dup)?'Удаляется навсегда, идентичная копия остаётся.':'Файлы удаляются навсегда, в корзину они не попадают.'}</div>
+    <ul>${list}</ul><div class="acts"><button class="btn" onclick="closeModal()">Отмена</button>
+    <button class="btn danger" id="confirm">Удалить</button></div>`);
+  let armed = false, t;
+  $('#confirm').onclick = e => {
+    if(!armed){ armed = true; e.target.textContent = 'Точно удалить?'; t = setTimeout(() => {armed=false;e.target.textContent='Удалить'}, 4000); return }
+    clearTimeout(t); run(items.map(i => i.id), e.target);
+  };
+}
+async function run(ids, btn){
+  btn.disabled = true; btn.textContent = 'Удаляю…';
+  try{
+    const r = await fetch('/delete_batch', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids})});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error || 'Ошибка');
+    let m = 'Освобождено ' + fmt(j.freed_gb);
+    if(j.failed.length) m += ` · не удалось: ${j.failed.length} (${j.failed[0].error})`;
+    try{ sessionStorage.setItem('toast', m) }catch(_){}
+    location.reload();
+  }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
+}
+async function openLoc(id){
+  const r = await fetch('/open', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
+  const j = await r.json(); if(!j.ok) toast(j.error || 'Не удалось открыть', true); else if(j.demo) toast('В демо-режиме проводник не открывается');
+}
+
+// ── charts
+function renderCharts(){
+  const base = ROWS.filter(r => r.kind !== 'temp' && r.size_gb > 0).sort((a,b) => b.size_gb - a.size_gb);
+  const top = base.slice(0,7), rest = base.slice(7).reduce((s,r) => s + r.size_gb, 0);
+  const parts = top.map((r,i) => ({name:r.name, v:r.size_gb, c:css(SLOTS[i])}));
+  if(rest > 0) parts.push({name:'Другое', v:rest, c:css('--s8')});
+  const total = parts.reduce((s,p) => s + p.v, 0);
+  $('#donut-total').textContent = total ? fmt(total) : '—';
+
+  const R = 74, C = 2*Math.PI*R, GAP = 2; let off = 0;
+  $('#donut').innerHTML = `<circle cx="100" cy="100" r="${R}" style="stroke:var(--surface-2)"/>` + parts.map((p,i) => {
+    const len = Math.max(p.v/total*C - GAP, 0.5), s = `<circle data-i="${i}" cx="100" cy="100" r="${R}" stroke="${p.c}"
+      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}"><title>${esc(p.name)}: ${fmt(p.v)}</title></circle>`;
+    off += p.v/total*C; return s }).join('');
+  $('#legend').innerHTML = parts.map((p,i) => `<div class="leg" data-i="${i}"><i style="background:${p.c}"></i>
+    <span title="${esc(p.name)}">${esc(p.name)}</span><span class="mono" style="color:var(--muted)">${fmt(p.v)} · ${Math.round(p.v/total*100)}%</span></div>`).join('')
+    || '<div class="empty">Нет данных</div>';
+  const hl = (i, on) => { document.querySelectorAll('#donut circle[data-i]').forEach(c => c.style.opacity = on && c.dataset.i != i ? .3 : 1);
+    document.querySelectorAll('.leg').forEach(l => l.classList.toggle('hl', on && l.dataset.i == i)) };
+  document.querySelectorAll('#donut circle[data-i], .leg').forEach(el => {
+    el.onmouseenter = () => hl(el.dataset.i, true); el.onmouseleave = () => hl(0, false) });
+
+  const sums = {A:0,B:DUP_GB,C:0};
+  ROWS.filter(r => r.kind !== 'temp').forEach(r => sums[r.cat] += r.size_gb);
+  const max = Math.max(...Object.values(sums), 0.01), col = {A:'--a',B:'--s4',C:'--c'};
+  $('#bars').innerHTML = Object.entries(sums).map(([k,v]) => `<div class="col"><div class="v mono">${v?fmt(v):'0'}</div>
+    <div class="bar" data-k="${k}" style="height:${Math.max(v/max*150,3)}px;background:${css(col[k])}"></div></div>`).join('');
+  document.querySelectorAll('.bar[data-k]').forEach(b => {
+    b.onmousemove = e => tipOn(e, `${b.dataset.k} · ${catTitle[b.dataset.k]}: ${fmt(sums[b.dataset.k])}`); b.onmouseleave = tipOff });
+}
+renderRows(); updateBulk(); renderCharts();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
 </script>{% endblock %}

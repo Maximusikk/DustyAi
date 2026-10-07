@@ -9,7 +9,7 @@ IS_WINDOWS = os.name == "nt"
 SIZE_TIMEOUT = 45  # сек на замер одной папки — защита от зависания на гигантских деревьях
 
 
-def run_ps(command, timeout=60):
+def run_ps(command, timeout=60, env=None):
     """Выполняет PowerShell-команду. Возвращает (stdout, stderr)."""
     exe = shutil.which("powershell") or shutil.which("pwsh")
     if not exe:
@@ -19,6 +19,7 @@ def run_ps(command, timeout=60):
             [exe, "-NoProfile", "-NonInteractive", "-Command", command],
             capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace",
+            env={**os.environ, **env} if env else None,
         )
         return r.stdout.strip(), r.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -89,3 +90,36 @@ def running_blockers(names):
     return [data] if isinstance(data, str) else list(data)
 
 
+
+
+def extract_icons(paths):
+    """Иконки exe-файлов → {путь: data-URI PNG}. Один вызов PowerShell на все пути."""
+    paths = sorted({p for p in paths if p and os.path.isfile(p)})
+    if not paths or not IS_WINDOWS:
+        return {}
+    script = (
+        "Add-Type -AssemblyName System.Drawing;"
+        "$paths = $env:PC_ICON_PATHS | ConvertFrom-Json;"
+        "$out = foreach ($p in $paths) { try {"
+        "$i=[System.Drawing.Icon]::ExtractAssociatedIcon($p); $ms=New-Object IO.MemoryStream;"
+        "$i.ToBitmap().Save($ms,[System.Drawing.Imaging.ImageFormat]::Png);"
+        "[pscustomobject]@{p=$p;d=[Convert]::ToBase64String($ms.ToArray())} } catch {} };"
+        "@($out) | ConvertTo-Json -Compress"
+    )
+    out, _ = run_ps(script, timeout=60, env={"PC_ICON_PATHS": json.dumps(paths)})
+    try:
+        data = json.loads(out) if out else []
+    except json.JSONDecodeError:
+        return {}
+    data = [data] if isinstance(data, dict) else data
+    return {r["p"]: "data:image/png;base64," + r["d"] for r in data if r and r.get("d")}
+
+
+def first_existing(patterns):
+    """Первый существующий путь из списка шаблонов (с переменными окружения и *)."""
+    import glob
+    for pat in patterns or []:
+        hits = sorted(glob.glob(os.path.expandvars(pat)))
+        if hits:
+            return hits[-1]
+    return None

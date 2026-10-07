@@ -1,35 +1,41 @@
 {% extends "base.html" %}
 {% block head %}<style>
-.hero{text-align:center;padding:48px 0 28px}.hero .emoji{font-size:64px}
-h1{margin:8px 0;font-size:34px}.tag{color:var(--muted);max-width:560px;margin:0 auto}
-.list{columns:2;column-gap:24px;margin:14px 0 22px;padding-left:18px;color:var(--muted)}
-.list li{margin-bottom:4px}.list b{color:var(--fg);font-weight:500}
-.bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
-.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+.hero{padding:36px 0 22px}.hero p{max-width:620px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:16px 0 22px}
+.chip{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+.bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s;border-radius:99px}
 #msg{margin-top:10px;color:var(--muted);min-height:22px;font-size:13px}
-.hist{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:13px}.hist:hover{color:var(--accent)}
-@media(max-width:600px){.list{columns:1}}
+.hist{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none}
+.hist:hover{color:var(--accent)}
 </style>{% endblock %}
 {% block body %}
-<div class="hero"><div class="emoji">🧹</div><h1>PC Cleaner</h1>
-<p class="tag">Не «удалить всё», а «вот что здесь лежит и почему». Находит кэши, остатки установщиков и ИИ-модели, объясняет что это и удаляет в один клик. Всё работает локально.</p></div>
+<div class="hero"><div class="eyebrow">PC Cleaner</div><h1>Узнайте, что занимает место на диске</h1>
+<p class="sub">Не «удалить всё», а «вот что здесь лежит и почему». Находит кэши, остатки установщиков, дубликаты и ИИ-модели, объясняет что это и удаляет с подстраховкой.</p></div>
 <div class="card">
-<b>Что проверяется</b>
-<ul class="list">
-{% for i in catalog.SAFE + catalog.REVIEW %}<li>{{ i.icon }} <b>{{ i.name }}</b></li>{% endfor %}
-<li>📁 <b>Остатки установщиков в Temp</b></li><li>🐍 <b>Установки Python</b></li><li>🧬 <b>Дубликаты файлов</b></li><li>💽 <b>Диски</b></li><li>🧩 <b>Тяжёлые программы</b></li>
-</ul>
-<button class="btn primary" id="go" onclick="go()">Начать сканирование</button>
-<div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
+  <h3>Что проверяется</h3>
+  <div class="grid">
+  {% for i in catalog.SAFE + catalog.REVIEW %}<div class="chip"><span class="app-ico">{{ i.icon }}</span>{{ i.name }}</div>{% endfor %}
+  <div class="chip"><span class="app-ico">📁</span>Остатки установщиков в Temp</div>
+  <div class="chip"><span class="app-ico">🐍</span>Установки Python</div>
+  <div class="chip"><span class="app-ico">🧬</span>Дубликаты файлов</div>
+  <div class="chip"><span class="app-ico">🧩</span>Тяжёлые программы</div>
+  </div>
+  <button class="btn primary" id="go" onclick="go()">Начать сканирование</button>
+  <div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
 </div>
 {% if history %}
-<div class="card" style="margin-top:14px"><b>Последние сканирования</b>
+<div class="card" style="margin-top:16px"><h3>Последние сканирования</h3><div class="hint">Откроются только для просмотра</div>
 {% for h in history %}<a href="/history/{{ h.name }}" class="hist"><span class="mono">{{ h.scanned_at }}</span>
-<span class="mono">{{ h.total_gb }} ГБ можно освободить{% if h.mock %} · демо{% endif %}</span></a>{% endfor %}</div>
+<span class="mono">{{ h.total_gb }} ГБ можно освободить{% if h.mock %} · демо{% endif %}</span></a>{% endfor %}
+<a href="/history" class="hist" style="color:var(--accent)">Вся история →</a></div>
 {% endif %}
 {% endblock %}
 {% block script %}<script>
-function go(){document.getElementById('go').disabled=true;document.getElementById('bar').style.display='block';startScan();}
+async function go(){
+  document.getElementById('go').disabled=true;document.getElementById('bar').style.display='block';
+  const r=await fetch('/scan',{method:'POST'});if(r.ok)poll();
+}
 async function poll(){
   const s=await (await fetch('/status')).json();
   document.getElementById('fill').style.width=s.progress+'%';

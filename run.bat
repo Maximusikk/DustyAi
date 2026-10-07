@@ -4,9 +4,9 @@ cd /d "%~dp0"
 echo Установка зависимостей...
 python -m pip install -q -r requirements.txt
 if errorlevel 1 (
-    echo Не удалось установить Flask. Проверьте, что Python 3.10+ установлен и добавлен в PATH.
+    echo Не удалось установить зависимости. Проверьте, что Python 3.10+ установлен и добавлен в PATH.
     pause
     exit /b 1
 )
 python app.py
-pause
+if errorlevel 1 pause
