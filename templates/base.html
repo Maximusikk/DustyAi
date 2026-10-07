@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}PC Cleaner{% endblock %}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
 <style>
 :root{
   --bg:#f5f7fb;--surface:#fff;--surface-2:#f3f5f9;--border:#e6eaf1;--fg:#172033;--muted:#738096;
@@ -13,6 +11,8 @@
   --a:#16a34a;--a-bg:#dcfce7;--b:#b45309;--b-bg:#fef3c7;--c:#dc2626;--c-bg:#fee2e2;
   --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#9aa3b2;
   --overlay:rgba(15,23,42,.45);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,ui-monospace,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0d0f12;--surface:#161a20;--surface-2:#1c212a;--border:#252b35;--fg:#e8ecf1;--muted:#8591a3;
@@ -22,8 +22,9 @@
   --overlay:rgba(0,0,0,.6);}}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 Inter,system-ui,sans-serif;display:flex}
-.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);display:flex}
+.mono{font-family:var(--mono);font-size:.93em;letter-spacing:0}
+button,input{font-family:inherit}
 aside{width:224px;flex:none;background:var(--surface);border-right:1px solid var(--border);padding:22px 14px;
   display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
 .brand{display:flex;gap:11px;align-items:center;padding:0 8px 22px}
@@ -63,7 +64,7 @@ h1{margin:4px 0 4px;font-size:30px;letter-spacing:-.02em}
 </head>
 <body>
 <aside>
-  <div class="brand"><div class="tile">🧹</div><div><b>PC Cleaner</b><small>Умная очистка диска</small></div></div>
+  <div class="brand"><div class="tile">🧹</div><div><b>{{ APP_NAME }}</b><small>Умная очистка диска</small></div></div>
   <div class="nav-title">Меню</div>
   <a class="nav {{ 'on' if active == 'home' }}" href="/"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
   <a class="nav {{ 'on' if active == 'report' }}" href="/report"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg>Отчёт</a>

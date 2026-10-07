@@ -165,10 +165,10 @@ def dup_roots():
     return [expand(r) for r in DUP_ROOTS if os.path.isdir(expand(r))]
 
 
-def scan_duplicates(deadline=90, progress=None):
+def scan_duplicates(deadline=45, progress=None, roots=None):
     stop, by_size = time.monotonic() + deadline, {}
     min_bytes = DUP_MIN_MB * 1024 ** 2
-    for root in dup_roots():
+    for root in (roots if roots is not None else dup_roots()):
         for dirpath, dirs, files in os.walk(root):
             if time.monotonic() > stop:
                 break
@@ -235,3 +235,91 @@ def verify_duplicate(path, siblings):
     except OSError:
         return False
     return False
+
+
+# ───────────────────────────── обзор диска ─────────────────────────────
+
+JUNK_NAMES = {"node_modules": "Зависимости Node.js", ".venv": "Виртуальное окружение Python",
+              "venv": "Виртуальное окружение Python", "__pycache__": "Скомпилированный кэш Python",
+              ".tox": "Окружения tox"}
+JUNK_MIN_MB = 50
+BIG_FILE_MB = 500
+SKIP_TOP = {"$recycle.bin", "system volume information", "windows", "program files", "program files (x86)",
+            "programdata", "recovery", "$windows.~bt", "config.msi", "msocache"}
+ROOT_FILES = "(файлы в корне диска)"
+
+
+def _reparse(e):
+    """Junction/symlink: не заходим, иначе посчитаем одно и то же дважды или уйдём в цикл."""
+    try:
+        return e.is_symlink() or bool(e.stat(follow_symlinks=False).st_file_attributes & 0x400)
+    except (OSError, AttributeError):
+        return False
+
+
+def scan_drive_deep(letter, deadline=90):
+    """Обход несистемного диска: крупнейшие папки верхнего уровня, крупные файлы,
+    «мусор разработчика» (node_modules, venv, __pycache__). Не пересекает junction, лимит по времени."""
+    root = f"{letter}:\\"
+    top, big, junk = {}, [], []
+    stop, partial = time.monotonic() + deadline, False
+    stack = [(root, None)]
+    while stack:
+        if time.monotonic() > stop:
+            partial = True
+            break
+        path, topname = stack.pop()
+        try:
+            it = list(os.scandir(path))
+        except OSError:
+            continue
+        for e in it:
+            try:
+                if _reparse(e):
+                    continue
+                if e.is_dir(follow_symlinks=False):
+                    low = e.name.lower()
+                    if topname is None and low in SKIP_TOP:
+                        continue
+                    tn = topname or e.name
+                    if low in JUNK_NAMES:
+                        size = folder_size(e.path, 30)
+                        top[tn] = top.get(tn, 0) + size
+                        if size >= JUNK_MIN_MB * 1024 ** 2:
+                            junk.append(dict(id=short_id("junk_", e.path), name=e.name, path=e.path,
+                                             what=JUNK_NAMES[low], size=size))
+                    else:
+                        stack.append((e.path, tn))
+                else:
+                    size = e.stat(follow_symlinks=False).st_size
+                    tn = topname or ROOT_FILES
+                    top[tn] = top.get(tn, 0) + size
+                    if size >= BIG_FILE_MB * 1024 ** 2:
+                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=size))
+            except OSError:
+                continue
+    top_dirs = [dict(name=n, path=(root + n) if n != ROOT_FILES else root, size_gb=gb(s))
+                for n, s in sorted(top.items(), key=lambda x: -x[1])[:12] if s > 0]
+    big.sort(key=lambda f: -f["size"])
+    junk.sort(key=lambda j: -j["size"])
+    return dict(
+        top_dirs=top_dirs, partial=partial,
+        big_files=[dict(f, size_gb=gb(f.pop("size"))) for f in big[:15]],
+        junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]])
+
+
+def scan_recycle(letter):
+    return gb(folder_size(f"{letter}:\\$Recycle.Bin", 30))
+
+
+def verify_junk(path, allowed_roots):
+    """Удаляем только папки с «мусорным» именем на отсканированном диске, не ссылки."""
+    try:
+        if os.path.islink(path) or not os.path.isdir(path):
+            return False
+        if os.path.basename(path.rstrip("\\/")).lower() not in JUNK_NAMES:
+            return False
+        np = _norm(path)
+        return any(np.startswith(_norm(r)) for r in allowed_roots)
+    except OSError:
+        return False

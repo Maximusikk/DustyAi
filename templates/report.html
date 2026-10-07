@@ -1,17 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Отчёт — PC Cleaner{% endblock %}
+{% block title %}Отчёт — {{ APP_NAME }}{% endblock %}
 {% block head %}<style>
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .banner{border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px;background:var(--b-bg);color:var(--b)}
 .hero-card{background:linear-gradient(135deg,var(--accent-soft),var(--surface) 60%);margin-bottom:16px}
 .hero-card .head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
 .hero-card .ico{width:46px;height:46px;border-radius:13px;background:var(--accent);display:grid;place-items:center;font-size:22px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px}
 .stat small{color:var(--muted);display:block}.stat b{font-size:22px}
-.drives{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
-.drive .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--muted)}
-.track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}.track i{display:block;height:100%;border-radius:99px}
+.dsw{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:5px;background:var(--surface);border:1px solid var(--border);border-radius:14px;width:fit-content;max-width:100%}
+.dsw button{border:0;background:none;font:inherit;font-weight:500;color:var(--muted);padding:8px 16px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.dsw button small{font-weight:400;margin-left:4px}.dsw button:hover{color:var(--fg)}
+.dsw button.on{background:var(--accent);color:#fff}.dsw button.on small{color:rgba(255,255,255,.8)}
+.drives{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:14px}
+.dv{display:grid;grid-template-columns:36px 1fr auto;gap:2px 12px;align-items:center;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px;background:var(--surface);min-width:0}
+.dv.can{cursor:pointer}.dv.can:hover{border-color:var(--muted)}.dv.cur{border-color:var(--accent)}.dv.dim{opacity:.55}
+.dv .ltr{grid-row:1/3;width:36px;height:36px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-weight:700}
+.dv.cur .ltr{background:var(--accent);color:#fff}
+.dv .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dv .pc{font-weight:600;font-size:13px;text-align:right}
+.dv .cap{grid-column:2/-1;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv .meter{grid-column:1/-1;height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.dv .meter i{display:block;height:100%;border-radius:99px}
+.ov h4{margin:0 0 10px;font-size:15px}.ov .blk{padding:6px 0 18px}
+.ob{display:grid;grid-template-columns:minmax(80px,170px) 1fr 84px;gap:12px;align-items:center;padding:5px 0}
+.ob .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ob .rail{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.ob .rail i{display:block;height:100%;border-radius:99px;background:var(--s1)}.ob .v{text-align:right;color:var(--muted)}
+.big{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.none{display:none}.none.show{display:block}
+[hidden]{display:none!important}
 .charts{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
 @media(max-width:1000px){.charts{grid-template-columns:1fr}}
 .donut-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
@@ -57,6 +75,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 .menu button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;color:var(--fg);padding:8px 12px;border-radius:8px;cursor:pointer}
 .menu button:hover{background:var(--surface-2)}.menu button.d{color:var(--c)}.menu button:disabled{opacity:.4;cursor:not-allowed}
 .empty{color:var(--muted);padding:24px 0;text-align:center}
+.btn.sm{padding:6px 12px;font-size:13px}
 .item{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;align-items:center;padding:14px 0;border-top:1px solid var(--border)}
 .item:first-child{border-top:0}.item p{grid-column:2/-1;margin:0;color:var(--muted);font-size:13px}
 .path{font-size:12px;color:var(--muted);word-break:break-all}
@@ -75,26 +94,33 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 
 {% block body %}
 <div class="top">
-  <div><div class="eyebrow">PC Cleaner</div><h1>Результат сканирования</h1>
+  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>Результат сканирования</h1>
   <p class="sub">Что лежит на диске, что это такое и что будет, если удалить</p></div>
   <div style="display:flex;gap:8px"><a class="btn" href="/export">⬇ Экспорт JSON</a><a class="btn primary" href="/">Новое сканирование</a></div>
 </div>
 {% if d.readonly %}<div class="banner">Сохранённый отчёт от {{ d.scanned_at }} — только просмотр, удаление отключено.</div>{% endif %}
 {% if d.mock %}<div class="banner">Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</div>{% endif %}
 
+<div class="dsw" id="dsw">
+  {% if d.drives|selectattr('scanned')|list|length > 1 %}<button data-d="ALL">Все диски</button>{% endif %}
+  {% for dr in d.drives if dr.scanned %}<button data-d="{{ dr.Name }}">{{ dr.Name }}:<small>{{ dr.Label }}</small></button>{% endfor %}
+</div>
+
 <div class="card hero-card">
-  <div class="head"><div class="ico">💽</div><div><h3 style="font-size:18px">Диск C: <span class="pill">Готово</span></h3>
+  <div class="head"><div class="ico">💽</div><div><h3 style="font-size:18px"><span id="hero-title">Все диски</span> <span class="pill">Готово</span></h3>
   <div class="sub mono" style="font-size:12px">{{ d.scanned_at }}</div></div></div>
   <div class="stats">
     <div class="stat"><small>Найдено элементов</small><b class="mono" id="st-count">{{ rows|length }}</b></div>
     <div class="stat"><small>Можно освободить</small><b class="mono"><span id="st-total">{{ d.total_gb }}</span> ГБ</b></div>
-    <div class="stat"><small>Безопасно (A)</small><b class="mono" style="color:var(--a)">{{ d.safe_gb }} ГБ</b></div>
-    <div class="stat"><small>Диск C: свободно</small><b class="mono">{{ d.free_c if d.free_c is not none else '—' }} ГБ</b></div>
+    <div class="stat"><small>Безопасно (A)</small><b class="mono" style="color:var(--a)"><span id="st-safe">{{ d.safe_gb }}</span> ГБ</b></div>
+    <div class="stat"><small id="st-free-l">Свободно</small><b class="mono"><span id="st-free">—</span> ГБ</b></div>
   </div>
   <div class="drives">
-  {% for dr in d.drives %}<div class="drive"><div class="row"><span class="mono">{{ dr.Name }}:</span>
-    <span class="mono">занято {{ dr.UsedGB }} из {{ dr.TotalGB }} ГБ</span></div>
-    <div class="track"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--a)' if dr.Pct < 70 else ('var(--s4)' if dr.Pct <= 85 else 'var(--c)') }}"></i></div></div>{% endfor %}
+  {% for dr in d.drives %}<div class="dv {{ 'can' if dr.scanned }} {{ 'dim' if not dr.scanned }}" data-card="{{ dr.Name }}" {% if not dr.scanned %}title="{{ 'Сетевой диск — не сканируется' if dr.Type == 'network' else 'Этот диск не сканировался' }}"{% endif %}>
+    <div class="ltr">{{ dr.Name }}:</div><div class="nm">{{ dr.Label or 'Локальный диск' }}{% if dr.Type == 'network' %} · сетевой{% elif dr.Type == 'removable' %} · съёмный{% endif %}</div>
+    <div class="pc mono">{{ dr.Pct }}%</div>
+    <div class="cap">свободно {{ dr.FreeGB }} из {{ dr.TotalGB }} ГБ{% if not dr.scanned %} · не сканировался{% endif %}</div>
+    <div class="meter"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--a)' if dr.Pct < 70 else ('var(--s4)' if dr.Pct <= 85 else 'var(--c)') }}"></i></div></div>{% endfor %}
   </div>
 </div>
 
@@ -109,45 +135,63 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 </div>
 
 <div class="tabs" id="tabs">
-  <button class="tab on" data-p="clean">Очистка<span>{{ rows|length }}</span></button>
-  <button class="tab" data-p="dups">Дубликаты<span>{{ d.dups|length }}</span></button>
-  <button class="tab" data-p="py">Python<span>{{ d.python|length }}</span></button>
-  <button class="tab" data-p="prog">Программы<span>{{ d.programs|length }}</span></button>
+  <button class="tab on" data-p="clean">Очистка<span id="c-clean">{{ rows|length }}</span></button>
+  <button class="tab" data-p="over">Обзор дисков<span id="c-over">0</span></button>
+  <button class="tab" data-p="dups">Дубликаты<span id="c-dups">{{ d.dups|length }}</span></button>
+  <button class="tab" data-p="py">Python<span id="c-py">{{ d.python|length }}</span></button>
+  <button class="tab" data-p="prog">Программы<span id="c-prog">{{ d.programs|length }}</span></button>
   <button class="tab" data-p="prot">Не трогать<span>{{ d.protected|length }}</span></button>
 </div>
 
 <div class="panel on" id="p-clean"><div class="card">
   <div class="tbl-head"><div><h3>Можно очистить</h3><div class="hint" style="margin:2px 0 0">Отметьте то, что больше не нужно</div></div>
   <button class="btn danger" id="bulk" disabled onclick="askSelected()">🗑 Удалить выбранное (0)</button></div>
-  {% if rows %}
-  <table><colgroup><col style="width:44px"><col style="width:23%"><col style="width:27%"><col style="width:78px"><col style="width:96px"><col><col style="width:56px"></colgroup>
+  <table id="tbl"><colgroup><col style="width:44px"><col style="width:23%"><col style="width:27%"><col style="width:78px"><col style="width:96px"><col><col style="width:56px"></colgroup>
   <thead><tr><th><input type="checkbox" id="all" title="Выбрать всё безопасное"></th><th>Название</th><th>Путь</th><th>Риск</th><th>Размер</th><th>Причина</th><th></th></tr></thead>
   <tbody id="rows"></tbody></table>
-  {% else %}<div class="empty">Здесь чисто 🎉</div>{% endif %}
+  <div class="empty none" id="none-clean">Здесь чисто 🎉</div>
+</div></div>
+
+<div class="panel" id="p-over"><div class="card ov"><h3>Обзор дисков</h3>
+  <div class="hint">Крупнейшие папки и файлы на несистемных дисках. Крупные файлы только показываются — решение за вами.</div>
+  {% for L in d.scanned %}{% set o = d.overview.get(L) %}
+  <div class="blk" data-drives="{{ L }}"><h4>{{ L }}: {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h4>
+  {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень большой — обзор неполный (ограничение по времени).</p>{% endif %}
+    {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
+    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb }} ГБ</span></div>{% endfor %}
+    {% if o.big_files %}<h4 style="margin-top:18px">Крупные файлы (от 500 МБ)</h4>
+    {% for f in o.big_files %}<div class="big"><div style="min-width:0"><div class="t cut" title="{{ f.path }}">{{ f.name }}</div><div class="path mono">{{ f.path }}</div></div>
+      <div style="display:flex;gap:10px;align-items:center"><b class="mono">{{ f.size_gb }} ГБ</b><button class="btn sm" data-reveal="{{ f.id }}">Показать</button></div></div>{% endfor %}{% endif %}
+  {% else %}<p class="path">Системный диск проверяется по известным местам — смотрите вкладку «Очистка», «Python» и «Программы».</p>{% endif %}
+  </div>{% endfor %}
 </div></div>
 
 <div class="panel" id="p-dups"><div class="card"><h3>Дубликаты файлов</h3>
   <div class="hint">Файлы больше 50 МБ в Загрузках и Документах с одинаковым содержимым (MD5). Одна копия всегда остаётся.</div>
-  {% for g in d.dups %}<div class="grp">
+  {% for g in d.dups %}<div class="grp" data-drives="{{ g.drives|join(' ') }}">
     <b class="mono">{{ g.size_gb }} ГБ × {{ g.files|length }}</b> <span class="mono" style="color:var(--b)">— лишнее: {{ g.wasted_gb }} ГБ</span>
     {% for f in g.files %}<div class="file"><div style="min-width:0"><div class="path mono" style="color:var(--fg)">{{ f.path }}</div>
       <div class="path">{{ f.date }}{% if f.original %} · самая старая{% endif %}</div></div>
       {% if not d.readonly %}<button class="btn" style="color:var(--c)" data-dup="{{ f.id }}" data-name="{{ f.path.replace('\\','/').split('/')[-1] }}" data-gb="{{ g.size_gb }}">Удалить</button>{% endif %}</div>{% endfor %}
-  </div>{% else %}<div class="empty">Дубликатов не найдено.</div>{% endfor %}
+  </div>{% endfor %}<div class="empty none">Дубликатов не найдено.</div>
 </div></div>
 
 <div class="panel" id="p-py"><div class="card"><h3>Установки Python</h3><div class="hint">Только просмотр: удаляйте через «Параметры → Приложения»</div>
-  {% for p in d.python %}<div class="item">{{ ico(p.icon_img, '🐍') }}
+  {% for p in d.python %}<div class="item" data-drives="{{ p.drive }}">{{ ico(p.icon_img, '🐍') }}
     <div><b>Python {{ p.version }}</b><div class="path mono">{{ p.path }}</div></div><b class="mono">{{ p.size_gb }} ГБ</b>
     {% if p.packages %}<p>Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="mono">{{ n }}</span> {{ mb }} МБ{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
     {% if p.in_use %}<p style="color:var(--c)">⚠ Сейчас используется{% if p.mcp %} (похоже, MCP-сервером){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} и ещё {{ p.in_use|length - 1 }}{% endif %}. Не удаляйте.</p>
     {% else %}<p>Запущенных процессов с этой установкой не найдено. Перед удалением проверьте venv и скрипты, которые её вызывают.</p>{% endif %}
-  </div>{% else %}<div class="empty">Установки Python не найдены.</div>{% endfor %}
+  </div>{% endfor %}<div class="empty none">Установки Python не найдены.</div>
 </div></div>
 
-<div class="panel" id="p-prog"><div class="card"><h3>Тяжёлые программы</h3><div class="hint">Больше 300 МБ. Системные компоненты (Windows SDK, .NET) — только штатным деинсталлятором.</div>
-  {% for p in d.programs %}<div class="item">{{ ico(p.icon_img, '🧩') }}<div><b>{{ p.DisplayName }}</b><div class="path mono">{{ p.DisplayVersion or '' }}</div></div>
-    <b class="mono">{{ (p.SizeMB / 1024) | round(1) }} ГБ</b></div>{% else %}<div class="empty">Программ больше 300 МБ не найдено.</div>{% endfor %}
+<div class="panel" id="p-prog"><div class="card"><h3>Тяжёлые программы</h3>
+  <div class="hint">Больше 300 МБ. Кнопка «Удалить» запускает штатный деинсталлятор Windows — он сам спросит подтверждение и корректно уберёт программу.</div>
+  {% for p in d.programs %}<div class="item" data-drives="{{ p.drive }}" style="grid-template-columns:auto 1fr auto auto">{{ ico(p.icon_img, '🧩') }}
+    <div style="min-width:0"><b>{{ p.DisplayName }}</b><div class="path mono">{{ p.DisplayVersion or '' }}{% if p.InstallLocation %} · {{ p.InstallLocation }}{% endif %}</div></div>
+    <b class="mono">{{ (p.SizeMB / 1024) | round(1) }} ГБ</b>
+    {% if not d.readonly %}<button class="btn" style="color:var(--c)" data-uninstall="{{ p.id }}" data-name="{{ p.DisplayName }}">Удалить…</button>{% else %}<span></span>{% endif %}</div>
+  {% endfor %}<div class="empty none">Программ больше 300 МБ не найдено.</div>
 </div></div>
 
 <div class="panel" id="p-prot"><div class="card"><h3>Не трогать</h3><div class="hint">Приложение никогда не удаляет эти места</div>
@@ -160,14 +204,19 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 
 {% block script %}<script>
 const ROWS = {{ rows|tojson }};
-const DUP_GB = {{ d.dups|sum(attribute='wasted_gb') }};
+const DRIVES = {{ d.drives|tojson }};
+const DUPS = {{ d.dups|map(attribute='drives')|list|tojson }}.map((dr, i) => ({drives: dr, wasted: {{ d.dups|map(attribute='wasted_gb')|list|tojson }}[i]}));
 const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];
 const sel = new Set();
+let cur = 'ALL';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = g => g >= 1 ? g.toFixed(2).replace(/\.?0+$/,'') + ' ГБ' : Math.round(g*1024) + ' МБ';
 const plural = n => { const a = n % 100, b = n % 10; return a > 10 && a < 20 ? 'элементов' : b === 1 ? 'элемент' : b > 1 && b < 5 ? 'элемента' : 'элементов' };
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const post = (url, body) => fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+const scannedDrives = DRIVES.filter(d => d.scanned);
+const inCur = list => cur === 'ALL' || list.includes(cur);
 
 // ── tooltip
 const tip = $('#tip');
@@ -180,11 +229,41 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   b.classList.add('on'); $('#p-'+b.dataset.p).classList.add('on');
 });
 
+// ── drive switch
+function applyDrive(d){
+  cur = d; sel.clear();
+  try{ sessionStorage.setItem('dusty.drive', d) }catch(_){}
+  document.querySelectorAll('#dsw button').forEach(b => b.classList.toggle('on', b.dataset.d === cur));
+  document.querySelectorAll('.dv[data-card]').forEach(c => c.classList.toggle('cur', c.dataset.card === cur));
+  const rows = curRows();
+  // блоки с data-drives: скрываем чужие диски, считаем видимые
+  const counts = {};
+  document.querySelectorAll('[data-drives]').forEach(el => {
+    const show = inCur(el.dataset.drives.split(' ')); el.hidden = !show;
+    const p = el.closest('.panel').id.slice(2); if(show) counts[p] = (counts[p]||0) + 1;
+  });
+  ['over','dups','py','prog'].forEach(p => {
+    const n = counts[p] || 0; $('#c-'+p).textContent = n;
+    const none = $('#p-'+p+' .none'); if(none) none.classList.toggle('show', !n);
+  });
+  $('#c-clean').textContent = rows.length;
+  const dr = cur === 'ALL' ? scannedDrives : scannedDrives.filter(x => x.Name === cur);
+  $('#hero-title').textContent = cur === 'ALL' ? 'Все диски' : 'Диск ' + cur + ':';
+  $('#st-free-l').textContent = cur === 'ALL' ? 'Свободно на дисках' : 'Свободно на ' + cur + ':';
+  $('#st-free').textContent = dr.reduce((s,x) => s + x.FreeGB, 0).toFixed(1);
+  renderRows(); updateBulk(); renderCharts();
+}
+document.querySelectorAll('#dsw button').forEach(b => b.onclick = () => applyDrive(b.dataset.d));
+document.querySelectorAll('.dv.can').forEach(c => c.onclick = () => applyDrive(c.dataset.card));
+
+function curRows(){ return ROWS.filter(r => inCur([r.drive])) }
+
 // ── table
 const catTitle = {A:'Безопасно', B:'На усмотрение', C:'Только вручную'};
 function renderRows(){
   const tb = $('#rows'); if(!tb) return;
-  tb.innerHTML = ROWS.map(r => `<tr class="row" data-id="${esc(r.id)}">
+  const rows = curRows();
+  tb.innerHTML = rows.map(r => `<tr class="row" data-id="${esc(r.id)}">
     <td><input type="checkbox" data-id="${esc(r.id)}" ${r.deletable?'':'disabled'} title="${r.deletable?'':'Удаляется только вручную'}"></td>
     <td><div class="name"><span class="app-ico">${r.img?`<img src="${esc(r.img)}" alt="">`:esc(r.icon)}</span>
       <span class="t" title="${esc(r.name)}">${esc(r.name)}</span>${r.kind==='temp'?'<span class="sub-tag">Temp</span>':''}</div></td>
@@ -195,10 +274,12 @@ function renderRows(){
     <td><div class="kebab"><button aria-label="Действия" data-menu="${esc(r.id)}">⋮</button>
       <div class="menu"><button data-act="info">Подробности</button><button data-act="open">Показать в проводнике</button>
       <button class="d" data-act="del" ${r.deletable?'':'disabled'}>Удалить</button></div></div></td></tr>`).join('');
+  $('#none-clean').classList.toggle('show', !rows.length);
+  $('#tbl').hidden = !rows.length; $('#all').checked = false;
 }
 function updateBulk(){
-  const ids = [...sel], b = $('#bulk'); if(!b) return;
-  b.textContent = `🗑 Удалить выбранное (${ids.length})`; b.disabled = !ids.length;
+  const b = $('#bulk'); if(!b) return;
+  b.textContent = `🗑 Удалить выбранное (${sel.size})`; b.disabled = !sel.size;
 }
 document.addEventListener('change', e => {
   if(e.target.id === 'all'){
@@ -222,7 +303,11 @@ document.addEventListener('click', e => {
     return;
   }
   const d = e.target.closest('[data-dup]');
-  if(d) ask([{id:d.dataset.dup, name:d.dataset.name, size_gb:parseFloat(d.dataset.gb), dup:true}]);
+  if(d) return ask([{id:d.dataset.dup, name:d.dataset.name, size_gb:parseFloat(d.dataset.gb), dup:true}]);
+  const u = e.target.closest('[data-uninstall]');
+  if(u) return askUninstall(u.dataset.uninstall, u.dataset.name);
+  const v = e.target.closest('[data-reveal]');
+  if(v) openLoc(v.dataset.reveal);
 });
 
 // ── modal
@@ -241,8 +326,7 @@ function showInfo(r){
 }
 function askSelected(){ ask(ROWS.filter(r => sel.has(r.id))) }
 function ask(items){
-  // остаток Temp входит в размер родителя: не считаем дважды
-  const ids = new Set(items.map(i => i.id));
+  const ids = new Set(items.map(i => i.id));  // остаток Temp входит в размер родителя: не считаем дважды
   const total = items.filter(i => !(i.parent_id && ids.has(i.parent_id))).reduce((s,i) => s + i.size_gb, 0);
   const list = items.slice(0,8).map(i => `<li><span class="cut">${esc(i.name)}</span><span class="mono">${fmt(i.size_gb)}</span></li>`).join('')
     + (items.length > 8 ? `<li><span>…и ещё ${items.length-8}</span><span></span></li>` : '');
@@ -259,8 +343,7 @@ function ask(items){
 async function run(ids, btn){
   btn.disabled = true; btn.textContent = 'Удаляю…';
   try{
-    const r = await fetch('/delete_batch', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids})});
-    const j = await r.json();
+    const r = await post('/delete_batch', {ids}); const j = await r.json();
     if(!r.ok) throw new Error(j.error || 'Ошибка');
     let m = 'Освобождено ' + fmt(j.freed_gb);
     if(j.failed.length) m += ` · не удалось: ${j.failed.length} (${j.failed[0].error})`;
@@ -268,14 +351,27 @@ async function run(ids, btn){
     location.reload();
   }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
 }
+function askUninstall(id, name){
+  openModal(`<h3>Удалить «${esc(name)}»?</h3>
+    <div class="sub">Откроется стандартный деинсталлятор этой программы. Windows сама попросит подтверждение — сможете отменить.
+    После удаления запустите новое сканирование, чтобы обновить отчёт.</div>
+    <div class="acts"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn danger" id="un-go">Открыть деинсталлятор</button></div>`);
+  $('#un-go').onclick = async () => {
+    const j = await (await post('/uninstall', {id})).json(); closeModal();
+    if(!j.ok) toast(j.error || 'Не удалось запустить деинсталлятор', true);
+    else toast(j.demo ? 'Демо-режим: деинсталлятор не запускается' : j.mode === 'settings' ? 'Открыты «Приложения и возможности» — найдите программу в списке' : 'Деинсталлятор запущен — следуйте его окнам');
+  };
+}
 async function openLoc(id){
-  const r = await fetch('/open', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-  const j = await r.json(); if(!j.ok) toast(j.error || 'Не удалось открыть', true); else if(j.demo) toast('В демо-режиме проводник не открывается');
+  const j = await (await post('/open', {id})).json();
+  if(!j.ok) toast(j.error || 'Не удалось открыть', true); else if(j.demo) toast('В демо-режиме проводник не открывается');
 }
 
 // ── charts
 function renderCharts(){
-  const base = ROWS.filter(r => r.kind !== 'temp' && r.size_gb > 0).sort((a,b) => b.size_gb - a.size_gb);
+  const rows = curRows();
+  const base = rows.filter(r => r.kind !== 'temp' && r.size_gb > 0).sort((a,b) => b.size_gb - a.size_gb);
+  const dupGb = DUPS.filter(x => inCur(x.drives)).reduce((s,x) => s + x.wasted, 0);
   const top = base.slice(0,7), rest = base.slice(7).reduce((s,r) => s + r.size_gb, 0);
   const parts = top.map((r,i) => ({name:r.name, v:r.size_gb, c:css(SLOTS[i])}));
   if(rest > 0) parts.push({name:'Другое', v:rest, c:css('--s8')});
@@ -295,14 +391,21 @@ function renderCharts(){
   document.querySelectorAll('#donut circle[data-i], .leg').forEach(el => {
     el.onmouseenter = () => hl(el.dataset.i, true); el.onmouseleave = () => hl(0, false) });
 
-  const sums = {A:0,B:DUP_GB,C:0};
-  ROWS.filter(r => r.kind !== 'temp').forEach(r => sums[r.cat] += r.size_gb);
+  const sums = {A:0, B:dupGb, C:0};
+  rows.filter(r => r.kind !== 'temp').forEach(r => sums[r.cat] += r.size_gb);
+  const all = sums.A + sums.B + sums.C;
+  $('#st-total').textContent = all.toFixed(2).replace(/\.?0+$/,'') || '0';
+  $('#st-safe').textContent = sums.A.toFixed(2).replace(/\.?0+$/,'') || '0';
+  $('#st-count').textContent = rows.length;
   const max = Math.max(...Object.values(sums), 0.01), col = {A:'--a',B:'--s4',C:'--c'};
   $('#bars').innerHTML = Object.entries(sums).map(([k,v]) => `<div class="col"><div class="v mono">${v?fmt(v):'0'}</div>
     <div class="bar" data-k="${k}" style="height:${Math.max(v/max*150,3)}px;background:${css(col[k])}"></div></div>`).join('');
   document.querySelectorAll('.bar[data-k]').forEach(b => {
     b.onmousemove = e => tipOn(e, `${b.dataset.k} · ${catTitle[b.dataset.k]}: ${fmt(sums[b.dataset.k])}`); b.onmouseleave = tipOff });
 }
-renderRows(); updateBulk(); renderCharts();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+
+let start = scannedDrives.length > 1 ? 'ALL' : (scannedDrives[0] || {}).Name || 'ALL';
+try{ const s = sessionStorage.getItem('dusty.drive'); if(s && (s === 'ALL' ? scannedDrives.length > 1 : scannedDrives.some(d => d.Name === s))) start = s }catch(_){}
+applyDrive(start);
 </script>{% endblock %}

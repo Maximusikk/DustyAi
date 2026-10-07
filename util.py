@@ -1,6 +1,7 @@
 """Общие помощники: PowerShell, размеры папок, проверка процессов."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -46,7 +47,7 @@ def expand(path):
 def folder_size(path, deadline=SIZE_TIMEOUT):
     """Размер папки в байтах. Не следует по симлинкам/junction, глотает ошибки доступа."""
     total, stop = 0, time.monotonic() + deadline
-    stack = [path]
+    stack = [lp(path)]
     while stack:
         if time.monotonic() > stop:
             break
@@ -71,25 +72,57 @@ def gb(nbytes):
     return round(nbytes / 1024 ** 3, 2)
 
 
-def running_blockers(names):
-    """Какие из процессов-блокировщиков сейчас запущены."""
-    names = sorted(set(names))
-    if not names or not IS_WINDOWS:
-        return []
-    quoted = ",".join(f"'{n}'" for n in names)
-    out, _ = run_ps(
-        f"Get-Process -Name {quoted} -EA SilentlyContinue | "
-        "Select-Object -ExpandProperty Name -Unique | ConvertTo-Json -Compress"
-    )
-    if not out:
-        return []
+def running_names():
+    """Имена всех запущенных процессов (нижний регистр, без .exe) — одним вызовом PowerShell."""
+    if not IS_WINDOWS:
+        return set()
+    out, _ = run_ps("Get-Process -EA SilentlyContinue | Select-Object -ExpandProperty Name -Unique | ConvertTo-Json -Compress")
     try:
-        data = json.loads(out)
+        data = json.loads(out) if out else []
     except json.JSONDecodeError:
-        return []
-    return [data] if isinstance(data, str) else list(data)
+        return set()
+    return {n.lower() for n in ([data] if isinstance(data, str) else data)}
 
 
+def running_blockers(names, running=None):
+    """Какие из процессов-блокировщиков сейчас запущены. running можно передать готовый
+    (пакетное удаление спрашивает систему один раз, а не на каждый пункт)."""
+    running = running_names() if running is None else running
+    return sorted({n for n in names if n.lower() in running})
+
+
+def lp(path):
+    """Префикс длинных путей Windows (\\\\?\\): иначе node_modules глубже 260 символов не удалить."""
+    if IS_WINDOWS and path and not path.startswith("\\\\?\\"):
+        return "\\\\?\\" + os.path.abspath(path)
+    return path
+
+
+def drive_of(path, default="C"):
+    m = re.match(r"^([A-Za-z]):", path or "")
+    return m.group(1).upper() if m else default
+
+
+def system_drive():
+    return (os.environ.get("SystemDrive") or "C:")[:1].upper()
+
+
+def list_drives():
+    """Диски системы. Type: local / removable / network. Сканировать можно local и removable."""
+    rows = ps_json("Get-CimInstance Win32_LogicalDisk | Where-Object { $_.Size } | "
+                   "Select DeviceID,DriveType,VolumeName,Size,FreeSpace | ConvertTo-Json -Compress")
+    kinds = {2: "removable", 3: "local", 4: "network"}
+    drives = []
+    for r in rows:
+        total, free = r["Size"] / 1024 ** 3, r["FreeSpace"] / 1024 ** 3
+        if r["DriveType"] not in kinds:
+            continue
+        drives.append({
+            "Name": r["DeviceID"][:1].upper(), "Label": r.get("VolumeName") or "", "Type": kinds[r["DriveType"]],
+            "UsedGB": round(total - free, 1), "FreeGB": round(free, 1), "TotalGB": round(total, 1),
+            "Pct": round((total - free) / total * 100) if total else 0,
+            "scannable": r["DriveType"] in (2, 3)})
+    return drives
 
 
 def extract_icons(paths):

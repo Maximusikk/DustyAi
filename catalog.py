@@ -83,8 +83,9 @@ GLOBAL_BLOCKERS = ["vs_installer", "devenv", "idea64", "pycharm64", "code"]
 
 MOCK = {
     "drives": [
-        {"Name": "C", "UsedGB": 362.0, "FreeGB": 103.0, "TotalGB": 465.0},
-        {"Name": "D", "UsedGB": 120.5, "FreeGB": 340.0, "TotalGB": 460.5},
+        {"Name": "C", "Label": "Windows", "Type": "local", "UsedGB": 362.0, "FreeGB": 103.0, "TotalGB": 465.0, "scannable": True},
+        {"Name": "D", "Label": "Data", "Type": "local", "UsedGB": 420.5, "FreeGB": 340.0, "TotalGB": 760.5, "scannable": True},
+        {"Name": "Z", "Label": "NAS", "Type": "network", "UsedGB": 1800.0, "FreeGB": 2200.0, "TotalGB": 4000.0, "scannable": False},
     ],
     "sizes": {"user_temp": 1.4, "local_temp": 5.3, "crash_dumps": 0.3, "windows_temp": 0.6,
               "pip_cache": 0.9, "gradle_cache": 3.1, "npm_cache": 0.3, "nuget_cache": 1.2,
@@ -121,3 +122,22 @@ MOCK["dups"] = [
         {"path": "C:\\Users\\demo\\Downloads\\backup.zip", "date": "2025-09-14", "original": False},
         {"path": "C:\\Users\\demo\\Downloads\\backup (2).zip", "date": "2025-10-01", "original": False}]},
 ]
+
+MOCK["recycle"] = {"C": 0.4, "D": 1.1}
+MOCK["deep"] = {
+    "D": {"partial": False,
+          "top_dirs": [
+              {"name": "Games", "path": "D:\\Games", "size_gb": 182.4},
+              {"name": "Projects", "path": "D:\\Projects", "size_gb": 96.1},
+              {"name": "VMs", "path": "D:\\VMs", "size_gb": 74.8},
+              {"name": "Backup", "path": "D:\\Backup", "size_gb": 41.3},
+              {"name": "Video", "path": "D:\\Video", "size_gb": 22.7}],
+          "big_files": [
+              {"name": "win11.vdi", "path": "D:\\VMs\\win11.vdi", "size_gb": 38.0},
+              {"name": "backup-2025.zip", "path": "D:\\Backup\\backup-2025.zip", "size_gb": 12.6},
+              {"name": "render_final.mov", "path": "D:\\Video\\render_final.mov", "size_gb": 8.9}],
+          "junk": [
+              {"name": "node_modules", "path": "D:\\Projects\\shop\\node_modules", "what": "Зависимости Node.js", "size_gb": 1.4},
+              {"name": "node_modules", "path": "D:\\Projects\\blog\\node_modules", "what": "Зависимости Node.js", "size_gb": 0.9},
+              {"name": ".venv", "path": "D:\\Projects\\ml\\.venv", "what": "Виртуальное окружение Python", "size_gb": 5.2}]},
+}
