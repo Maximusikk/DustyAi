@@ -162,3 +162,53 @@ def first_existing(patterns):
         if hits:
             return hits[-1]
     return None
+
+
+def _rm(path):
+    """Удаляет один файл. Снимает атрибут «только чтение»; занятый/защищённый файл — не ошибка."""
+    try:
+        os.remove(lp(path))
+        return True
+    except FileNotFoundError:
+        return True
+    except OSError:
+        try:
+            os.chmod(lp(path), 0o700)
+            os.remove(lp(path))
+            return True
+        except OSError:
+            return False
+
+
+def purge(path, remove_root=True):
+    """Удаляет папку целиком, но то, что занято программами или требует прав, пропускает.
+    Возвращает число пропущенных файлов — чтобы честно сказать об этом пользователю."""
+    skipped = 0
+    for dirpath, dirs, files in os.walk(lp(path), topdown=False):
+        for f in files:
+            skipped += not _rm(os.path.join(dirpath, f))
+        for d in dirs:
+            p = os.path.join(dirpath, d)
+            try:
+                if os.path.islink(p):
+                    os.unlink(p) if not os.path.isdir(p) else os.rmdir(p)  # ссылку убираем, цель не трогаем
+                else:
+                    os.rmdir(p)  # не пустая (внутри пропущенные файлы) — это уже посчитано выше
+            except OSError:
+                pass
+    if remove_root:
+        try:
+            os.rmdir(lp(path))
+        except OSError:
+            pass
+    return skipped
+
+
+def is_admin():
+    if not IS_WINDOWS:
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:  # noqa: BLE001
+        return False

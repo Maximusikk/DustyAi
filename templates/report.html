@@ -405,8 +405,10 @@ async function run(ids, btn){
   try{
     const r = await post('/delete_batch', {ids}); const j = await r.json();
     if(!r.ok) throw new Error(j.error || 'Ошибка');
-    let m = 'Освобождено ' + fmt(j.freed_gb);
-    if(j.failed.length) m += ` · не удалось: ${j.failed.length} (${j.failed[0].error})`;
+    let m = j.freed_gb > 0 ? 'Освобождено ' + fmt(j.freed_gb) : 'Ничего не освобождено';
+    const warn = j.results.find(r => r.ok && r.warn);
+    if(warn) m += ' · ' + warn.warn;
+    if(j.failed.length) m += (warn ? ' · ' : ' · ') + j.failed[0].error + (j.failed.length > 1 ? ` (и ещё ${j.failed.length - 1})` : '');
     try{ sessionStorage.setItem('toast', m) }catch(_){}
     location.reload();
   }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }

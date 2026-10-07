@@ -19,11 +19,12 @@ from flask import Flask, jsonify, redirect, render_template, request
 import catalog
 import scanners
 from util import (IS_WINDOWS, drive_of, expand, extract_icons, first_existing, folder_size, gb, list_drives,
-                  lp, ps_json, run_ps, running_blockers, running_names, system_drive)
+                  is_admin, lp, ps_json, purge, run_ps, running_blockers, running_names, system_drive, _rm)
 
 APP_NAME = "Dusty Ai"
+ADMIN = is_admin()
 app = Flask(__name__)
-app.jinja_env.globals["APP_NAME"] = APP_NAME
+app.jinja_env.globals.update(APP_NAME=APP_NAME, IS_ADMIN=ADMIN, CAN_ELEVATE=IS_WINDOWS and not ADMIN)
 
 
 @app.template_filter("size")
@@ -362,30 +363,24 @@ def list_history(limit=3):
 
 # ─────────────────────────────── удаление ───────────────────────────────
 
-def remove_entry(p):
-    try:
-        if os.path.isdir(p) and not os.path.islink(p):
-            shutil.rmtree(lp(p), ignore_errors=True)
-        else:
-            os.remove(lp(p))
-    except OSError:
-        pass
-
-
 def delete_item(item):
-    """Удаляет по каталогу. Возвращает (освобождено ГБ, осталось ГБ)."""
+    """Удаляет по каталогу, пропуская занятые файлы. Возвращает (освобождено ГБ, осталось ГБ, пропущено файлов)."""
     path = expand(item["path"])
     if not os.path.isdir(path):
-        return 0.0, 0.0
+        return 0.0, 0.0, 0
     before = folder_size(path, 120)
+    skipped = 0
     if item["kind"] == "contents":
         with os.scandir(path) as it:
             for e in list(it):
-                remove_entry(e.path)
+                if e.is_dir(follow_symlinks=False):
+                    skipped += purge(e.path)
+                else:
+                    skipped += not _rm(e.path)
     else:
-        shutil.rmtree(lp(path), ignore_errors=True)
+        skipped = purge(path)
     after = folder_size(path, 120) if os.path.isdir(path) else 0
-    return gb(max(before - after, 0)), gb(after)
+    return round(max(before - after, 0) / 1024 ** 3, 4), gb(after), skipped
 
 
 def err(msg, code):
@@ -688,20 +683,23 @@ def perform_delete(item_id, running=None):
         mock = scan_data.get("mock", False)
         scanned = list(scan_data.get("scanned", []))
 
-    dev = ["node", "npm", "python", "pythonw", "code"]
     if item_id in catalog.DELETABLE_IDS:
         kind, item = "static", catalog.ALL_ITEMS[item_id]
-        blockers = item["blockers"] + catalog.GLOBAL_BLOCKERS
     elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle", "download"):
         kind, item = dyn["type"], dyn
-        blockers = {"temp": ["vs_installer", "devenv"] + catalog.GLOBAL_BLOCKERS,
-                    "junk": catalog.GLOBAL_BLOCKERS + dev}.get(kind, [])
     else:
         return fail("Этот пункт нельзя удалять через приложение", 403)
 
-    busy = running_blockers(blockers, running)
-    if busy:
-        return fail("Сначала закройте: " + ", ".join(busy), 409)
+    # Жёстко блокируем только то, что реально опасно: чистка Temp посреди установки может её сломать.
+    # Всё остальное (кэши) удаляем сразу: занятые файлы просто пропускаются, об этом скажем в ответе.
+    is_temp = kind == "temp" or item_id in ("user_temp", "local_temp", "windows_temp")
+    running = running_names() if running is None else running
+    installing = running_blockers(["vs_installer"], running) if is_temp else []
+    if installing:
+        return fail("Сейчас идёт установка (" + ", ".join(installing) + ") — дождитесь её завершения, "
+                    "иначе её можно повредить", 409)
+    hints = running_blockers(item.get("blockers", []) if kind == "static" else [], running)
+    skipped = 0
 
     freed = remaining = 0.0
     group = None
@@ -715,21 +713,21 @@ def perform_delete(item_id, running=None):
         if mock:
             freed = entry["size_gb"]
         else:
-            freed, remaining = delete_item(item)
+            freed, remaining, skipped = delete_item(item)
     elif kind == "temp":
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_smart_temp(item["path"]):
                 return fail("Папка изменилась или больше не подходит под правила — пересканируйте", 409)
-            freed, remaining = delete_item({"path": item["path"], "kind": "folder"})
+            freed, remaining, skipped = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "junk":
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_junk(item["path"], [f"{L}:\\" for L in scanned]):
                 return fail("Папка больше не подходит под правила — пересканируйте", 409)
-            freed, remaining = delete_item({"path": item["path"], "kind": "folder"})
+            freed, remaining, skipped = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "recycle":
         freed = entry["size_gb"]
         if not mock:
@@ -773,6 +771,9 @@ def perform_delete(item_id, running=None):
                 return fail(f"Не удалось удалить файл: {e}", 500)
             freed = gb(size)
 
+    if skipped and freed == 0:
+        return fail(skipped_message(item_id, skipped, hints), 409)
+
     with _lock:
         d = scan_data
         if kind == "download":
@@ -793,7 +794,18 @@ def perform_delete(item_id, running=None):
                     d["dynamic"].pop(f["id"], None)  # последняя копия больше не удаляема
                 d["dups"].remove(group)
         compute_totals(d)
-    return {"ok": True, "id": item_id, "freed_gb": freed, "kind": kind, "remaining_gb": remaining}, 200
+    out = {"ok": True, "id": item_id, "freed_gb": freed, "kind": kind, "remaining_gb": remaining, "skipped": skipped}
+    if skipped:
+        out["warn"] = skipped_message(item_id, skipped, hints)
+    return out, 200
+
+
+def skipped_message(item_id, skipped, hints):
+    who = f"закройте {', '.join(hints)}" if hints else "закройте программы, которые могли их занять"
+    msg = f"{skipped} файл(ов) заняты и пропущены — {who} и повторите"
+    if item_id == "windows_temp" and not ADMIN:
+        msg = f"{skipped} файл(ов) системного Temp требуют прав администратора — запустите Dusty Ai от имени администратора"
+    return msg
 
 
 @app.post("/delete")
@@ -820,8 +832,22 @@ def delete_batch():
         seen.add(item_id)
         payload, _ = perform_delete(item_id, running)
         results.append(payload)
-    freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 2)
+    freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 4)
     return jsonify(ok=True, results=results, freed_gb=freed, failed=[r for r in results if not r["ok"]])
+
+
+@app.post("/api/elevate")
+def elevate():
+    """Перезапускает приложение с правами администратора (Windows покажет окно UAC)."""
+    if not IS_WINDOWS or ADMIN:
+        return err("Уже запущено с правами администратора" if ADMIN else "Доступно только в Windows", 400)
+    import ctypes
+    here = os.path.dirname(os.path.abspath(__file__))
+    params = "" if getattr(sys, "frozen", False) else f'"{os.path.abspath(__file__)}"'
+    if ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, here, 1) <= 32:
+        return err("Запуск от администратора отменён", 409)
+    threading.Timer(1.5, lambda: os._exit(0)).start()  # старый экземпляр закрываем, чтобы не держать порт
+    return jsonify(ok=True)
 
 
 @app.post("/open")
