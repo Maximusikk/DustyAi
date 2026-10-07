@@ -446,7 +446,8 @@ def with_defaults(d):
 # ───────────────────────────── AI-сводка (Cloudflare Workers AI) ─────────────────────────────
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"
+CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # можно заменить переменной CF_MODEL (например, на модель побольше)
+CF_MAX_TOKENS = 700  # по-русски токенов уходит в 2–3 раза больше, чем слов: 300 обрывало ответ
 CF_BASE = "https://api.cloudflare.com/client/v4"
 _ai_cache = {}
 
@@ -501,9 +502,31 @@ def build_prompt(d, drive=None):
         f"Топ-5 находок:\n{lines}\n"
         f"Суммарно: зона A (безопасно удалить) — {zones['A']} ГБ, зона B (на усмотрение) — {zones['B']} ГБ, "
         f"зона C (только вручную) — {zones['C']} ГБ.\n"
+        "Как читать зоны: A — кэши и временные файлы, они пересоздаются сами, удалять безопасно; "
+        "B — удалять можно, но пользователь сам решает; C — программа ничего не удаляет, только вручную, "
+        "поэтому в C ничего не советуй удалять.\n"
         "Напиши сводку: 1) главный вывод одной фразой, 2) что удалить первым и почему, "
         "3) что точно не трогать. Кратко, 4-5 предложений, без воды."
     )
+
+
+CF_SYSTEM = (
+    "Отвечай только по-русски, обычным текстом без заголовков и вложенных списков. Укладывайся в 4-5 предложений "
+    "и ровно три пункта 1), 2), 3). Используй только данные из запроса, ничего не выдумывай. "
+    "Названия находок пиши как в данных. Не советуй трогать зону C и не называй безопасное (зона A) нужным системе."
+)
+
+
+def tidy_summary(text):
+    """Ответ мог оборваться по лимиту токенов: обрезаем до последнего законченного предложения
+    и убираем повисший маркер списка («5. **»)."""
+    text = text.strip()
+    if text and text[-1] not in ".!?…»)":
+        cut = max(text.rfind(c) for c in ".!?…")
+        if cut > len(text) * 0.4:
+            text = text[:cut + 1]
+    text = re.sub(r"(?:\n|\s)+\d+[.)]\s*(?:\*\*)?\s*$", "", text)
+    return text.rstrip("* \n")
 
 
 def cloudflare_ai_summary(data, drive=None):
@@ -514,9 +537,11 @@ def cloudflare_ai_summary(data, drive=None):
     if not account:
         raise AIError("CF_ACCOUNT_ID not set", 400)
     base = os.environ.get("CF_API_BASE", CF_BASE).rstrip("/")
-    url = f"{base}/accounts/{account}/ai/run/{CF_MODEL}"
-    body = json.dumps({"messages": [{"role": "user", "content": build_prompt(data, drive)}],
-                       "max_tokens": 300}).encode("utf-8")
+    model = cf_setting("CF_MODEL") or CF_MODEL
+    url = f"{base}/accounts/{account}/ai/run/{model}"
+    body = json.dumps({"messages": [{"role": "system", "content": CF_SYSTEM},
+                                    {"role": "user", "content": build_prompt(data, drive)}],
+                       "max_tokens": CF_MAX_TOKENS, "temperature": 0.2}).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     try:
@@ -539,7 +564,7 @@ def cloudflare_ai_summary(data, drive=None):
     if not payload.get("success", True) or not text:
         errs = "; ".join(x.get("message", "") for x in payload.get("errors") or [])[:200]
         raise AIError("Пустой ответ модели" + (f": {errs}" if errs else ""))
-    return text
+    return tidy_summary(text)
 
 
 # ───────────────────────────────── маршруты ─────────────────────────────────
