@@ -17,16 +17,13 @@
 .r-ring{fill:none;stroke:var(--border-2);stroke-width:1}
 .r-fill{fill:var(--surface-2);fill-opacity:.55;stroke:var(--border);stroke-width:1}
 .r-sweep{transform-origin:120px 120px;animation:spin 5.5s linear infinite}
-.r-blip{animation:blip 5.5s ease-in-out infinite}
+.r-blip{animation:blip 5.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes blip{0%,100%{opacity:.25;transform:scale(.8)}12%{opacity:1;transform:scale(1.25)}40%{opacity:.5;transform:scale(1)}}
-.r-blip{transform-box:fill-box;transform-origin:center}
 
 /* ── раскладка ── */
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
 .col-main{display:flex;flex-direction:column;gap:18px;min-width:0}
 .col-side{display:flex;flex-direction:column;gap:18px;position:sticky;top:0;align-self:start}
-@media (max-width:1180px){.layout{grid-template-columns:1fr}.col-side{position:static}.hero{grid-template-columns:1fr}.radar{display:none}}
-@media (max-width:720px){.hero{padding:26px 22px}.hero h1{font-size:28px}}
 
 /* ── выбор дисков ── */
 .quick{display:flex;gap:8px;flex-wrap:wrap}
@@ -40,15 +37,14 @@
 .dv .ltr{grid-row:1/3;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;
   background:var(--surface-3);color:var(--fg-2);font-weight:700;font-size:16px;transition:background .15s,color .15s}
 .dv.on .ltr{background:linear-gradient(135deg,var(--btn-1),var(--cta-2));color:#fff}
-.dv .nm{display:flex;gap:7px;align-items:center;font-weight:600;min-width:0}
+.dv .nm{display:flex;gap:4px 7px;align-items:center;flex-wrap:wrap;font-weight:600;min-width:0}
 .dv .nm span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dv .cap{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dv .use{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:11px;font-size:12px;font-weight:600;color:var(--fg-2)}
-.dv .chk{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+.dv .chk{position:absolute;top:-8px;right:-8px;width:24px;height:24px;box-shadow:0 0 0 3px var(--surface);border-radius:50%;display:grid;place-items:center;
   background:var(--accent);color:#fff;opacity:0;transform:scale(.6);transition:opacity .15s,transform .2s var(--ease)}
 .dv .chk .ic{width:13px;height:13px;stroke-width:2.6}
 .dv.on .chk{opacity:1;transform:none}
-.dv.on .nm{padding-right:26px}
 
 /* ── параметры ── */
 .opts{display:flex;flex-direction:column}
@@ -124,6 +120,26 @@ details.catalog .cat-body{padding:4px 22px 22px}
 .steps li:first-child{color:var(--fg);font-weight:600}
 .steps li:nth-child(n+3){opacity:.6}.steps li:nth-child(n+4){opacity:.35}
 .scan-note{margin-top:20px;font-size:12.5px;color:var(--muted)}
+
+/* ── узкое окно: всё после базовых правил, чтобы выигрывать каскад ── */
+@media (max-width:1180px){
+  .hero{grid-template-columns:1fr}.radar{display:none}
+  /* одна колонка: диски → запуск → параметры → история, чтобы кнопка была на виду */
+  .layout{display:flex;flex-direction:column;align-items:stretch;gap:18px}
+  .col-main,.col-side{display:contents}
+  #drives-card{order:1}.go-card{order:2}#opts-card{order:3}#recent-card{order:4}
+  .go-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:18px;align-items:center;padding:18px 22px}
+  .go-card .go-ico{grid-row:1/3}
+  .go-card h2{margin:0}
+  #go-sum{grid-column:2;min-height:0;margin:0}
+  #go{grid-column:3;grid-row:1/3;width:auto}
+  .notes{display:none}
+}
+@media (max-width:720px){
+  .go-card{grid-template-columns:1fr;row-gap:12px}.go-card .go-ico{grid-row:auto}
+  #go-sum,#go{grid-column:1;grid-row:auto}#go{width:100%}
+  .hero{padding:26px 22px}.hero h1{font-size:28px}
+}
 </style>{% endblock %}
 
 {% block body %}
@@ -161,13 +177,13 @@ details.catalog .cat-body{padding:4px 22px 22px}
 
   <div class="layout">
     <div class="col-main">
-      <div class="card">
+      <div class="card" id="drives-card">
         <div class="card-h"><div><h2 class="t3">Какие диски сканировать</h2><div class="hint">Можно выбрать один или несколько. Сетевые диски не трогаем.</div></div>
           <div class="quick"><button class="btn sm" onclick="pick('sys')">Только системный</button><button class="btn sm" onclick="pick('all')">Все локальные</button></div></div>
         <div class="drives" id="drives"><div class="empty" style="grid-column:1/-1;padding:24px"><span class="spin"></span>Определяю диски…</div></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="opts-card">
         <div class="card-h" style="margin-bottom:10px"><div><h2 class="t3">Параметры сканирования</h2><div class="hint">Всё включено по умолчанию — отключайте то, что не нужно.</div></div></div>
         <div class="opts">
           <label class="opt"><span class="ico"><svg class="ic"><use href="#i-scan"/></svg></span>
@@ -195,7 +211,7 @@ details.catalog .cat-body{padding:4px 22px 22px}
         </ul>
       </div>
       {% if history %}
-      <div class="card"><div class="card-h" style="margin-bottom:8px"><div><h2 class="t3">Последние сканирования</h2><div class="hint">Откроются только для просмотра</div></div></div>
+      <div class="card" id="recent-card"><div class="card-h" style="margin-bottom:8px"><div><h2 class="t3">Последние сканирования</h2><div class="hint">Откроются только для просмотра</div></div></div>
         {% for h in history %}<a href="/history/{{ h.name }}" class="rs"><span class="ico"><svg class="ic"><use href="#i-history"/></svg></span>
           <span class="rs-t"><b>{{ day(h.scanned_at) }}</b>{% if h.mock %} <span class="tag">демо</span>{% endif %}<br><small class="num">{{ hm(h.scanned_at) }} · диски: {{ h.drives }}</small></span>
           <span class="rs-v num">{{ h.total_gb|size }}<small>можно освободить</small></span></a>{% endfor %}

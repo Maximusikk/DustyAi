@@ -43,7 +43,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const ic = (n, c = '') => `<svg class="ic ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 const NB = ' ';
 /* число по-русски: запятая, лишние нули убираем */
-const nf = (v, d = 1) => { let s = (+v || 0).toFixed(d); if (s.includes('.')) s = s.replace(/\.?0+$/, ''); return (s || '0').replace('.', ','); };
+const nf = (v, d = 1) => {
+  let s = (+v || 0).toFixed(d); if (s.includes('.')) s = s.replace(/\.?0+$/, '');
+  const [i, f] = (s || '0').split('.');   // «1443,5» → «1 443,5» (неразрывный пробел между разрядами)
+  return i.replace(/\B(?=(\d{3})+(?!\d))/g, NB) + (f ? ',' + f : '');
+};
 /* размер: ≥100 ГБ — целые, ≥10 — один знак, иначе два; мельче гигабайта — в мегабайтах */
 const fmt = g => g >= 1 ? nf(g, g >= 100 ? 0 : g >= 10 ? 1 : 2) + NB + 'ГБ' : Math.round(g * 1024) + NB + 'МБ';
 const plural = (n, f) => { const a = n % 100, b = n % 10; return a > 10 && a < 20 ? f[2] : b === 1 ? f[0] : b > 1 && b < 5 ? f[1] : f[2] };
@@ -105,7 +109,7 @@ $('#elev')?.addEventListener('click', () => {
       <p class="lead">{{ APP_NAME }} перезапустится с правами администратора — Windows попросит подтверждение. Это нужно для очистки системного Temp и защищённых папок.</p></div></div>
     <div class="acts"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn primary" id="elev-go" data-autofocus>Перезапустить</button></div>`);
   $('#elev-go').onclick = async e => {
-    e.target.disabled = true; e.target.textContent = 'Перезапускаю…';
+    e.target.disabled = true; e.target.classList.add('busy'); e.target.textContent = 'Перезапускаю…';
     try{
       const j = await (await fetch('/api/elevate', {method:'POST'})).json(); closeModal();
       toast(j.ok ? 'Перезапуск от администратора… окно закроется само' : (j.error || 'Не удалось'), !j.ok);

@@ -77,7 +77,7 @@ h4{font:600 14px/1.35 var(--font)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .eyebrow{font-size:11.5px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:var(--accent-ink)}
 [hidden]{display:none!important}
-.btn,.tab,.chip,.seg button,.nav-i,.brand,.tag,.risk,.pill{user-select:none;-webkit-user-select:none}
+button,.switch,.btn,.tab,.chip,.nav-i,.brand,.tag,.risk{user-select:none;-webkit-user-select:none}   /* текст в окне копируется, но кнопки случайно не выделяются */
 
 /* скроллбары — тонкие, в тон интерфейсу */
 *{scrollbar-width:thin;scrollbar-color:var(--border-2) transparent}
@@ -111,7 +111,8 @@ h4{font:600 14px/1.35 var(--font)}
 .privacy .ic{width:16px;height:16px;margin-top:1px;color:var(--ok-ink)}
 .admin-on{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:var(--ok-soft);color:var(--ok-ink);font-size:12.5px;font-weight:600}
 .admin-on .ic{width:16px;height:16px}
-.side-btn{width:100%;justify-content:flex-start}
+.side .btn.side-btn{width:100%;height:auto;min-height:38px;padding:8px 12px;justify-content:flex-start;white-space:normal;text-align:left;line-height:1.25}
+.side .btn.side-btn span{max-width:150px}
 
 main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(900px 360px at 80% -160px,var(--glow),transparent 70%) no-repeat}
 .wrap{max-width:1200px;margin:0 auto;padding:34px 40px 110px;animation:rise .45s var(--ease) both}
@@ -125,10 +126,10 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
 @media (max-width:1100px){
   .side{width:72px;padding:18px 10px}
   .brand{justify-content:center;padding:4px 0 18px}
-  .brand-t,.nav-i span,.nav-label,.privacy p,.side-btn span,.admin-on span{display:none}
+  .brand-t,.nav-i span,.nav-label,.privacy p,.side .btn.side-btn span,.admin-on span{display:none}
   .nav-i{justify-content:center;padding:0}
   .privacy,.admin-on{justify-content:center;padding:10px}
-  .side-btn{justify-content:center;padding:0}
+  .side .btn.side-btn{justify-content:center;padding:0;min-height:38px}
   .wrap{padding:28px 28px 100px}
 }
 /* верхняя полоса на совсем узком (режим --browser) */
@@ -175,6 +176,10 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
 .btn.soft:hover{filter:brightness(.97)}
 .btn.ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--fg-2)}
 .btn.ghost:hover{background:var(--surface-3)}
+.btn.busy{pointer-events:none}
+.btn.danger.busy:disabled{background:var(--danger);color:#fff;opacity:.85}
+.btn.busy .ic{display:none}
+.btn.busy::before{content:"";width:15px;height:15px;border-radius:50%;border:2px solid rgba(127,127,127,.35);border-top-color:currentColor;animation:spin .7s linear infinite}
 .btn.sm{--h:32px;padding:0 12px;font-size:13px;border-radius:10px}
 .btn.sm .ic{width:15px;height:15px}
 .btn.lg{--h:52px;padding:0 28px;font-size:15.5px;border-radius:15px;gap:10px}
@@ -216,8 +221,6 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .tag.warn{background:var(--warn-soft);color:var(--warn-ink)}
 .tag.ok{background:var(--ok-soft);color:var(--ok-ink)}
 .tag.info{background:var(--accent-soft);color:var(--accent-ink)}
-.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:99px;font-size:12px;font-weight:600;background:var(--ok-soft);color:var(--ok-ink)}
-.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 
 /* плитка с иконкой программы / эмодзи из каталога */
 .ico{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;overflow:hidden;

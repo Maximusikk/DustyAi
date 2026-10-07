@@ -28,6 +28,13 @@ app = Flask(__name__)
 app.jinja_env.globals.update(APP_NAME=APP_NAME, IS_ADMIN=ADMIN, CAN_ELEVATE=IS_WINDOWS and not ADMIN)
 
 
+def _group(s):
+    """«1443.5» → «1 443,5»: разряды тысяч через неразрывный пробел, десятичная запятая."""
+    whole, _, frac = s.partition(".")
+    whole = f"{int(whole):,}".replace(",", "\u00a0") if whole.lstrip("-").isdigit() else whole
+    return whole + ("," + frac if frac else "")
+
+
 @app.template_filter("size")
 def size_filter(g):
     """ГБ → «512 МБ» / «1,4 ГБ»: мелочь в гигабайтах выглядит как «0,0». Запятая — по-русски,
@@ -39,7 +46,7 @@ def size_filter(g):
     s = f"{g:.{0 if g >= 100 else 1 if g >= 10 else 2}f}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
-    return s.replace(".", ",") + "\u00a0ГБ"
+    return _group(s) + "\u00a0ГБ"
 
 
 @app.template_filter("num")
@@ -48,7 +55,7 @@ def num_filter(v, digits=1):
     s = f"{(v or 0):.{digits}f}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
-    return (s or "0").replace(".", ",")
+    return _group(s or "0")
 
 
 HOST, PORT = "127.0.0.1", 5000

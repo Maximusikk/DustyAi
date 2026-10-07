@@ -4,6 +4,7 @@
 {% block head %}<style>
 /* ── выбор диска ── */
 .scope{margin:0 0 16px}
+.scope .seg button small{max-width:190px;overflow:hidden;text-overflow:ellipsis}
 
 /* ── итог: герой-число + метр диска ── */
 .sum{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:0;margin-bottom:14px;padding:0;border-radius:var(--r-xl);
@@ -35,13 +36,14 @@
   border:1px solid transparent;border-radius:12px;background:transparent;color:inherit;font:inherit;cursor:pointer;transition:background .15s,border-color .15s}
 .dk-row:hover{background:var(--surface);border-color:var(--border)}
 .dk-row .ltr{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--surface-3);font-weight:700;font-size:13px}
-.dk-row .dk-nm{font-weight:600;font-size:13px;line-height:1.25;min-width:0}.dk-row .dk-nm small{display:block;color:var(--muted);font-weight:400;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-rows{max-height:244px;overflow-y:auto;padding-right:2px}
+.dk-row .dk-nm{font-weight:600;font-size:13px;line-height:1.25;min-width:0}.dk-row .dk-l{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dk-row .dk-nm small{display:block;color:var(--muted);font-weight:400;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dk-row .pc{text-align:right;font-weight:600;font-size:12.5px}
 .dk-row.dim{opacity:.55;cursor:default}
 
 /* ── KPI-плитки: заодно фильтры таблицы ── */
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
-.kpi{text-align:left;padding:16px 18px 15px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:inherit;font:inherit;
+.kpi{display:block;text-align:left;padding:16px 18px 15px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:inherit;font:inherit;
   cursor:pointer;box-shadow:var(--sh-1);transition:border-color .15s,box-shadow .15s,transform .15s var(--ease)}
 .kpi:hover{border-color:var(--border-2);transform:translateY(-1px)}
 .kpi.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-track)}
@@ -49,20 +51,20 @@
 .kpi-l .dot{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:var(--surface-3);color:var(--fg-2)}
 .kpi-l .dot .ic{width:15px;height:15px}
 .kpi.A .dot{background:var(--ok-soft);color:var(--ok-ink)}.kpi.B .dot{background:var(--warn-soft);color:var(--warn-ink)}.kpi.C .dot{background:var(--danger-soft);color:var(--danger-ink)}
-.kpi-v{margin:9px 0 3px;font:700 28px/1.1 var(--font-display);letter-spacing:-.02em}
-.kpi-d{color:var(--muted);font-size:12.5px;line-height:1.4;min-height:35px}
-.kpi-bar{height:5px;border-radius:99px;background:var(--surface-3);margin-top:10px;overflow:hidden}
+.kpi-v{display:block;margin:9px 0 3px;font:700 28px/1.1 var(--font-display);letter-spacing:-.02em}
+.kpi-d{display:block;color:var(--muted);font-size:12.5px;line-height:1.4;min-height:35px}
+.kpi-bar{display:block;height:5px;border-radius:99px;background:var(--surface-3);margin-top:10px;overflow:hidden}
 .kpi-bar i{display:block;height:100%;border-radius:99px;transition:width .6s var(--ease)}
 .kpi.A .kpi-bar i{background:var(--ok)}.kpi.B .kpi-bar i{background:var(--warn)}.kpi.C .kpi-bar i{background:var(--danger)}
 
 /* ── корзина ── */
-.rbin{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px}
+.rbin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:12px;margin-bottom:14px}
+.bin-empty{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 4px;color:var(--muted);font-size:13px}
+.bin-empty .ic{width:16px;height:16px;color:var(--faint)}
 .rbin:empty{display:none}
 .bin{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:13px 16px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--sh-1)}
 .bin .ico{background:var(--ok-soft);border-color:transparent;color:var(--ok-ink)}
 .bin .ico .ic{width:19px;height:19px}
-.bin.isempty{box-shadow:none;background:transparent}
-.bin.isempty .ico{background:var(--surface-3);color:var(--faint)}
 .bin-t b{font-weight:600}.bin-t small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35}
 .bin .sz{font-size:17px;font-weight:700;white-space:nowrap}
 
@@ -111,7 +113,7 @@
 .pad>.card-h{margin-bottom:12px}
 
 /* ── таблица очистки ── */
-.tbl-wrap{overflow-x:auto}
+.tbl-wrap{overflow-x:auto;position:relative}   /* relative: чтобы скрытый .sr в заголовке не расширял страницу */
 .tbl{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:640px}
 .tbl thead th{padding:10px 12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
   background:var(--surface-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);white-space:nowrap}
@@ -237,14 +239,14 @@
 </section>
 
 <div class="kpis" id="kpis">
-  <button class="kpi" data-k="ALL" title="Показать все находки"><div class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-layers"/></svg></span>Найдено элементов</div>
-    <div class="kpi-v" id="k-n">0</div><div class="kpi-d">в таблице очистки</div></button>
-  <button class="kpi A" data-k="A" title="Только безопасное"><div class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-check-circle"/></svg></span>Безопасно · A</div>
-    <div class="kpi-v" id="k-A">0</div><div class="kpi-d">Удаляется без последствий — программы создадут заново</div><div class="kpi-bar"><i id="kb-A"></i></div></button>
-  <button class="kpi B" data-k="B" title="Только «на усмотрение»"><div class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-alert"/></svg></span>На усмотрение · B</div>
-    <div class="kpi-v" id="k-B">0</div><div class="kpi-d">Проверьте перед удалением: дубликаты и мусор разработчика</div><div class="kpi-bar"><i id="kb-B"></i></div></button>
-  <button class="kpi C" data-k="C" title="Только «вручную»"><div class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-lock"/></svg></span>Только вручную · C</div>
-    <div class="kpi-v" id="k-C">0</div><div class="kpi-d">Приложение это не удаляет — решение за вами</div><div class="kpi-bar"><i id="kb-C"></i></div></button>
+  <button class="kpi" data-k="ALL" title="Показать все находки"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-layers"/></svg></span>Найдено элементов</span>
+    <span class="kpi-v" id="k-n">0</span><span class="kpi-d">в таблице очистки</span></button>
+  <button class="kpi A" data-k="A" title="Только безопасное"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-check-circle"/></svg></span>Безопасно · A</span>
+    <span class="kpi-v" id="k-A">0</span><span class="kpi-d">Удаляется без последствий — программы создадут заново</span><span class="kpi-bar"><i id="kb-A"></i></span></button>
+  <button class="kpi B" data-k="B" title="Только «на усмотрение»"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-alert"/></svg></span>На усмотрение · B</span>
+    <span class="kpi-v" id="k-B">0</span><span class="kpi-d">Проверьте перед удалением: дубликаты и мусор разработчика</span><span class="kpi-bar"><i id="kb-B"></i></span></button>
+  <button class="kpi C" data-k="C" title="Только «вручную»"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-lock"/></svg></span>Только вручную · C</span>
+    <span class="kpi-v" id="k-C">0</span><span class="kpi-d">Приложение это не удаляет — решение за вами</span><span class="kpi-bar"><i id="kb-C"></i></span></button>
 </div>
 
 <div class="rbin" id="rbin"></div>
@@ -312,7 +314,7 @@
   <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-file"/></svg></div><b>Крупных файлов не найдено</b><span>Они ищутся при глубоком скане диска.</span></div>
 </div></div>
 
-<div class="panel" id="p-over" role="tabpanel"><div class="card pad ov"><div class="card-h"><div><h2 class="t3">Обзор дисков</h2>
+<div class="panel" id="p-over" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Обзор дисков</h2>
   <div class="hint">Крупнейшие папки и файлы по всему диску (на системном без самого Windows), плюс профиль и AppData. Здесь всё только показывается — решение за вами.</div></div></div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
   <div class="blk" data-drives="{{ L }}"><h3 class="t4"><span class="ltr-chip">{{ L }}:</span> {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h3>
@@ -359,7 +361,7 @@
 
 <div class="panel" id="p-py" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Установки Python</h2><div class="hint">Только просмотр: удаляйте через «Параметры → Приложения»</div></div></div>
   <div class="list">
-  {% for p in d.python %}<div class="item lr" data-drives="{{ p.drive }}">
+  {% for p in d.python %}<div class="lr" data-drives="{{ p.drive }}">
     <div class="lr-l">{{ ico(p.icon_img, '🐍') }}
       <div class="lr-m"><div class="lr-t">Python {{ p.version }}</div><div class="lr-p mono">{{ p.path }}</div>
       {% if p.packages %}<div class="pk">Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="tag">{{ n }} · {{ mb }} МБ</span>{% endfor %}</div>{% endif %}
@@ -373,7 +375,7 @@
 <div class="panel" id="p-prog" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Тяжёлые программы</h2>
   <div class="hint">Больше 300 МБ. Кнопка «Удалить» запускает штатный деинсталлятор Windows — он сам спросит подтверждение и корректно уберёт программу.</div></div></div>
   <div class="list">
-  {% for p in d.programs %}<div class="item lr" data-drives="{{ p.drive }}">
+  {% for p in d.programs %}<div class="lr" data-drives="{{ p.drive }}">
     <div class="lr-l">{{ ico(p.icon_img, '🧩') }}
       <div class="lr-m"><div class="lr-t cut">{{ p.DisplayName }}</div><div class="lr-p mono">{{ p.DisplayVersion or '' }}{% if p.InstallLocation %} · {{ p.InstallLocation }}{% endif %}</div></div></div>
     <div class="lr-r"><b class="num">{{ (p.SizeMB / 1024)|size }}</b>
@@ -431,6 +433,12 @@ function switchTab(p){
   updateSelBar();
 }
 $$('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.p));
+$('#tabs').addEventListener('keydown', e => {   // стрелки/Home/End — как в стандартном паттерне вкладок
+  const keys = {ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last'}; if(!(e.key in keys)) return;
+  const tabs = $$('.tab'), i = tabs.indexOf(document.activeElement); if(i < 0) return;
+  const n = keys[e.key] === 'first' ? 0 : keys[e.key] === 'last' ? tabs.length - 1 : (i + keys[e.key] + tabs.length) % tabs.length;
+  e.preventDefault(); tabs[n].focus(); tabs[n].click(); tabs[n].scrollIntoView({block: 'nearest', inline: 'nearest'});
+});
 function tabsFade(){   // на узком окне вкладки прокручиваются — подсказываем это затуханием у края
   const t = $('#tabs'); t.classList.toggle('fade-l', t.scrollLeft > 4); t.classList.toggle('fade-r', t.scrollLeft + t.clientWidth < t.scrollWidth - 4);
 }
@@ -465,7 +473,7 @@ $$('#dsw button').forEach(b => b.onclick = () => applyDrive(b.dataset.d));
 
 /* ── итог ── */
 function renderHero(S){
-  const t = S.total, big = t >= 1;
+  const t = S.total, big = t >= 1 || t === 0;
   $('#st-total').textContent = big ? nf(t, t >= 10 ? 1 : 2) : String(Math.round(t * 1024));
   $('#st-unit').textContent = big ? 'ГБ' : 'МБ';
   $('#hero-scope').textContent = cur === 'ALL' ? 'Все диски' : 'Диск ' + cur + ':';
@@ -476,6 +484,7 @@ function renderHero(S){
   if(READONLY) txt += ' Это сохранённый отчёт — удаление отключено.';
   $('#sum-text').innerHTML = txt;
   $('#pick-safe').hidden = READONLY || !tableRows().some(r => r.cat === 'A' && r.deletable);
+  $('#to-list').hidden = !tableRows().length;
 }
 function renderKpis(S){
   const all = tableRows();
@@ -497,10 +506,10 @@ function renderDisk(S){
     <div class="dk-leg"><span><i style="background:var(--s8)"></i>Занято <b class="num">${fmt(used - rec)}</b></span>
       <span><i style="background:var(--accent)"></i>Можно освободить <b class="num">${fmt(rec)}</b></span>
       <span><i style="background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--border-2)"></i>Свободно <b class="num">${fmt(free)}</b></span></div>`;
-  if(rec > 0) html += `<div class="dk-after">${ic('check-circle')}<span>После очистки свободно будет <b class="num">${fmt(free + rec)}</b> <em>(+${fmt(rec)})</em></span></div>`;
+  if(rec > 0) html += `<div class="dk-after">${ic('check-circle')}<span>Если очистить всё найденное, свободно будет <b class="num">${fmt(free + rec)}</b> <em>(+${fmt(rec)})</em></span></div>`;
   if(cur === 'ALL' && dr.length > 1) html += '<div class="dk-rows">' + DRIVES.map(x => `<button type="button" class="dk-row ${x.scanned ? '' : 'dim'}" ${x.scanned ? `data-card="${esc(x.Name)}"` : 'disabled'}
       title="${x.scanned ? 'Показать только этот диск' : (x.Type === 'network' ? 'Сетевой диск — не сканируется' : 'Этот диск не сканировался')}">
-      <span class="ltr">${esc(x.Name)}:</span><span class="dk-nm">${esc(x.Label || 'Локальный диск')}<small class="num">${x.scanned ? `свободно ${nf(x.FreeGB, 0)} из ${nf(x.TotalGB, 0)}${NB}ГБ` : 'не сканировался'}</small></span>
+      <span class="ltr">${esc(x.Name)}:</span><span class="dk-nm"><span class="dk-l">${esc(x.Label || 'Локальный диск')}</span><small class="num">${x.scanned ? `свободно ${nf(x.FreeGB, 0)} из ${nf(x.TotalGB, 0)}${NB}ГБ` : 'не сканировался'}</small></span>
       <span class="meter ${usageCls(x.Pct)}"><i style="width:${x.Pct}%"></i></span><span class="pc num">${x.Pct}%</span></button>`).join('') + '</div>';
   $('#disk').innerHTML = html;
 }
@@ -530,13 +539,14 @@ function renderComp(S){
 /* ── корзина: по плашке на каждый просканированный диск ── */
 function renderRecycle(){
   const letters = (cur === 'ALL' ? scannedDrives : scannedDrives.filter(d => d.Name === cur)).map(d => d.Name);
-  $('#rbin').innerHTML = letters.map(L => {
-    const r = ROWS.find(x => x.kind === 'recycle' && x.drive === L), size = r ? r.size_gb : 0;
-    return `<div class="bin ${size ? '' : 'isempty'}"><span class="ico">${ic('trash')}</span>
-      <div class="bin-t"><b>Корзина ${L}:</b><small>${size ? 'Файлы, которые вы уже удалили, но они ещё занимают место' : 'Корзина пуста'}</small></div>
-      <b class="sz num">${size ? fmt(size) : '0'}</b>
-      ${READONLY ? '<span></span>' : `<button class="btn danger sm" data-bin="${L}" ${size && r.deletable ? '' : 'disabled'}>Очистить</button>`}</div>`;
-  }).join('');
+  const full = [], empty = [];
+  letters.forEach(L => { const r = ROWS.find(x => x.kind === 'recycle' && x.drive === L), size = r ? r.size_gb : 0; (size ? full : empty).push({L, r, size}) });
+  // непустые корзины — карточками с кнопкой, пустые — одной строкой, чтобы не шуметь
+  $('#rbin').innerHTML = full.map(({L, r, size}) => `<div class="bin"><span class="ico">${ic('trash')}</span>
+      <div class="bin-t"><b>Корзина ${L}:</b><small>Файлы, которые вы уже удалили, но они ещё занимают место</small></div>
+      <b class="sz num">${fmt(size)}</b>
+      ${READONLY ? '<span></span>' : `<button class="btn danger sm" data-bin="${L}" ${r.deletable ? '' : 'disabled'}>Очистить</button>`}</div>`).join('')
+    + (empty.length ? `<div class="bin-empty">${ic('trash')}<span>${empty.length === 1 ? 'Корзина пуста' : 'Корзины пусты'}: ${empty.map(x => x.L + ':').join(', ')}</span></div>` : '');
 }
 
 /* ── фильтры ── */
@@ -713,7 +723,8 @@ function ask(items){
 }
 let freedTotal = 0;   // освобождено за всю операцию, включая повторы после закрытия программ
 async function run(ids, btn){
-  btn.classList.remove('armed'); btn.disabled = true; $('.lbl', btn).textContent = 'Удаляю…'; freedTotal = 0;
+  btn.classList.remove('armed'); btn.classList.add('busy'); $('.lbl', btn).textContent = 'Удаляю…'; freedTotal = 0;
+  $$('#modal-body .acts .btn').forEach(b => b.disabled = true);   // пока идёт удаление, окно не трогаем
   try{
     const r = await post('/delete_batch', {ids}); const j = await r.json();
     if(!r.ok) throw new Error(j.error || 'Ошибка');
@@ -731,7 +742,10 @@ function reloadWithToast(j, closed){
   if(closed && closed.length) m += ' · закрыто: ' + closed.join(', ');
   const failed = (j && j.failed) || [];
   if(failed.length) m += ' · ' + failed[0].error + (failed.length > 1 ? ` (и ещё ${failed.length - 1})` : '');
-  try{ sessionStorage.setItem('toast', m); if(freedTotal <= 0) sessionStorage.setItem('toastKind', failed.length ? 'err' : 'info') }catch(_){}
+  try{
+    sessionStorage.setItem('toast', m); if(freedTotal <= 0) sessionStorage.setItem('toastKind', failed.length ? 'err' : 'info');
+    sessionStorage.setItem('dusty.view', JSON.stringify({tab: activePanel(), risk: riskF, y: $('#main').scrollTop}));   // после перезагрузки вернёмся на то же место
+  }catch(_){}
   location.reload();
 }
 function showLocked(locked, ids){
@@ -757,7 +771,8 @@ function showLocked(locked, ids){
   if(noProcs) return;
   const retry = async (kill, btn) => {
     const pids = kill ? $$('[data-pid]:checked').map(c => +c.dataset.pid) : [];
-    const force = kill && $('#force').checked; btn.disabled = true; btn.textContent = kill ? 'Закрываю программы…' : 'Повторяю…';
+    const force = kill && $('#force').checked;
+    $$('#modal-body .acts .btn').forEach(b => b.disabled = true); btn.classList.add('busy'); btn.textContent = kill ? 'Закрываю программы…' : 'Повторяю…';
     try{
       const j = await (await post('/api/unlock-retry', {ids: locked.map(r => r.id), pids, force})).json();
       if(!j.ok) throw new Error(j.error || 'Ошибка');
@@ -785,4 +800,13 @@ async function openLoc(id){
 let start = scannedDrives.length > 1 ? 'ALL' : (scannedDrives[0] || {}).Name || 'ALL';
 try{ const s = sessionStorage.getItem('dusty.drive'); if(s && (s === 'ALL' ? scannedDrives.length > 1 : scannedDrives.some(d => d.Name === s))) start = s }catch(_){}
 applyDrive(start);
+(function restoreView(){   // вернуть вкладку, фильтр и прокрутку после перезагрузки (например, после удаления)
+  try{
+    const raw = sessionStorage.getItem('dusty.view'); if(!raw) return; sessionStorage.removeItem('dusty.view');
+    const st = JSON.parse(raw);
+    if(['ALL', 'A', 'B', 'C'].includes(st.risk) && st.risk !== riskF){ riskF = st.risk; renderKpis(summary()); renderRiskChips(); renderRows(); }
+    if($$('.tab').some(t => t.dataset.p === st.tab)) switchTab(st.tab);
+    requestAnimationFrame(() => { $('#main').scrollTop = +st.y || 0 });
+  }catch(_){}
+})();
 </script>{% endblock %}
