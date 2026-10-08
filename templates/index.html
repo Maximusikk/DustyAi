@@ -113,12 +113,16 @@ details.catalog .cat-body{padding:4px 22px 22px}
 .pct small{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:6px}
 .scan-card h2{font-size:21px}
 #msg{color:var(--muted);margin-top:6px;min-height:22px}
-.steps{list-style:none;margin:22px auto 0;padding:14px 16px;max-width:400px;display:flex;flex-direction:column;gap:8px;
-  text-align:left;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);min-height:44px}
-.steps li{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--muted);animation:rise .3s var(--ease) both}
-.steps li .ic{width:15px;height:15px;color:var(--ok-ink);stroke-width:2.4}
-.steps li:first-child{color:var(--fg);font-weight:600}
-.steps li:nth-child(n+3){opacity:.6}.steps li:nth-child(n+4){opacity:.35}
+.steps{list-style:none;margin:22px auto 0;padding:10px 16px;max-width:400px;text-align:left;border-radius:14px;
+  background:var(--surface-2);border:1px solid var(--border);height:176px;overflow-y:auto}
+.steps li{display:flex;gap:10px;align-items:center;height:26px;font-size:13px;color:var(--muted)}
+.steps li .ic{width:15px;height:15px;flex:none;stroke-width:2.4;color:var(--ok-ink);opacity:0}
+.steps li.done .ic{opacity:1}
+.steps li.running{color:var(--fg);font-weight:600}
+.steps li.running .ic{opacity:1;color:var(--accent);animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.25}}
+.scan-meta{display:flex;justify-content:space-between;gap:12px;max-width:400px;margin:10px auto 0;font-size:12.5px;color:var(--muted);
+  font-variant-numeric:tabular-nums;min-height:18px}
 .scan-note{margin-top:20px;font-size:12.5px;color:var(--muted)}
 
 /* ── узкое окно: всё после базовых правил, чтобы выигрывать каскад ── */
@@ -254,6 +258,7 @@ details.catalog .cat-body{padding:4px 22px 22px}
     <h2 id="scan-title">Сканирую диски…</h2>
     <p id="msg">Запуск…</p>
     <ul class="steps" id="steps"></ul>
+    <div class="scan-meta"><span id="detail"></span><span id="eta"></span></div>
     <p class="scan-note">Ничего не удаляется — идёт только чтение. Окно можно не закрывать.</p>
   </div>
 </section>
@@ -264,13 +269,17 @@ let DRIVES = [], SYS = 'C';
 const picked = new Set();
 const usage = p => p > 85 ? 'crit' : p >= 70 ? 'warn' : '';
 
+function slowNote(d){
+  if(d.last_scan_sec) return ` · прошлый скан: ${fmtDur(d.last_scan_sec)}`;
+  return d.Media === 'HDD' && d.UsedGB > 300 ? ' · HDD: скан может занять много минут' : '';
+}
 function drawDrives(){
   $('#drives').innerHTML = DRIVES.map(d => {
-    const on = picked.has(d.Name), type = d.Type === 'network' ? 'сетевой' : d.Type === 'removable' ? 'съёмный' : (d.Name === SYS ? 'системный' : '');
+    const on = picked.has(d.Name), type = d.Type === 'network' ? 'сетевой' : d.Type === 'removable' ? 'съёмный' : (d.Name === SYS ? 'системный' : 'данные');
     return `<button type="button" class="dv ${on ? 'on' : ''} ${d.scannable ? '' : 'off'}" data-n="${esc(d.Name)}" aria-pressed="${on}" ${d.scannable ? '' : 'disabled title="Сетевые диски не сканируются"'}>
       <span class="ltr">${esc(d.Name)}:</span>
-      <span class="nm"><span>${esc(d.Label || 'Локальный диск')}</span>${type ? `<span class="tag ${d.Name === SYS && d.Type !== 'network' ? 'info' : ''}">${type}</span>` : ''}</span>
-      <span class="cap num">Свободно ${nf(d.FreeGB, 0)} из ${nf(d.TotalGB, 0)}${NB}ГБ</span>
+      <span class="nm"><span>${esc(d.Label || 'Локальный диск')}</span>${type ? `<span class="tag ${d.Name === SYS && d.Type !== 'network' ? 'info' : ''}">${type}</span>` : ''}${d.Media ? `<span class="tag">${d.Media}</span>` : ''}</span>
+      <span class="cap num">Свободно ${nf(d.FreeGB, 0)} из ${nf(d.TotalGB, 0)}${NB}ГБ${slowNote(d)}</span>
       <span class="use"><span class="meter ${usage(d.Pct)}"><i style="width:${d.Pct}%"></i></span><span class="num">${d.Pct}%</span></span>
       <span class="chk">${ic('check')}</span></button>`;
   }).join('') || '<div class="empty" style="grid-column:1/-1">Диски не найдены</div>';
@@ -302,7 +311,6 @@ function updateGo(){
 })();
 
 /* ── сканирование ── */
-const seen = [];
 function showScanner(){ $('#setup').hidden = true; $('#scanner').hidden = false; scroller.scrollTop = 0 }
 function showSetup(){ $('#scanner').hidden = true; $('#setup').hidden = false; updateGo() }
 const scroller = $('#main');
@@ -311,15 +319,28 @@ async function go(){
   try{
     const r = await post('/scan', {drives:[...picked], dups: $('#dups').checked, profile: $('#profile').checked, deep_system: $('#deep').checked});
     if(!r.ok) throw new Error('сервер вернул ' + r.status);
-    seen.length = 0; showScanner(); poll();
+    phKey = ''; showScanner(); poll();
   }catch(e){ updateGo(); toast('Не удалось запустить сканирование: ' + e.message, true) }
 }
+function fmtDur(sec){
+  if(sec < 45) return 'меньше минуты';
+  const m = Math.round(sec / 60);
+  return m < 60 ? m + ' мин' : Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + (m % 60) + ' мин' : '');
+}
+let phKey = '';
 function paint(s){
   const p = Math.max(0, Math.min(100, Math.round(s.progress || 0)));
   $('#pct').textContent = p; $('#ring').style.strokeDashoffset = 603.2 * (1 - p / 100);
   $('#msg').textContent = s.message || '';
-  if(s.message && s.message !== seen[0]){ seen.unshift(s.message); seen.length = Math.min(seen.length, 5) }
-  $('#steps').innerHTML = seen.map(m => `<li>${ic('check')}<span class="cut">${esc(m)}</span></li>`).join('');
+  const ph = s.phases || [], key = ph.map(x => x.label).join('|');
+  if(key !== phKey){  // строки создаются один раз и больше не пересоздаются: текст не прыгает
+    phKey = key;
+    $('#steps').innerHTML = ph.map(x => `<li><svg class="ic"><use href="#i-check"/></svg><span class="cut">${esc(x.label)}</span></li>`).join('');
+  }
+  [...$('#steps').children].forEach((li, n) => { li.className = ph[n].state });
+  $('#detail').textContent = s.detail || '';
+  $('#eta').textContent = s.eta == null || !ph.length ? '' : s.eta < 5 ? 'почти готово'
+    : (s.eta_live ? 'осталось ≈ ' : 'в прошлый раз ≈ ') + fmtDur(s.eta);
 }
 async function poll(){
   let s;
@@ -330,6 +351,6 @@ async function poll(){
     setTimeout(() => { location.href = '/report' }, reduceMotion() ? 0 : 550); return;
   }
   if(s.status === 'error'){ showSetup(); toast(s.message || 'Ошибка сканирования', true); return }
-  setTimeout(poll, 600);
+  setTimeout(poll, 1000);
 }
 </script>{% endblock %}

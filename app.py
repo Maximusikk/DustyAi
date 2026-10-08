@@ -12,7 +12,7 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from flask import Flask, jsonify, redirect, render_template, request
 
@@ -65,7 +65,9 @@ HISTORY_RE = re.compile(r"^scan_\d{8}_\d{6}\.json$")
 SCAN_WORKERS = 8
 
 _lock = threading.Lock()
-scan_state = {"status": "idle", "progress": 0, "message": ""}
+scan_state = {"status": "idle", "progress": 0, "message": "", "phases": [], "eta": None, "detail": ""}
+HINTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans", "hints.json")
+HDD_WORKERS = 3  # на HDD много потоков → лишние перемещения головки; 2-3 обходят диск быстрее
 scan_data = {}
 _drive_cache = {"t": 0.0, "v": []}
 _mock_unlocked = set()
@@ -97,6 +99,70 @@ def get_drives(force=False):
 
 
 # ─────────────────────────────── сканирование ───────────────────────────────
+
+# ───────────────────── память прошлых сканов (подсказки) ─────────────────────
+
+def load_hints():
+    """{буква диска: итоги прошлого глубокого скана}. Файл — оптимизация: нет/битый → скан как обычно."""
+    try:
+        with open(HINTS_FILE, encoding="utf-8") as f:
+            h = json.load(f)
+        return h if isinstance(h, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_hints(new):
+    try:
+        os.makedirs(os.path.dirname(HINTS_FILE), exist_ok=True)
+        merged = {**load_hints(), **new}
+        with open(HINTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(merged, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+class Progress:
+    """Считает общий процент и ETA. Мелкие задачи делят свою долю поровну, обход диска — по объёму:
+    его процент = учтённые байты / занятое место на диске, поэтому медленный диск не «зависает» на 76%."""
+
+    def __init__(self, tasks, deep, used, hints):
+        self.t0, self.eta, self.dur = time.monotonic(), None, {}
+        self.small = [k for k in tasks if not k.startswith("deep:")]
+        self.state = {k: "pending" for k in tasks}
+        self.labels = {k: lbl for k, (lbl, _) in tasks.items()}
+        self.deep = deep            # {буква: Counter}
+        self.used = used            # {буква: занято байт}
+        self.hint_eta = max([hints.get(L, {}).get("duration", 0) for L in deep] or [0]) or None
+        self.share = 0.3 if deep else 1.0
+
+    def mark(self, key, st):
+        self.state[key] = st
+
+    def fraction(self):
+        small = sum(self.state[k] == "done" for k in self.small) / len(self.small) if self.small else 1.0
+        if not self.deep:
+            return small
+        total = sum(self.used.values()) or 1
+        deep = 0.0
+        for L, c in self.deep.items():
+            done = self.state[f"deep:{L}"] == "done"
+            deep += self.used[L] * (1.0 if done else min(0.99, c.n / (self.used[L] or 1)))
+        return self.share * small + (1 - self.share) * deep / total
+
+    def snapshot(self):
+        p = self.fraction()
+        elapsed = time.monotonic() - self.t0
+        if p >= 0.06 and elapsed >= 8:
+            raw = elapsed * (1 - p) / p
+            self.eta = raw if self.eta is None else 0.7 * self.eta + 0.3 * raw  # сглаживаем, чтобы цифра не прыгала
+        eta = self.eta if self.eta is not None else (max(self.hint_eta - elapsed, 0) if self.hint_eta else None)
+        scanned = sum(c.n for c in self.deep.values())
+        detail = f"Просмотрено {gb(scanned)} из {gb(sum(self.used.values()))} ГБ занятого места" if self.deep else ""
+        phases = [{"label": self.labels[k], "state": st} for k, st in self.state.items()]
+        return dict(progress=min(99, 5 + int(90 * p)), eta=None if eta is None else int(eta),
+                    eta_live=self.eta is not None, phases=phases, detail=detail)
+
 
 def set_state(**kw):
     with _lock:
@@ -287,7 +353,7 @@ def do_scan(opts):
     try:
         mock = not IS_WINDOWS
         _mock_unlocked.clear()
-        set_state(status="scanning", progress=2, message="Определяю диски…")
+        set_state(status="scanning", progress=2, message="Определяю диски…", phases=[], eta=None, detail="")
         all_drives = get_drives(force=True)
         sel = [d["Name"] for d in all_drives if d["Name"] in opts["drives"] and d.get("scannable")]
         if not sel:
@@ -317,7 +383,7 @@ def do_scan(opts):
             set_state(progress=80, message="Windows не обнаружена — показываю демо-данные")
             deep, recycle = mock_extras(data, sel)
         else:
-            tasks = {}
+            tasks, hints, deep_counters, used = {}, load_hints(), {}, {}
             for item in items:
                 tasks[f"item:{item['id']}"] = (item["name"], lambda it=item: scan_item(it))
             if sysd in sel:
@@ -331,22 +397,41 @@ def do_scan(opts):
                 tasks["downloads"] = ("крупные файлы в Загрузках", scanners.scan_downloads)
             if opts.get("profile", True) and drive_of(expand("%USERPROFILE%"), sysd) in sel:
                 tasks["profile"] = ("обзор профиля и AppData", scanners.scan_profile_overview)
+            drive_info = {d["Name"]: d for d in all_drives}
             for L in sel:
                 tasks[f"recycle:{L}"] = (f"корзина {L}:", lambda L=L: scanners.scan_recycle(L))
                 if L != sysd or opts.get("deep_system", True):
-                    tasks[f"deep:{L}"] = (f"обзор диска {L}: целиком", lambda L=L: scanners.scan_drive_deep(
-                        L, deadline=150 if L == sysd else 90, system=(L == sysd)))
-            results, done = {}, 0
+                    deep_counters[L] = scanners.Counter()
+                    used[L] = int(drive_info[L]["UsedGB"] * 1024 ** 3)
+                    workers = HDD_WORKERS if drive_info[L].get("Media") == "HDD" else 8
+                    tasks[f"deep:{L}"] = (f"обзор диска {L}: целиком", lambda L=L, w=workers: scanners.scan_drive_deep(
+                        L, system=(L == sysd), workers=w, hint=hints.get(L), counter=deep_counters[L]))
+            prog = Progress(tasks, deep_counters, used, hints)
+
+            def run_task(key, fn):
+                prog.mark(key, "running")
+                t = time.monotonic()
+                try:
+                    return fn()
+                finally:
+                    prog.dur[key] = time.monotonic() - t
+                    prog.mark(key, "done")
+
+            set_state(message="Сканирую диски…", phases=prog.snapshot()["phases"])
+            results = {}
             with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
-                futs = {pool.submit(fn): (key, label) for key, (label, fn) in tasks.items()}
-                for fut in as_completed(futs):
-                    key, label = futs[fut]
-                    try:
-                        results[key] = fut.result()
-                    except Exception:  # noqa: BLE001 — один сбойный сканер не должен ронять весь скан
-                        results[key] = None
-                    done += 1
-                    set_state(progress=5 + int(85 * done / len(tasks)), message=f"Готово: {label}")
+                futs = {pool.submit(run_task, key, fn): key for key, (_, fn) in tasks.items()}
+                pending = set(futs)
+                while pending:
+                    finished, pending = wait(pending, timeout=1.0)
+                    for fut in finished:
+                        try:
+                            results[futs[fut]] = fut.result()
+                        except Exception:  # noqa: BLE001 — один сбойный сканер не должен ронять весь скан
+                            results[futs[fut]] = None
+                    set_state(**prog.snapshot())
+            save_hints({k[5:]: scanners.deep_hint(v, prog.dur.get(k, 0), deep_counters[k[5:]].n)
+                        for k, v in results.items() if k.startswith("deep:") and v})
             found = [results[k] for k in results if k.startswith("item:") and results[k]]
             data["temp_items"] = [t for t in (results.get("temp") or [])]
             data["programs"] = [p for p in (results.get("programs") or []) if p["drive"] in sel]
@@ -390,7 +475,7 @@ def do_scan(opts):
         with _lock:
             scan_data.clear()
             scan_data.update(data)
-        set_state(status="done", progress=100, message="Готово")
+        set_state(status="done", progress=100, message="Готово", eta=0)
     except Exception as e:  # noqa: BLE001 — поток не должен падать молча
         set_state(status="error", message=f"Ошибка сканирования: {e}")
 
@@ -653,7 +738,10 @@ def favicon():
 
 @app.get("/api/drives")
 def api_drives():
-    return jsonify(drives=get_drives(), system=system_drive() if IS_WINDOWS else "C")
+    drives, hints = get_drives(), load_hints()
+    for d in drives:  # сколько занял прошлый обход — покажем заранее, чтобы пользователь знал, чего ждать
+        d["last_scan_sec"] = int(hints.get(d["Name"], {}).get("duration", 0)) or None
+    return jsonify(drives=drives, system=system_drive() if IS_WINDOWS else "C")
 
 
 @app.post("/scan")
@@ -665,7 +753,7 @@ def scan():
     with _lock:
         if scan_state["status"] == "scanning":
             return jsonify(ok=True, already=True)
-        scan_state.update(status="scanning", progress=0, message="Запуск…")
+        scan_state.update(status="scanning", progress=0, message="Запуск…", phases=[], eta=None, detail="")
     opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True)),
             "deep_system": bool(body.get("deep_system", True))}
     threading.Thread(target=do_scan, args=(opts,), daemon=True).start()

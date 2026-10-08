@@ -317,10 +317,11 @@
 <div class="panel" id="p-over" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Обзор дисков</h2>
   <div class="hint">Крупнейшие папки и файлы по всему диску (на системном без самого Windows), плюс профиль и AppData. Здесь всё только показывается — решение за вами.</div></div></div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
-  <div class="blk" data-drives="{{ L }}"><h3 class="t4"><span class="ltr-chip">{{ L }}:</span> {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h3>
-  {% if o %}{% if o.partial %}<div class="callout" style="margin:0 0 10px"><svg class="ic"><use href="#i-alert"/></svg><span>Диск очень большой — обзор неполный (ограничение по времени).</span></div>{% endif %}
+  <div class="blk" data-drives="{{ L }}"><h3 class="t4"><span class="ltr-chip">{{ L }}:</span> {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% if dr.Media %} · {{ dr.Media }}{% endif %}{% endfor %}{% if L != d.system_drive %} <span class="tag">диск с данными</span>{% endif %}</h3>
+  {% if L != d.system_drive %}<p class="lr-s">Это не системный диск: здесь в основном ваши личные файлы (загрузки, медиа, проекты), а не кэши. Ничего не помечено мусором — крупные папки только показаны, решение за вами.</p>{% endif %}
+  {% if o %}{% if o.partial %}<div class="callout" style="margin:0 0 10px"><svg class="ic"><use href="#i-alert"/></svg><span>Диск очень медленный или огромный: часть папок не успела замериться (помечены «≥»; размер мог быть взят из прошлого скана). Повторный скан дойдёт дальше — сначала проверяются самые тяжёлые папки.</span></div>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
-    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v">{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
+    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v" {% if t.stale %}title="По прошлому скану — в этот раз папка не успела замериться"{% endif %}>{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
   {% endif %}
   {% if L == d.system_drive and d.profile %}
     <p class="lr-s" style="margin-top:18px">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
