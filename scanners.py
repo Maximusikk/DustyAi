@@ -244,7 +244,25 @@ def verify_duplicate(path, siblings):
 
 JUNK_NAMES = {"node_modules": "Зависимости Node.js", ".venv": "Виртуальное окружение Python",
               "venv": "Виртуальное окружение Python", "__pycache__": "Скомпилированный кэш Python",
-              ".tox": "Окружения tox"}
+              ".tox": "Окружения tox", ".pytest_cache": "Кэш pytest", ".mypy_cache": "Кэш mypy",
+              ".ruff_cache": "Кэш ruff", ".turbo": "Кэш Turborepo", ".parcel-cache": "Кэш Parcel"}
+# имя слишком общее, поэтому папка считается мусором только рядом с файлом проекта
+JUNK_NEEDS = {"target": ("Cargo.toml", "Сборка Rust (target)"), ".next": ("package.json", "Сборка и кэш Next.js"),
+              ".nuxt": ("package.json", "Сборка Nuxt"), ".gradle": ("build.gradle", "Кэш Gradle проекта")}
+
+
+def junk_what(path, name):
+    """Описание, если папка — пересоздаваемый мусор разработчика, иначе None."""
+    low = name.lower()
+    if low in JUNK_NAMES:
+        return JUNK_NAMES[low]
+    need = JUNK_NEEDS.get(low)
+    if need:
+        parent = os.path.dirname(path.rstrip("\\/"))
+        files = (need[0], need[0] + ".kts") if low == ".gradle" else (need[0],)
+        if any(os.path.isfile(os.path.join(parent, f)) for f in files):
+            return need[1]
+    return None
 JUNK_MIN_MB = 50
 BIG_FILE_MB = 500
 # на несистемных дисках пропускаем только служебное; на системном — ещё сам Windows (его не чистят руками)
@@ -325,12 +343,12 @@ def _walk(path, stop, counter=None):
                 if _reparse(e):
                     continue
                 if e.is_dir(follow_symlinks=False):
-                    if e.name.lower() in JUNK_NAMES and junk_allowed(e.path):
+                    what = junk_what(e.path, e.name)
+                    if what and junk_allowed(e.path):
                         js = folder_size(e.path, 30)
                         size += js
                         if js >= JUNK_MIN_MB * 1024 ** 2:
-                            junk.append(dict(id=short_id("junk_", e.path), name=e.name, path=e.path,
-                                             what=JUNK_NAMES[e.name.lower()], size=js))
+                            junk.append(dict(id=short_id("junk_", e.path), name=e.name, path=e.path, what=what, size=js))
                     else:
                         stack.append(e.path)
                 else:
@@ -494,7 +512,7 @@ def verify_junk(path, allowed_roots):
     try:
         if os.path.islink(path) or not os.path.isdir(path):
             return False
-        if os.path.basename(path.rstrip("\\/")).lower() not in JUNK_NAMES or not junk_allowed(path):
+        if not junk_what(path, os.path.basename(path.rstrip("\\/"))) or not junk_allowed(path):
             return False
         np = _norm(path)
         return any(np.startswith(_norm(r)) for r in allowed_roots)

@@ -97,6 +97,31 @@ def running_blockers(names, running=None):
     return sorted({n for n in names if n.lower() in running})
 
 
+def is_reparse(path):
+    """Junction/symlink: в такие точки каталожных шаблонов не заходим."""
+    try:
+        return os.path.islink(path) or bool(os.lstat(path).st_file_attributes & 0x400)
+    except (OSError, AttributeError):
+        return False
+
+
+def expand_all(patterns):
+    """Существующие папки по шаблонам каталога: переменные окружения и `*` (например, все профили браузера).
+    Ссылки и неразвёрнутые переменные пропускаем; дубли убираем."""
+    import glob
+    out, seen = [], set()
+    for pat in patterns:
+        for p in sorted(glob.glob(os.path.expandvars(pat).replace("\\", os.sep))):
+            key = os.path.normcase(p)
+            if "%" in p or key in seen or not os.path.isdir(p) or is_reparse(p):
+                continue
+            seen.add(key)
+            out.append(p)
+    # вложенные пути (GPUCache внутри ShaderCache) не считаем и не удаляем дважды
+    norm = [os.path.normcase(p) + os.sep for p in out]
+    return [p for p, n in zip(out, norm) if not any(n != o and n.startswith(o) for o in norm)]
+
+
 def lp(path):
     """Префикс длинных путей Windows (\\\\?\\): иначе node_modules глубже 260 символов не удалить."""
     if IS_WINDOWS and path and not path.startswith("\\\\?\\"):

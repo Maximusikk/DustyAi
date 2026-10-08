@@ -18,7 +18,7 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 import catalog
 import scanners
-from util import (IS_WINDOWS, drive_of, expand, extract_icons, first_existing, folder_size, gb, list_drives,
+from util import (IS_WINDOWS, drive_of, expand, expand_all, extract_icons, first_existing, folder_size, gb, list_drives,
                   close_processes, describe_lockers, find_lockers, is_admin, lp, process_names, ps_json, purge, run_ps,
                   running_blockers, running_names, system_drive, _rm)
 
@@ -195,10 +195,17 @@ def scan_programs():
 
 
 def scan_item(item):
-    path = expand(item["path"])
-    size = folder_size(path) if os.path.isdir(path) else 0
-    return {**item, "resolved": path, "exists": os.path.isdir(path), "size_gb": gb(size),
-            "drive": drive_of(path)}
+    """Пункт каталога: сумма по всем найденным папкам (шаблон с `*` даёт по папке на профиль)."""
+    paths = expand_all(catalog.item_patterns(item))
+    size = sum(folder_size(p) for p in paths)
+    resolved = expand(item["path"])
+    if paths:  # для показа в проводнике — общий родитель всех найденных папок
+        try:
+            resolved = paths[0] if len(paths) == 1 else os.path.commonpath(paths)
+        except ValueError:  # папки на разных дисках
+            resolved = paths[0]
+    return {**item, "resolved": resolved, "exists": bool(paths), "size_gb": gb(size),
+            "drive": drive_of(expand(item["path"])), "paths_key": "|".join(sorted(os.path.normcase(p) for p in paths))}
 
 
 def compute_totals(d):
@@ -446,7 +453,7 @@ def do_scan(opts):
 
         seen, unique = set(), []
         for it in found:  # %TEMP% и %LOCALAPPDATA%\Temp — обычно одна папка, не считаем дважды
-            key = os.path.normcase(os.path.realpath(it["resolved"]))
+            key = it.get("paths_key") or os.path.normcase(os.path.realpath(it["resolved"]))
             if key not in seen:
                 seen.add(key)
                 unique.append(it)
@@ -520,22 +527,25 @@ def list_history(limit=3):
 def delete_item(item):
     """Удаляет по каталогу, пропуская занятые файлы.
     Возвращает (освобождено ГБ, осталось ГБ, пропущено файлов, образцы путей пропущенных)."""
-    path = expand(item["path"])
-    if not os.path.isdir(path):
+    # шаблоны с `*` — только у пунктов каталога; найденные динамически пути берём как есть (в них бывают [ ])
+    paths = expand_all(catalog.item_patterns(item)) if item.get("id") in catalog.ALL_ITEMS else (
+        [expand(item["path"])] if os.path.isdir(expand(item["path"])) else [])
+    if not paths:
         return 0.0, 0.0, 0, []
-    before = folder_size(path, 120)
+    before = sum(folder_size(p, 120) for p in paths)
     skipped, locked = 0, []
-    if item["kind"] == "contents":
-        with os.scandir(path) as it:
-            for e in list(it):
-                if e.is_dir(follow_symlinks=False):
-                    skipped += purge(e.path, collect=locked)
-                elif not _rm(e.path):
-                    skipped += 1
-                    locked.append(e.path)
-    else:
-        skipped = purge(path, collect=locked)
-    after = folder_size(path, 120) if os.path.isdir(path) else 0
+    for path in paths:
+        if item["kind"] == "contents":
+            with os.scandir(path) as it:
+                for e in list(it):
+                    if e.is_dir(follow_symlinks=False):
+                        skipped += purge(e.path, collect=locked)
+                    elif not _rm(e.path):
+                        skipped += 1
+                        locked.append(e.path)
+        else:
+            skipped = skipped + purge(path, collect=locked)
+    after = sum(folder_size(p, 120) for p in paths if os.path.isdir(p))
     return round(max(before - after, 0) / 1024 ** 3, 4), gb(after), skipped, locked
 
 

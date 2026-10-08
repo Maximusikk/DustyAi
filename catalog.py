@@ -96,11 +96,18 @@ REVIEW += [
     {'id': 'pub_cache', 'name': 'Кэш Dart/Flutter pub', 'icon': '🎯', 'path': '%LOCALAPPDATA%\\Pub\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['dart', 'flutter'], 'desc': 'Скачанные пакеты Dart и Flutter.', 'restore': '`flutter pub get` скачает заново.'},
     {'id': 'puppeteer_cache', 'name': 'Браузеры Puppeteer', 'icon': '🎭', 'path': '%USERPROFILE%\\.cache\\puppeteer', 'kind': 'folder', 'deletable': True, 'blockers': ['node'], 'desc': 'Chrome, который скачал Puppeteer для автотестов.', 'restore': 'Скачается при следующем запуске Puppeteer.'},
     {'id': 'cypress_cache', 'name': 'Бинарники Cypress', 'icon': '🌲', 'path': '%LOCALAPPDATA%\\Cypress\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['Cypress', 'node'], 'desc': 'Скачанные версии Cypress.', 'restore': '`npx cypress install` скачает заново.'},
-    {'id': 'chrome_cache', 'name': 'Кэш Chrome', 'icon': '🌐', 'path': '%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['chrome'], 'desc': 'Кэш страниц основного профиля. Пароли, закладки и сессии НЕ затрагиваются.', 'restore': 'Страницы подгрузятся заново — первое открытие сайтов чуть медленнее.', 'icon_src': ['%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe', '%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe']},
-    {'id': 'edge_cache', 'name': 'Кэш Edge', 'icon': '🌐', 'path': '%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['msedge'], 'desc': 'Кэш страниц основного профиля. Пароли, закладки и сессии НЕ затрагиваются.', 'restore': 'Страницы подгрузятся заново.', 'icon_src': ['%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe', '%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe']},
-    {'id': 'discord_cache', 'name': 'Кэш Discord', 'icon': '💬', 'path': '%APPDATA%\\discord\\Cache', 'kind': 'folder', 'deletable': True, 'blockers': ['Discord'], 'desc': 'Кэш картинок и вложений из чатов.', 'restore': 'Подгрузится заново при просмотре.', 'icon_src': ['%LOCALAPPDATA%\\Discord\\app-*\\Discord.exe']},
-    {'id': 'spotify_cache', 'name': 'Кэш Spotify', 'icon': '🎧', 'path': '%LOCALAPPDATA%\\Spotify\\Data', 'kind': 'folder', 'deletable': True, 'blockers': ['Spotify'], 'desc': 'Закэшированные треки для офлайна и ускорения. Плейлисты и аккаунт не затрагиваются.', 'restore': 'Треки подгрузятся заново.', 'icon_src': ['%APPDATA%\\Spotify\\Spotify.exe']},
 ]
+
+from catalog_extra import REVIEW_EXTRA, SAFE_EXTRA  # noqa: E402
+
+SAFE += SAFE_EXTRA
+REVIEW += REVIEW_EXTRA
+
+
+def item_patterns(item):
+    """Все шаблоны путей пункта (переменные окружения и `*` раскрывает util.expand_all)."""
+    return [item["path"], *item.get("also", [])]
+
 
 # Вычищаем только эти id — это и есть белый список для POST /delete
 ALL_ITEMS = {i["id"]: i for i in SAFE + REVIEW}
@@ -123,7 +130,8 @@ MOCK = {
               "cargo_registry": 0.8, "arduino_staging": 2.35, "huggingface_cache": 1.2,
               "playwright_browsers": 3.8, "ollama_models": 7.6,
               "go_build": 3.1, "npm_cache_local": 0.94, "pnpm_cache": 1.0, "chrome_ai_model": 4.0,
-              "vscode_vsix": 0.4, "d3d_cache": 0.5, "chrome_cache": 0.7, "maven_repo": 2.2},
+              "vscode_vsix": 0.4, "firefox_cache": 0.4, "telegram_cache": 2.1, "slack_cache": 0.5, "steam_shadercache": 3.4,
+              "windows_update_dl": 2.8, "jetbrains_caches": 4.2, "adobe_media_cache": 6.5, "minidump": 0.6, "brave_cache": 0.3, "d3d_cache": 0.5, "chrome_cache": 0.7, "maven_repo": 2.2},
     "programs": [
         {"DisplayName": "Visual Studio Community 2022", "DisplayVersion": "17.9", "SizeMB": 9800},
         {"DisplayName": "Windows Software Development Kit", "DisplayVersion": "10.0.22621", "SizeMB": 2300},
