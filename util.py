@@ -113,11 +113,22 @@ def system_drive():
     return (os.environ.get("SystemDrive") or "C:")[:1].upper()
 
 
+def drive_media():
+    """{буква: 'SSD'|'HDD'}. Тип носителя определяет, сколько потоков можно пускать (на HDD много потоков
+    дают лишние перемещения головки) и насколько долгим будет скан. Не вышло определить — пусто."""
+    rows = ps_json("$m=@{}; Get-PhysicalDisk | ForEach-Object { $m[[string]$_.DeviceId]=[string]$_.MediaType }; "
+                   "Get-Partition | Where-Object DriveLetter | ForEach-Object { [pscustomobject]@{L=[string]$_.DriveLetter; "
+                   "M=$m[[string]$_.DiskNumber]} } | ConvertTo-Json -Compress", timeout=30)
+    names = {"SSD": "SSD", "HDD": "HDD"}
+    return {r["L"].upper(): names[r["M"]] for r in rows if isinstance(r, dict) and r.get("L") and r.get("M") in names}
+
+
 def list_drives():
     """Диски системы. Type: local / removable / network. Сканировать можно local и removable."""
     rows = ps_json("Get-CimInstance Win32_LogicalDisk | Where-Object { $_.Size } | "
                    "Select DeviceID,DriveType,VolumeName,Size,FreeSpace | ConvertTo-Json -Compress")
     kinds = {2: "removable", 3: "local", 4: "network"}
+    media = drive_media()
     drives = []
     for r in rows:
         total, free = r["Size"] / 1024 ** 3, r["FreeSpace"] / 1024 ** 3
@@ -127,7 +138,8 @@ def list_drives():
             "Name": r["DeviceID"][:1].upper(), "Label": r.get("VolumeName") or "", "Type": kinds[r["DriveType"]],
             "UsedGB": round(total - free, 1), "FreeGB": round(free, 1), "TotalGB": round(total, 1),
             "Pct": round((total - free) / total * 100) if total else 0,
-            "scannable": r["DriveType"] in (2, 3)})
+            "scannable": r["DriveType"] in (2, 3),
+            "Media": media.get(r["DeviceID"][:1].upper(), "")})
     return drives
 
 

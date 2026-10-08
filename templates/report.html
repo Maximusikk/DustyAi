@@ -143,7 +143,7 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
   </div>
   <div class="drives">
   {% for dr in d.drives %}<div class="dv {{ 'can' if dr.scanned }} {{ 'dim' if not dr.scanned }}" data-card="{{ dr.Name }}" {% if not dr.scanned %}title="{{ 'Сетевой диск — не сканируется' if dr.Type == 'network' else 'Этот диск не сканировался' }}"{% endif %}>
-    <div class="ltr">{{ dr.Name }}:</div><div class="nm">{{ dr.Label or 'Локальный диск' }}{% if dr.Type == 'network' %} · сетевой{% elif dr.Type == 'removable' %} · съёмный{% endif %}</div>
+    <div class="ltr">{{ dr.Name }}:</div><div class="nm">{{ dr.Label or 'Локальный диск' }}{% if dr.Type == 'network' %} · сетевой{% elif dr.Type == 'removable' %} · съёмный{% endif %}{% if dr.Media %} · {{ dr.Media }}{% endif %}{% if dr.Name != d.system_drive and dr.Type != 'network' %} · данные{% endif %}</div>
     <div class="pc mono">{{ dr.Pct }}%</div>
     <div class="cap">свободно {{ dr.FreeGB }} из {{ dr.TotalGB }} ГБ{% if not dr.scanned %} · не сканировался{% endif %}</div>
     <div class="meter"><i style="width:{{ dr.Pct }}%;background:{{ 'var(--a)' if dr.Pct < 70 else ('var(--s4)' if dr.Pct <= 85 else 'var(--c)') }}"></i></div></div>{% endfor %}
@@ -208,10 +208,11 @@ input[type=checkbox]:disabled{opacity:.35;cursor:not-allowed}
 <div class="panel" id="p-over"><div class="card ov"><h3>Обзор дисков</h3>
   <div class="hint">Крупнейшие папки и файлы по всему диску (на системном без самого Windows), плюс профиль и AppData. Здесь всё только показывается — решение за вами.</div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
-  <div class="blk" data-drives="{{ L }}"><h4>{{ L }}: {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% endfor %}</h4>
-  {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень большой — обзор неполный (ограничение по времени).</p>{% endif %}
+  <div class="blk" data-drives="{{ L }}"><h4>{{ L }}: {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% if dr.Media %} · {{ dr.Media }}{% endif %}{% endfor %}{% if L != d.system_drive %} <span class="pill">диск с данными</span>{% endif %}</h4>
+  {% if L != d.system_drive %}<p class="path">Это не системный диск: здесь в основном ваши личные файлы (загрузки, медиа, проекты), а не кэши. Приложение ничего не помечает мусором — крупные папки только показаны, решение за вами.</p>{% endif %}
+  {% if o %}{% if o.partial %}<p class="path" style="color:var(--b)">⚠ Диск очень медленный или огромный — часть папок не успела замериться за отведённое время (помечены «≥»). Цифры по ним взяты из прошлого скана или занижены; повторный скан дойдёт дальше — сначала проверяются самые тяжёлые папки.</p>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
-    {% for t in o.top_dirs %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono">{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm" data-reveal="{{ t.id }}">Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
+    {% for t in o.top_dirs %}<div class="ob" style="grid-template-columns:minmax(80px,170px) 1fr 84px 76px"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v mono" {% if t.stale %}title="По прошлому скану — в этот раз папка не успела замериться"{% endif %}>{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm" data-reveal="{{ t.id }}">Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
 
   {% endif %}
   {% if L == d.system_drive and d.profile %}

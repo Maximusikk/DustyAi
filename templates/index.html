@@ -6,6 +6,14 @@
 .bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s;border-radius:99px}
 #msg{margin-top:10px;color:var(--muted);min-height:22px;font-size:13px}
+.ph{display:none;margin-top:12px;font-size:13px}
+.ph ul{list-style:none;margin:0;padding:0;max-height:168px;overflow:auto}
+.ph li{display:flex;gap:8px;align-items:center;height:24px;color:var(--muted)}
+.ph li.running{color:var(--fg)}.ph li.done{color:var(--muted)}
+.ph li i{width:14px;text-align:center;font-style:normal}
+.stat{display:flex;justify-content:space-between;gap:12px;margin-top:10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:20px}
+.tag{display:inline-block;padding:1px 7px;margin-left:4px;border-radius:99px;background:var(--surface-2);color:var(--muted);font-size:11px;font-weight:500;vertical-align:1px}
+.tag.hdd{color:var(--s4)}
 .tbl-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
 .quick{display:flex;gap:8px}.btn.sm{padding:6px 12px;font-size:13px}
 .drives{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -49,6 +57,8 @@
   </div>
   <button class="btn primary" id="go" onclick="go()" disabled style="margin-top:6px">Начать сканирование</button>
   <div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
+  <div class="ph" id="ph"><ul id="phl"></ul>
+    <div class="stat"><span id="detail"></span><span id="eta"></span></div></div>
 </div>
 {% if history %}
 <div class="card" style="margin-top:16px"><h3>Последние сканирования</h3><div class="hint">Откроются только для просмотра</div>
@@ -65,11 +75,24 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 function drawDrives(){
   $('drives').innerHTML = DRIVES.map(d => `<div class="dv ${pickedSet.has(d.Name)?'on':''} ${d.scannable?'':'off'}" data-n="${d.Name}" ${d.scannable?'':'title="Сетевые диски не сканируются"'}>
     <div class="ltr">${d.Name}:</div>
-    <div><div class="nm">${esc(d.Label || 'Локальный диск')} <small>${d.Type==='network'?'· сетевой':d.Type==='removable'?'· съёмный':''}</small></div></div>
+    <div><div class="nm">${esc(d.Label || 'Локальный диск')} <small>${d.Type==='network'?'· сетевой':d.Type==='removable'?'· съёмный':''}</small>
+      <span class="tag">${d.Name===SYS?'системный':'данные'}</span>${d.Media?`<span class="tag ${d.Media==='HDD'?'hdd':''}">${d.Media}</span>`:''}</div></div>
     <div class="meter"><i style="width:${d.Pct}%;background:${cls(d.Pct)}"></i></div>
-    <div class="cap">Свободно ${d.FreeGB} из ${d.TotalGB} ГБ · занято ${d.Pct}%${d.scannable?'':' · не сканируется'}</div></div>`).join('');
+    <div class="cap">Свободно ${d.FreeGB} из ${d.TotalGB} ГБ · занято ${d.Pct}%${d.scannable?'':' · не сканируется'}${slowNote(d)}</div></div>`).join('');
   document.querySelectorAll('.dv:not(.off)').forEach(el => el.onclick = () => {
     const n = el.dataset.n; pickedSet.has(n) ? pickedSet.delete(n) : pickedSet.add(n); drawDrives(); updateGo() });
+}
+function fmtDur(sec){
+  if(sec == null) return '';
+  if(sec < 45) return 'меньше минуты';
+  const m = Math.round(sec / 60);
+  if(m < 60) return m + ' мин';
+  return Math.floor(m / 60) + ' ч ' + (m % 60 ? (m % 60) + ' мин' : '');
+}
+function slowNote(d){
+  if(d.last_scan_sec) return ` · прошлый скан: ${fmtDur(d.last_scan_sec)}`;
+  if(d.Media === 'HDD' && d.UsedGB > 300) return ' · HDD, полный обход может занять много минут';
+  return '';
 }
 function pick(mode){
   pickedSet.clear();
@@ -89,11 +112,26 @@ async function go(){
     body: JSON.stringify({drives:[...pickedSet], dups: $('dups').checked, profile: $('profile').checked, deep_system: $('deep').checked})});
   if(r.ok) poll();
 }
+const ICON = {pending:'·', running:'⟳', done:'✓'};
+let phKey = '';
+function drawPhases(ph){
+  const key = ph.map(p => p.label).join('|');
+  if(key !== phKey){  // список строится один раз: строки не добавляются и не прыгают, меняются только значки
+    phKey = key;
+    $('phl').innerHTML = ph.map(p => `<li><i></i>${esc(p.label)}</li>`).join('');
+  }
+  [...$('phl').children].forEach((li, n) => { li.className = ph[n].state; li.firstChild.textContent = ICON[ph[n].state]; });
+}
 async function poll(){
   const s = await (await fetch('/status')).json();
   $('fill').style.width = s.progress + '%'; $('msg').textContent = s.message;
+  if(s.phases && s.phases.length){
+    $('ph').style.display = 'block'; drawPhases(s.phases);
+    $('detail').textContent = s.detail || '';
+    $('eta').textContent = s.eta == null ? '' : s.eta < 5 ? 'почти готово' : (s.eta_live ? 'осталось ≈ ' : 'ориентировочно ≈ ') + fmtDur(s.eta);
+  }
   if(s.status === 'done'){ location.href = '/report'; return }
   if(s.status === 'error'){ updateGo(); toast(s.message, true); return }
-  setTimeout(poll, 600);
+  setTimeout(poll, 1000);
 }
 </script>{% endblock %}

@@ -5,9 +5,10 @@ import hashlib
 import ntpath
 import os
 import re
+import threading
 import time
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from util import IS_WINDOWS, expand, folder_size, folder_size_ex, gb, ps_json
 
@@ -296,7 +297,18 @@ def _reparse(e):
         return False
 
 
-def _walk(path, stop):
+class Counter:
+    """Потокобезопасный счётчик учтённых байтов: по нему считаем реальный процент и ETA обхода диска."""
+
+    def __init__(self):
+        self.n, self._lock = 0, threading.Lock()
+
+    def add(self, nbytes):
+        with self._lock:
+            self.n += nbytes
+
+
+def _walk(path, stop, counter=None):
     """Обход одной ветки. Возвращает (размер, крупные файлы, мусор разработчика, оборвано ли по времени)."""
     size, big, junk, cut = 0, [], [], False
     stack = [path]
@@ -307,6 +319,7 @@ def _walk(path, stop):
             it = list(os.scandir(stack.pop()))
         except OSError:
             continue
+        before = size
         for e in it:
             try:
                 if _reparse(e):
@@ -328,17 +341,55 @@ def _walk(path, stop):
                         big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
             except OSError:
                 continue
+        if counter:
+            counter.add(size - before)
     return size, big, junk, cut
 
 
-def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
+DEEP_HARD_CAP = 1800  # сек: страховка от зависания; обычный диск, даже медленный, укладывается раньше
+
+
+def _big_entry(path, name, st):
+    return dict(id=short_id("big_", path), name=name, path=path, size=st.st_size, mt=st.st_mtime)
+
+
+def _recall_hints(hint, big, junk, found):
+    """Папки/файлы из прошлого скана проверяем первыми: они почти всегда там же. Берём только то, что
+    реально существует сейчас, с актуальным размером, — устаревших данных в отчёте не будет."""
+    seen = set(found)
+    for f in (hint or {}).get("big", []):
+        p = f["path"]
+        if p in seen:
+            continue
+        try:
+            st = os.stat(p)
+        except OSError:
+            continue
+        if st.st_size >= BIG_FILE_MB * 1024 ** 2:
+            big.append(_big_entry(p, os.path.basename(p), st))
+            seen.add(p)
+    for j in (hint or {}).get("junk", []):
+        p = j["path"]
+        if p in seen or not os.path.isdir(p) or not junk_allowed(p):
+            continue
+        js = folder_size(p, 30)
+        if js >= JUNK_MIN_MB * 1024 ** 2:
+            junk.append(dict(id=short_id("junk_", p), name=os.path.basename(p), path=p, what=j["what"], size=js))
+            seen.add(p)
+
+
+def scan_drive_deep(letter, deadline=DEEP_HARD_CAP, system=False, workers=8, root=None, hint=None,
+                    counter=None, on_job=None):
     """Обход диска целиком: крупнейшие папки верхнего уровня, крупные файлы с типом, мусор разработчика.
     Работает параллельно: корень и папки второго уровня (например, каждый профиль в Users) идут отдельными
-    задачами. Не пересекает junction, общий лимит по времени. На системном диске пропускает сам Windows."""
+    задачами; тяжёлые по прошлому скану — первыми, чтобы при обрыве по времени главное уже было измерено.
+    Не пересекает junction. На системном диске пропускает сам Windows.
+    hint — итоги прошлого скана этого диска (см. deep_hint), counter — счётчик байтов для прогресса."""
     root = root or f"{letter}:\\"
     skip = SKIP_TOP_SYSTEM if system else SKIP_TOP
     stop = time.monotonic() + deadline
     top, big, junk, partial, jobs = {}, [], [], False, []
+    prev = (hint or {}).get("dirs", {})
 
     def add(tn, size):
         top[tn] = top.get(tn, 0) + size
@@ -365,16 +416,18 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
                         jobs.append((e.name, k.path))
                     else:
                         st = k.stat(follow_symlinks=False)
-                        sz = st.st_size
-                        add(e.name, sz)
-                        if sz >= BIG_FILE_MB * 1024 ** 2:
-                            big.append(dict(id=short_id("big_", k.path), name=k.name, path=k.path, size=sz, mt=st.st_mtime))
+                        add(e.name, st.st_size)
+                        if counter:
+                            counter.add(st.st_size)
+                        if st.st_size >= BIG_FILE_MB * 1024 ** 2:
+                            big.append(_big_entry(k.path, k.name, st))
             else:
                 st = e.stat(follow_symlinks=False)
-                sz = st.st_size
-                add(ROOT_FILES, sz)
-                if sz >= BIG_FILE_MB * 1024 ** 2:
-                    big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
+                add(ROOT_FILES, st.st_size)
+                if counter:
+                    counter.add(st.st_size)
+                if st.st_size >= BIG_FILE_MB * 1024 ** 2:
+                    big.append(_big_entry(e.path, e.name, st))
         except OSError:
             continue
     # папка уровня 1 с файлами, но без подпапок, всё равно должна попасть в список
@@ -382,13 +435,32 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
         if e.is_dir(follow_symlinks=False) and e.name.lower() not in skip:
             top.setdefault(e.name, 0)
 
+    jobs.sort(key=lambda j: -prev.get(j[0], 0))  # стабильная сортировка: новые папки остаются в порядке обхода
+    cut_tops = set()
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for (tn, _), (sz, b, j, cut) in zip(jobs, ex.map(lambda job: _walk(job[1], stop), jobs)):
+        futs = {ex.submit(_walk, path, stop, counter): tn for tn, path in jobs}
+        for n, fut in enumerate(as_completed(futs), 1):
+            sz, b, j, cut = fut.result()
+            tn = futs[fut]
             add(tn, sz)
             big += b
             junk += j
-            partial |= cut
-    top_dirs = [dict(name=n, path=(root + n) if n != ROOT_FILES else root, size_gb=gb(s))
+            if cut:
+                partial = True
+                cut_tops.add(tn)
+            if on_job:
+                on_job(n, len(jobs))
+    # оборванные по времени папки не показываем заниженными: берём прошлый размер, если он больше
+    stale = set()
+    for tn in cut_tops:
+        if prev.get(tn, 0) > top.get(tn, 0):
+            top[tn] = prev[tn]
+            stale.add(tn)
+    found = {f["path"] for f in big} | {j["path"] for j in junk}
+    _recall_hints(hint, big, junk, found)
+
+    top_dirs = [dict(name=n, path=(root + n) if n != ROOT_FILES else root, size_gb=gb(s),
+                     partial=n in cut_tops, stale=n in stale)
                 for n, s in sorted(top.items(), key=lambda x: -x[1])[:(20 if system else 12)] if s > 0]
     big.sort(key=lambda f: -f["size"])
     junk.sort(key=lambda j: -j["size"])
@@ -400,7 +472,17 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
                             date=time.strftime("%Y-%m-%d", time.localtime(mt)) if mt else "",
                             age_days=int((time.time() - mt) / 86400) if mt else None))
     return dict(top_dirs=top_dirs, partial=partial, big_files=big_out,
-                junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]])
+                junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]],
+                # для следующего скана: размеры ВСЕХ папок верхнего уровня, а не только показанных
+                _dirs={n: s for n, s in top.items() if s > 0})
+
+
+def deep_hint(res, duration, nbytes):
+    """Что запомнить о диске после скана: тяжёлые папки/файлы/мусор и скорость обхода."""
+    return dict(dirs=res.get("_dirs", {}),
+                big=[dict(path=f["path"]) for f in res["big_files"]],
+                junk=[dict(path=j["path"], what=j["what"]) for j in res["junk"]],
+                duration=round(duration, 1), bytes=nbytes, ts=time.time())
 
 
 def scan_recycle(letter):
