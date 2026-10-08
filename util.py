@@ -1,4 +1,4 @@
-"""Общие помощники: PowerShell, размеры папок, проверка процессов."""
+"""Shared helpers: PowerShell, folder sizes, process checks."""
 import json
 import os
 import re
@@ -7,11 +7,11 @@ import subprocess
 import time
 
 IS_WINDOWS = os.name == "nt"
-SIZE_TIMEOUT = 45  # сек на замер одной папки — защита от зависания на гигантских деревьях
+SIZE_TIMEOUT = 45  # seconds per folder measurement — protects against hanging on giant trees
 
 
 def run_ps(command, timeout=60, env=None):
-    """Выполняет PowerShell-команду. Возвращает (stdout, stderr)."""
+    """Runs a PowerShell command. Returns (stdout, stderr)."""
     exe = shutil.which("powershell") or shutil.which("pwsh")
     if not exe:
         return "", "PowerShell not found"
@@ -45,8 +45,8 @@ def expand(path):
 
 
 def folder_size_ex(path, deadline=SIZE_TIMEOUT):
-    """Размер папки в байтах и флаг «замер оборвался по времени». Не следует по симлинкам/junction,
-    глотает ошибки доступа."""
+    """Folder size in bytes and a flag “measurement was cut off by the time limit”. Does not follow symlinks/junctions,
+    swallows access errors."""
     total, stop, cut = 0, time.monotonic() + deadline, False
     stack = [lp(path)]
     while stack:
@@ -79,7 +79,7 @@ def gb(nbytes):
 
 
 def running_names():
-    """Имена всех запущенных процессов (нижний регистр, без .exe) — одним вызовом PowerShell."""
+    """Names of all running processes (lowercase, without .exe) — in a single PowerShell call."""
     if not IS_WINDOWS:
         return set()
     out, _ = run_ps("Get-Process -EA SilentlyContinue | Select-Object -ExpandProperty Name -Unique | ConvertTo-Json -Compress")
@@ -91,8 +91,8 @@ def running_names():
 
 
 def running_blockers(names, running=None):
-    """Какие из процессов-блокировщиков сейчас запущены. running можно передать готовый
-    (пакетное удаление спрашивает систему один раз, а не на каждый пункт)."""
+    """Which of the blocking processes are running now. A ready-made running set can be passed in
+    (batch deletion asks the system once, not for every item)."""
     running = running_names() if running is None else running
     return sorted({n for n in names if n.lower() in running})
 
@@ -123,7 +123,7 @@ def expand_all(patterns):
 
 
 def lp(path):
-    """Префикс длинных путей Windows (\\\\?\\): иначе node_modules глубже 260 символов не удалить."""
+    """Windows long-path prefix (\\\\?\\): otherwise node_modules deeper than 260 characters cannot be deleted."""
     if IS_WINDOWS and path and not path.startswith("\\\\?\\"):
         return "\\\\?\\" + os.path.abspath(path)
     return path
@@ -149,7 +149,7 @@ def drive_media():
 
 
 def list_drives():
-    """Диски системы. Type: local / removable / network. Сканировать можно local и removable."""
+    """System drives. Type: local / removable / network. Only local and removable can be scanned."""
     rows = ps_json("Get-CimInstance Win32_LogicalDisk | Where-Object { $_.Size } | "
                    "Select DeviceID,DriveType,VolumeName,Size,FreeSpace | ConvertTo-Json -Compress")
     kinds = {2: "removable", 3: "local", 4: "network"}
@@ -169,7 +169,7 @@ def list_drives():
 
 
 def extract_icons(paths):
-    """Иконки exe-файлов → {путь: data-URI PNG}. Один вызов PowerShell на все пути."""
+    """Icons of exe files → {path: data-URI PNG}. One PowerShell call for all paths."""
     paths = sorted({p for p in paths if p and os.path.isfile(p)})
     if not paths or not IS_WINDOWS:
         return {}
@@ -192,7 +192,7 @@ def extract_icons(paths):
 
 
 def first_existing(patterns):
-    """Первый существующий путь из списка шаблонов (с переменными окружения и *)."""
+    """The first existing path from a list of patterns (with environment variables and *)."""
     import glob
     for pat in patterns or []:
         hits = sorted(glob.glob(os.path.expandvars(pat)))
@@ -202,7 +202,7 @@ def first_existing(patterns):
 
 
 def _rm(path):
-    """Удаляет один файл. Снимает атрибут «только чтение»; занятый/защищённый файл — не ошибка."""
+    """Deletes one file. Clears the read-only attribute; a busy/protected file is not an error."""
     try:
         os.remove(lp(path))
         return True
@@ -218,23 +218,23 @@ def _rm(path):
 
 
 def purge(path, remove_root=True, collect=None):
-    """Удаляет папку целиком, но то, что занято программами или требует прав, пропускает.
-    Возвращает число пропущенных файлов; их пути (образцы) складывает в collect."""
+    """Deletes a whole folder but skips whatever is in use or needs elevated rights.
+    Returns the number of skipped files; puts their paths (samples) into collect."""
     skipped = 0
     for dirpath, dirs, files in os.walk(lp(path), topdown=False):
         for f in files:
             p = os.path.join(dirpath, f)
             if not _rm(p):
                 skipped += 1
-                if collect is not None and len(collect) < 300:  # образцы для поиска «кто держит файл»
+                if collect is not None and len(collect) < 300:  # samples for finding “who holds the file”
                     collect.append(p[4:] if p.startswith("\\\\?\\") else p)
         for d in dirs:
             p = os.path.join(dirpath, d)
             try:
                 if os.path.islink(p):
-                    os.unlink(p) if not os.path.isdir(p) else os.rmdir(p)  # ссылку убираем, цель не трогаем
+                    os.unlink(p) if not os.path.isdir(p) else os.rmdir(p)  # remove the link, leave the target alone
                 else:
-                    os.rmdir(p)  # не пустая (внутри пропущенные файлы) — это уже посчитано выше
+                    os.rmdir(p)  # not empty (skipped files inside) — already counted above
             except OSError:
                 pass
     if remove_root:
@@ -255,7 +255,7 @@ def is_admin():
         return False
 
 
-# ───────────────────── кто держит файл (Windows Restart Manager) ─────────────────────
+# ───────────────────── who holds a file (Windows Restart Manager) ─────────────────────
 
 PROTECTED_PROCS = {"system", "registry", "smss", "csrss", "wininit", "winlogon", "services", "lsass", "svchost",
                    "dwm", "explorer", "fontdrvhost", "sihost", "taskhostw", "ctfmon", "searchhost", "searchindexer",
@@ -263,8 +263,8 @@ PROTECTED_PROCS = {"system", "registry", "smss", "csrss", "wininit", "winlogon",
 
 
 def find_lockers(paths):
-    """Какие процессы держат указанные файлы. Windows Restart Manager — штатный способ,
-    им же пользуются установщики. Возвращает [{pid, app, kind}]; вне Windows — пусто."""
+    """Which processes hold the given files. Windows Restart Manager is the standard way,
+    installers use it too. Returns [{pid, app, kind}]; empty outside Windows."""
     if not IS_WINDOWS or not paths:
         return []
     import ctypes
@@ -293,7 +293,7 @@ def find_lockers(paths):
         r = rm.RmGetList(session, ctypes.byref(needed), ctypes.byref(count), None, ctypes.byref(reasons))
         if r == 0 or not needed.value:
             return []
-        if r != 234:  # ERROR_MORE_DATA — штатный ответ «дайте буфер побольше»
+        if r != 234:  # ERROR_MORE_DATA — the standard “give me a bigger buffer” answer
             return []
         infos = (RM_PROCESS_INFO * needed.value)()
         count = wintypes.UINT(needed.value)
@@ -301,14 +301,14 @@ def find_lockers(paths):
             return []
         return [{"pid": infos[i].Process.pid, "app": infos[i].app or infos[i].service, "kind": infos[i].kind}
                 for i in range(count.value)]
-    except Exception:  # noqa: BLE001 — определить не вышло, это не причина падать
+    except Exception:  # noqa: BLE001 — detection failed, which is no reason to crash
         return []
     finally:
         rm.RmEndSession(session)
 
 
 def describe_lockers(raw):
-    """Дополняет список именами процессов и помечает те, которые закрывать из приложения нельзя."""
+    """Adds process names to the list and marks those that must not be closed from the app."""
     if not raw:
         return []
     ids = ",".join(str(p["pid"]) for p in raw)
@@ -321,14 +321,14 @@ def describe_lockers(raw):
             continue
         seen.add(p["pid"])
         proc = names.get(p["pid"], "")
-        why = ("это само приложение" if p["pid"] in own else
-               "системный процесс" if proc.lower() in PROTECTED_PROCS or p["kind"] in (3, 4, 1000) else "")
+        why = ("this is the app itself" if p["pid"] in own else
+               "system process" if proc.lower() in PROTECTED_PROCS or p["kind"] in (3, 4, 1000) else "")
         out.append({"pid": p["pid"], "app": p["app"] or proc, "proc": proc, "protected": bool(why), "why": why})
     return out
 
 
 def wait_exit(pids, timeout=6.0):
-    """Ждёт завершения процессов. Возвращает те, что всё ещё работают."""
+    """Waits for processes to exit. Returns those that are still running."""
     if not IS_WINDOWS:
         return []
     import ctypes
@@ -339,7 +339,7 @@ def wait_exit(pids, timeout=6.0):
     for pid in pids:
         h = k.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
         if not h:
-            continue  # процесса уже нет
+            continue  # the process is already gone
         left = max(int((stop - time.monotonic()) * 1000), 0)
         if k.WaitForSingleObject(h, left) != 0:
             alive.append(pid)
@@ -348,8 +348,8 @@ def wait_exit(pids, timeout=6.0):
 
 
 def close_processes(pids, force=False):
-    """Просит программы закрыться (taskkill без /F: как нажатие на крестик). С force — завершает принудительно.
-    Возвращает pid, которые остались работать."""
+    """Asks programs to close (taskkill without /F: like clicking the X). With force, terminates them forcibly.
+    Returns the pids that are still running."""
     for pid in pids:
         subprocess.run(["taskkill", "/PID", str(int(pid))] + (["/F"] if force else []),
                        capture_output=True, timeout=15)

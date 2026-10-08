@@ -5,5 +5,5 @@ python -m pip install -q -r requirements.txt pyinstaller
 python -m PyInstaller --noconfirm --onefile --windowed --name DustyAi ^
   --icon "assets\dustyai.ico" ^
   --add-data "templates;templates" app.py
-echo Готово: dist\DustyAi.exe
+echo Done: dist\DustyAi.exe
 pause
