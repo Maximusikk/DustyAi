@@ -1,6 +1,6 @@
-"""Расширенные сканеры: умный Temp, установки Python, дубликаты файлов.
-Всё, что может быть удалено, получает динамический id и регистрируется в реестре
-(scan_data['dynamic']); перед удалением app.py заново проверяет путь через verify_*."""
+"""Extended scanners: smart Temp, Python installations, duplicate files.
+Everything that can be deleted gets a dynamic id and is registered in the registry
+(scan_data['dynamic']); before deleting, app.py re-validates the path via verify_*."""
 import hashlib
 import ntpath
 import os
@@ -14,8 +14,8 @@ from util import IS_WINDOWS, expand, folder_size, folder_size_ex, gb, ps_json
 TEMP_ROOTS = ["%TEMP%", "%LOCALAPPDATA%\\Temp"]
 TEMP_PATTERNS = ("vs_", "setup", "installer")
 TEMP_MIN_AGE_DAYS = 7
-TEMP_MIN_MB = 10          # мельче — не шум
-TEMP_BIG_MB = 500         # крупная старая папка без «говорящего» имени (вроде dtuv0qr3)
+TEMP_MIN_MB = 10          # smaller — not worth reporting
+TEMP_BIG_MB = 500         # large old folder without a telling name (like dtuv0qr3)
 DUP_MIN_MB = 50
 DUP_ROOTS = ["%USERPROFILE%\\Downloads", "%USERPROFILE%\\Documents"]
 DUP_MAX_GROUPS = 20
@@ -29,7 +29,7 @@ def _norm(p):
     return os.path.normcase(os.path.realpath(p))
 
 
-# ───────────────────────────── умный Temp ─────────────────────────────
+# ───────────────────────────── smart Temp ─────────────────────────────
 
 def temp_roots():
     seen, roots = set(), []
@@ -44,9 +44,9 @@ def temp_roots():
 def temp_reason(name, size_bytes):
     low = name.lower()
     if any(p in low for p in TEMP_PATTERNS):
-        return "Похоже на остатки установщика (по имени папки)."
+        return "Looks like installer leftovers (by folder name)."
     if size_bytes >= TEMP_BIG_MB * 1024 ** 2:
-        return "Крупная папка, к которой не прикасались больше недели — вероятно, распакованный установщик."
+        return "Large folder untouched for over a week — probably an extracted installer."
     return None
 
 
@@ -76,14 +76,14 @@ def scan_smart_temp():
                 id=short_id("tmp_", e.path), name=e.name, icon="📁", path=e.path, resolved=e.path,
                 kind="folder", deletable=True, blockers=["vs_installer", "devenv"],
                 size_gb=gb(size), exists=True, age_days=int(age), parent=root,
-                desc=f"{reason} Не изменялась {int(age)} дн.",
-                restore="Ничего: если установщик понадобится, он распакуется заново."))
+                desc=f"{reason} Not modified for {int(age)} days.",
+                restore="Nothing: if the installer is needed, it will be extracted again."))
     items.sort(key=lambda i: -i["size_gb"])
     return items
 
 
 def verify_smart_temp(path):
-    """Повторная проверка перед удалением: прямой потомок Temp, не ссылка, старше 7 дней."""
+    """Re-check before deletion: a direct child of Temp, not a link, older than 7 days."""
     try:
         if not os.path.isdir(path) or os.path.islink(path):
             return False
@@ -102,7 +102,7 @@ PY_VER_RE = re.compile(r"-V:(\S+)|-(\d+\.\d+(?:-\d+)?)")
 
 
 def parse_py_list(text):
-    """Разбор вывода `py -0p` → [(версия, папка установки)]."""
+    """Parses `py -0p` output → [(version, install folder)]."""
     result, seen = [], set()
     for line in text.splitlines():
         m = PY_PATH_RE.search(line)
@@ -147,7 +147,7 @@ def scan_python():
     return result
 
 
-# ───────────────────────────── дубликаты ─────────────────────────────
+# ───────────────────────────── duplicates ─────────────────────────────
 
 def md5_file(path, chunk=1024 * 1024, limit=None):
     h, read = hashlib.md5(), 0
@@ -196,7 +196,7 @@ def scan_duplicates(deadline=45, progress=None, roots=None):
         by_hash = {}
         try:
             for p, mt in files:
-                # быстрый отсев по первому мегабайту, затем полный хэш
+                # quick filter by the first megabyte, then the full hash
                 quick = md5_file(p, limit=1024 * 1024)
                 by_hash.setdefault(quick, []).append((p, mt))
             for fl in by_hash.values():
@@ -207,7 +207,7 @@ def scan_duplicates(deadline=45, progress=None, roots=None):
                     full.setdefault(md5_file(p), []).append((p, mt))
                 for h, same in full.items():
                     if len(same) > 1:
-                        same.sort(key=lambda x: x[1])  # старейший — оригинал
+                        same.sort(key=lambda x: x[1])  # the oldest is the original
                         groups.append(dict(
                             hash=h, size_gb=gb(size), wasted_gb=gb(size * (len(same) - 1)),
                             files=[dict(id=short_id("dup_", p), path=p,
@@ -220,8 +220,8 @@ def scan_duplicates(deadline=45, progress=None, roots=None):
 
 
 def verify_duplicate(path, siblings):
-    """Можно ли удалить файл: он в Downloads/Documents, а идентичная копия остаётся.
-    siblings — пути остальных файлов группы."""
+    """Whether the file can be deleted: it is in Downloads/Documents and an identical copy remains.
+    siblings — paths of the other files in the group."""
     try:
         if os.path.islink(path) or not os.path.isfile(path):
             return False
@@ -239,30 +239,30 @@ def verify_duplicate(path, siblings):
     return False
 
 
-# ───────────────────────────── обзор диска ─────────────────────────────
+# ───────────────────────────── disk overview ─────────────────────────────
 
-JUNK_NAMES = {"node_modules": "Зависимости Node.js", ".venv": "Виртуальное окружение Python",
-              "venv": "Виртуальное окружение Python", "__pycache__": "Скомпилированный кэш Python",
-              ".tox": "Окружения tox"}
+JUNK_NAMES = {"node_modules": "Node.js dependencies", ".venv": "Python virtual environment",
+              "venv": "Python virtual environment", "__pycache__": "Python bytecode cache",
+              ".tox": "tox environments"}
 JUNK_MIN_MB = 50
 BIG_FILE_MB = 500
-# на несистемных дисках пропускаем только служебное; на системном — ещё сам Windows (его не чистят руками)
+# on non-system drives skip only service folders; on the system drive also Windows itself (it is not cleaned by hand)
 SKIP_TOP = {"$recycle.bin", "system volume information", "recovery", "$windows.~bt", "$windows.~ws",
             "config.msi", "msocache", "$winreagent"}
 SKIP_TOP_SYSTEM = SKIP_TOP | {"windows"}
-ROOT_FILES = "(файлы в корне диска)"
+ROOT_FILES = "(files in the drive root)"
 
-FILE_KINDS = [  # (расширения, подпись, иконка)
-    ({".gguf", ".safetensors", ".ckpt", ".pt", ".pth", ".onnx", ".h5", ".tflite"}, "ИИ-модель (веса)", "🧠"),
-    ({".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow2"}, "Образ виртуального диска (ВМ/WSL/Docker)", "💽"),
-    ({".iso", ".img", ".ima", ".wim", ".esd"}, "Образ диска / установщик системы", "📀"),
-    ({".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".xz", ".bz2"}, "Архив", "🗜️"),
-    ({".dmp", ".mdmp", ".hdmp"}, "Дамп памяти", "💥"),
-    ({".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"}, "Видео", "🎞️"),
-    ({".exe", ".msi", ".msix", ".appx"}, "Установщик / программа", "📦"),
-    ({".bin"}, "Бинарный файл (часто веса модели или данные игры)", "📄"),
-    ({".bak", ".old", ".tmp", ".log"}, "Резервная копия / временный / лог", "🗃️"),
-    ({".sys"}, "Системный файл (подкачка/гибернация) — не удалять вручную", "🔒"),
+FILE_KINDS = [  # (extensions, label, icon)
+    ({".gguf", ".safetensors", ".ckpt", ".pt", ".pth", ".onnx", ".h5", ".tflite"}, "AI model (weights)", "🧠"),
+    ({".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow2"}, "Virtual disk image (VM/WSL/Docker)", "💽"),
+    ({".iso", ".img", ".ima", ".wim", ".esd"}, "Disk image / OS installer", "📀"),
+    ({".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".xz", ".bz2"}, "Archive", "🗜️"),
+    ({".dmp", ".mdmp", ".hdmp"}, "Memory dump", "💥"),
+    ({".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"}, "Video", "🎞️"),
+    ({".exe", ".msi", ".msix", ".appx"}, "Installer / program", "📦"),
+    ({".bin"}, "Binary file (often model weights or game data)", "📄"),
+    ({".bak", ".old", ".tmp", ".log"}, "Backup / temporary / log", "🗃️"),
+    ({".sys"}, "System file (page file/hibernation) — do not delete manually", "🔒"),
 ]
 
 
@@ -271,12 +271,12 @@ def classify_file(name):
     for exts, label, icon in FILE_KINDS:
         if ext in exts:
             return label, icon
-    return "Файл", "📄"
+    return "File", "📄"
 
 
 def protected_prefixes():
-    """Папки установленных программ и системы: node_modules/venv внутри них — часть самих программ
-    (например Electron-приложений), удалять их нельзя."""
+    """Folders of installed programs and the system: node_modules/venv inside them are part of the programs
+    themselves (e.g. Electron apps) and must not be deleted."""
     raw = [expand(r) for r in ("%ProgramFiles%", "%ProgramFiles(x86)%", "%ProgramData%", "%SystemRoot%")]
     profile = expand("%USERPROFILE%")
     raw.append(os.path.join(profile, "AppData"))
@@ -289,7 +289,7 @@ def junk_allowed(path):
 
 
 def _reparse(e):
-    """Junction/symlink: не заходим, иначе посчитаем одно и то же дважды или уйдём в цикл."""
+    """Junction/symlink: do not enter, otherwise we would count the same thing twice or loop forever."""
     try:
         return e.is_symlink() or bool(e.stat(follow_symlinks=False).st_file_attributes & 0x400)
     except (OSError, AttributeError):
@@ -297,7 +297,7 @@ def _reparse(e):
 
 
 def _walk(path, stop):
-    """Обход одной ветки. Возвращает (размер, крупные файлы, мусор разработчика, оборвано ли по времени)."""
+    """Walks one branch. Returns (size, big files, developer junk, whether it was cut off by the time limit)."""
     size, big, junk, cut = 0, [], [], False
     stack = [path]
     while stack:
@@ -332,9 +332,9 @@ def _walk(path, stop):
 
 
 def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
-    """Обход диска целиком: крупнейшие папки верхнего уровня, крупные файлы с типом, мусор разработчика.
-    Работает параллельно: корень и папки второго уровня (например, каждый профиль в Users) идут отдельными
-    задачами. Не пересекает junction, общий лимит по времени. На системном диске пропускает сам Windows."""
+    """Walks the whole drive: largest top-level folders, big files with their type, developer junk.
+    Works in parallel: the root and second-level folders (e.g. each profile in Users) run as separate
+    tasks. Does not cross junctions, has an overall time limit. On the system drive it skips Windows itself."""
     root = root or f"{letter}:\\"
     skip = SKIP_TOP_SYSTEM if system else SKIP_TOP
     stop = time.monotonic() + deadline
@@ -354,7 +354,7 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
             if e.is_dir(follow_symlinks=False):
                 if e.name.lower() in skip:
                     continue
-                try:  # второй уровень: больше параллелизма там, где одна папка огромна (Users, Program Files)
+                try:  # second level: more parallelism where a single folder is huge (Users, Program Files)
                     kids = list(os.scandir(e.path))
                 except OSError:
                     continue
@@ -377,7 +377,7 @@ def scan_drive_deep(letter, deadline=90, system=False, workers=8, root=None):
                     big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
         except OSError:
             continue
-    # папка уровня 1 с файлами, но без подпапок, всё равно должна попасть в список
+    # a level-1 folder with files but no subfolders must still make it into the list
     for e in entries:
         if e.is_dir(follow_symlinks=False) and e.name.lower() not in skip:
             top.setdefault(e.name, 0)
@@ -408,7 +408,7 @@ def scan_recycle(letter):
 
 
 def verify_junk(path, allowed_roots):
-    """Удаляем только папки с «мусорным» именем на отсканированном диске, не ссылки."""
+    """Deletes only folders with a junk name on a scanned drive, never links."""
     try:
         if os.path.islink(path) or not os.path.isdir(path):
             return False
@@ -420,7 +420,7 @@ def verify_junk(path, allowed_roots):
         return False
 
 
-# ───────────────────────────── Загрузки ─────────────────────────────
+# ───────────────────────────── Downloads ─────────────────────────────
 
 DL_MIN_MB = 50
 DL_TOP = 25
@@ -432,7 +432,7 @@ def downloads_root():
 
 
 def scan_downloads(deadline=30):
-    """Крупнейшие файлы в Загрузках с датами — пользователь сам решает, что из этого ещё нужно."""
+    """Largest files in Downloads with dates — the user decides which of them are still needed."""
     root, now, stop = downloads_root(), time.time(), time.monotonic() + deadline
     files = []
     for dirpath, dirs, names in os.walk(root):
@@ -456,7 +456,7 @@ def scan_downloads(deadline=30):
 
 
 def verify_download(path):
-    """Файл должен лежать внутри Загрузок и не быть ссылкой."""
+    """The file must be inside Downloads and not be a link."""
     try:
         if os.path.islink(path) or not os.path.isfile(path):
             return False
@@ -465,16 +465,16 @@ def verify_download(path):
         return False
 
 
-# ───────────────────────── обзор профиля и AppData ─────────────────────────
+# ───────────────────────── profile and AppData overview ─────────────────────────
 
-PROFILE_ROOTS = [("Профиль пользователя", "%USERPROFILE%", {"appdata"}),
+PROFILE_ROOTS = [("User profile", "%USERPROFILE%", {"appdata"}),
                  ("AppData\\Local", "%LOCALAPPDATA%", set()),
                  ("AppData\\Roaming", "%APPDATA%", set())]
 
 
 def scan_profile_overview(top=12, deadline=25):
-    """Крупнейшие папки профиля. Только показываем — ничего заранее не помечаем как мусор:
-    так видно любые «жирные» программы, о которых каталог не знает."""
+    """Largest profile folders. Display only — nothing is pre-marked as junk:
+    this way any heavy programs the catalog does not know about become visible."""
     groups = []
     for title, env, skip in PROFILE_ROOTS:
         root = expand(env)
@@ -497,32 +497,32 @@ SYSTEM_FILES = {"pagefile.sys", "hiberfil.sys", "swapfile.sys"}
 
 
 def big_deletable(path):
-    """Можно ли удалить крупный файл из приложения. Блокируем только то, что реально ломает систему:
-    папку Windows и файлы подкачки/гибернации (их к тому же не отдаёт сама ОС). Всё остальное решает
-    пользователь, а о последствиях ему говорит big_warning."""
+    """Whether a big file can be deleted from the app. We block only what really breaks the system:
+    the Windows folder and page/hibernation files (the OS does not release them anyway). Everything else is
+    the user's decision, and big_warning tells them about the consequences."""
     if os.path.basename(path).lower() in SYSTEM_FILES:
-        return False, "файл подкачки/гибернации — им управляет Windows (отключается в настройках системы)"
+        return False, "page/hibernation file — managed by Windows (can be disabled in system settings)"
     root = os.path.normcase(expand("%SystemRoot%"))
     if "%" not in root and os.path.normcase(path).startswith(root + os.sep):
-        return False, "папка Windows — удаление может сломать систему"
+        return False, "Windows folder — deleting it may break the system"
     return True, ""
 
 
 def big_warning(path):
-    """Предупреждение, если файл — часть чего-то установленного. Пустая строка — просто пользовательский файл."""
+    """A warning if the file is part of something installed. An empty string means an ordinary user file."""
     p = os.path.normcase(path)
     ext = os.path.splitext(p)[1]
     if "site-packages" in p:
-        return "Часть установленного Python-пакета — после удаления пакет перестанет работать (переустановка: pip install --force-reinstall)."
+        return "Part of an installed Python package — the package will stop working after deletion (reinstall: pip install --force-reinstall)."
     if any(p.startswith(pre + os.sep) for pre in protected_prefixes()):
         if os.path.normcase(os.path.join(expand("%USERPROFILE%"), "AppData")) in p:
-            where = "данные приложения в AppData"
+            where = "application data in AppData"
         else:
-            where = "папка установленных программ или общих данных"
-        extra = " Для драйверов и системных библиотек это опасно." if ext in (".sys", ".dll") else ""
-        return f"Лежит в: {where}. Программа, которой это принадлежит, может перестать работать — лучше удалить её через «Программы».{extra}"
+            where = "installed programs or shared data folder"
+        extra = " This is dangerous for drivers and system libraries." if ext in (".sys", ".dll") else ""
+        return f"Located in: {where}. The program it belongs to may stop working — better to uninstall it via “Programs”.{extra}"
     if ext in (".sys", ".dll"):
-        return "Библиотека или драйвер — программа, которой он принадлежит, может перестать работать."
+        return "A library or driver — the program it belongs to may stop working."
     return ""
 
 

@@ -1,5 +1,5 @@
-"""Dusty Ai — Flask-приложение в нативном окне: сканирует выбранные диски Windows,
-объясняет находки и удаляет по белому списку. Всё работает локально."""
+"""Dusty Ai — Flask app in a native window: scans the selected Windows drives,
+explains the findings and deletes via a whitelist. Everything runs locally."""
 import json
 import ntpath
 import os
@@ -30,9 +30,9 @@ app.jinja_env.globals.update(APP_NAME=APP_NAME, IS_ADMIN=ADMIN, CAN_ELEVATE=IS_W
 
 @app.template_filter("size")
 def size_filter(g):
-    """ГБ → «512 МБ» / «1.4 ГБ»: мелочь в гигабайтах выглядит как «0.0»."""
+    """GB → “512 MB” / “1.4 GB”: small sizes in gigabytes would look like “0.0”."""
     g = g or 0
-    return f"{g:.2f}".rstrip("0").rstrip(".") + " ГБ" if g >= 1 else f"{round(g * 1024)} МБ"
+    return f"{g:.2f}".rstrip("0").rstrip(".") + " GB" if g >= 1 else f"{round(g * 1024)} MB"
 
 HOST, PORT = "127.0.0.1", 5000
 SCANS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans")
@@ -49,13 +49,13 @@ MOCK_LOCKED = {
     "user_temp": {"files": ["~DF3A91.tmp", "pycharm-cache.lock", "chrome_scoped_dir"], "procs": [
         {"pid": 5151, "app": "PyCharm", "proc": "pycharm64", "protected": False, "why": ""},
         {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""},
-        {"pid": 1200, "app": "Проводник Windows", "proc": "explorer", "protected": True, "why": "системный процесс"}]},
+        {"pid": 1200, "app": "Windows Explorer", "proc": "explorer", "protected": True, "why": "system process"}]},
     "chrome_ai_model": {"files": ["weights.bin"], "procs": [
         {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""}]},
 }
 
 
-# ───────────────────────────────── диски ─────────────────────────────────
+# ───────────────────────────────── drives ─────────────────────────────────
 
 def add_pct(drives):
     for d in drives:
@@ -63,7 +63,7 @@ def add_pct(drives):
 
 
 def get_drives(force=False):
-    """Список дисков; PowerShell дорогой, поэтому кэш на 20 секунд."""
+    """List of drives; PowerShell is expensive, so it is cached for 20 seconds."""
     if not force and time.time() - _drive_cache["t"] < 20 and _drive_cache["v"]:
         return [dict(d) for d in _drive_cache["v"]]
     drives = [dict(d) for d in catalog.MOCK["drives"]] if not IS_WINDOWS else list_drives()
@@ -72,7 +72,7 @@ def get_drives(force=False):
     return [dict(d) for d in drives]
 
 
-# ─────────────────────────────── сканирование ───────────────────────────────
+# ─────────────────────────────── scanning ───────────────────────────────
 
 def set_state(**kw):
     with _lock:
@@ -85,23 +85,29 @@ def scan_programs():
         "'HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
         "'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*';"
         "Get-ItemProperty $keys -EA SilentlyContinue | "
-        "Where-Object { $_.DisplayName -and $_.EstimatedSize -gt 300000 -and -not $_.SystemComponent } | "
-        "Sort-Object EstimatedSize -Descending | Select-Object -First 20 | "
+        "Where-Object { $_.DisplayName -and $_.EstimatedSize -gt 10240 -and -not $_.SystemComponent } | "
+        "Sort-Object EstimatedSize -Descending | "
         "Select DisplayName, DisplayVersion, InstallLocation, DisplayIcon, UninstallString,"
         "@{n='SizeMB';e={[math]::Round($_.EstimatedSize/1024,0)}} | ConvertTo-Json -Compress"
     )
     for p in programs:
         loc = p.get("InstallLocation")
-        if loc and os.path.isdir(loc):  # реестр врёт: берём реальный размер папки
+        if loc and os.path.isdir(loc):  # the registry lies: take the real folder size
             p["SizeMB"] = round(folder_size(loc, 10) / 1024 ** 2)
         m = re.match(r'^"?([^",]+\.(?:exe|ico))', p.get("DisplayIcon") or "", re.I)
         p["icon_src"] = m.group(1) if m else None
         p["drive"] = drive_of(loc or p["icon_src"] or "", system_drive())
         cmd = (p.pop("UninstallString", None) or "").strip()
-        # MSI: «/I{GUID}» открывает «изменить/восстановить», а нужно «удалить» — /X
+        # MSI: “/I{GUID}” opens “modify/repair”, but we need “uninstall” — /X
         p["_cmd"] = re.sub(r"(?i)(msiexec(?:\.exe)?\s+)/I", r"\1/X", cmd) if cmd else None
         p["id"] = scanners.short_id("app_", p["DisplayName"] + str(p.get("DisplayVersion")))
-    return [p for p in programs if p.get("SizeMB", 0) > 300]
+    seen, out = set(), []
+    for p in programs:  # the same program is often listed in several registry hives
+        key = (p["DisplayName"], p.get("DisplayVersion"))
+        if p.get("SizeMB", 0) >= 10 and key not in seen:
+            seen.add(key)
+            out.append(p)
+    return sorted(out, key=lambda p: -p["SizeMB"])
 
 
 def scan_item(item):
@@ -113,15 +119,15 @@ def scan_item(item):
 
 def compute_totals(d):
     d["safe_gb"] = round(sum(i["size_gb"] for i in d["safe"]) + sum(i["size_gb"] for i in d.get("recycle", [])), 2)
-    # дубликаты и мусор разработчика — решение пользователя, поэтому «на усмотрение»;
-    # остатки Temp уже входят в размер самого Temp и отдельно не суммируются
+    # duplicates and developer junk are the user's decision, hence “your call”;
+    # Temp leftovers are already part of the Temp size and are not summed separately
     d["review_gb"] = round(sum(i["size_gb"] for i in d["review"]) + sum(i["size_gb"] for i in d.get("junk", []))
                            + sum(g["wasted_gb"] for g in d["dups"]), 2)
     d["total_gb"] = round(d["safe_gb"] + d["review_gb"], 2)
 
 
 def link_temp_parents(data):
-    """Привязывает остатки установщиков к пункту Temp, в размер которого они входят."""
+    """Attaches installer leftovers to the Temp item whose size they are part of."""
     for t in data["temp_items"]:
         parent = os.path.normcase(os.path.dirname(t["path"]))
         t["parent_id"] = next(
@@ -132,7 +138,7 @@ def link_temp_parents(data):
 
 
 def attach_icons(data):
-    """Иконки приложений: для пунктов каталога, программ и установок Python."""
+    """Application icons: for catalog items, programs and Python installations."""
     for i in data["safe"] + data["review"]:
         i["icon_exe"] = first_existing(i.get("icon_src"))
     for p in data["programs"]:
@@ -146,16 +152,16 @@ def attach_icons(data):
 
 
 def extra_item(kind, d):
-    """Элемент таблицы из обзора диска (мусор разработчика / корзина)."""
+    """Table item from the disk overview (developer junk / recycle bin)."""
     if kind == "junk":
         return dict(id=d.get("id") or scanners.short_id("junk_", d["path"]), name=f'{d["name"]} · {ntpath.basename(ntpath.dirname(d["path"]))}',
                     icon="🧰", path=d["path"], resolved=d["path"], size_gb=d["size_gb"], deletable=True, drive=drive_of(d["path"]),
-                    desc=f'{d["what"]}. Восстанавливается командой установки зависимостей проекта.',
-                    restore="npm install / pip install / python -m venv — проект снова заработает.")
-    return dict(id=f'recycle_{d["drive"]}', name=f'Корзина {d["drive"]}:', icon="🗑️", path=f'{d["drive"]}:\\$Recycle.Bin',
+                    desc=f'{d["what"]}. Restored by the project dependency install command.',
+                    restore="npm install / pip install / python -m venv — the project will work again.")
+    return dict(id=f'recycle_{d["drive"]}', name=f'Recycle Bin {d["drive"]}:', icon="🗑️", path=f'{d["drive"]}:\\$Recycle.Bin',
                 resolved=f'{d["drive"]}:\\$Recycle.Bin', size_gb=d["size_gb"], deletable=True, drive=d["drive"],
-                desc="Файлы, которые вы уже удалили, но они всё ещё занимают место.",
-                restore="Восстановить файлы из корзины после очистки будет нельзя.")
+                desc="Files you have already deleted but which still take up space.",
+                restore="Files cannot be restored from the recycle bin after it is emptied.")
 
 
 def _mock_big_warning(f):
@@ -163,25 +169,25 @@ def _mock_big_warning(f):
     if "site-packages" in low:
         return scanners_warn_site
     if "\\appdata\\" in low:
-        return "Лежит в: данные приложения в AppData. Программа, которой это принадлежит, может перестать работать — лучше удалить её через «Программы»."
+        return "Located in: application data in AppData. The program it belongs to may stop working — better to uninstall it via “Programs”."
     return ""
 
 
-scanners_warn_site = "Часть установленного Python-пакета — после удаления пакет перестанет работать (переустановка: pip install --force-reinstall)."
+scanners_warn_site = "Part of an installed Python package — the package will stop working after deletion (reinstall: pip install --force-reinstall)."
 
 
 def _mock_big_deletable(f):
-    """В демо считаем так же, как в жизни, но по виртуальным путям."""
+    """In demo mode we compute the same way as for real, but over virtual paths."""
     low = f["path"].lower()
     if low.endswith(("pagefile.sys", "hiberfil.sys", "swapfile.sys")):
-        return False, "файл подкачки/гибернации — им управляет Windows (отключается в настройках системы)"
+        return False, "page/hibernation file — managed by Windows (can be disabled in system settings)"
     if "\\windows\\" in low:
-        return False, "папка Windows — удаление может сломать систему"
+        return False, "Windows folder — deleting it may break the system"
     return True, ""
 
 
 def assemble_extras(data, deep, recycle):
-    """Кладёт результаты обзора дисков в отчёт и регистрирует динамические id."""
+    """Puts the disk overview results into the report and registers dynamic ids."""
     dyn = data["dynamic"]
     data["overview"], data["junk"], data["recycle"], data["bigfiles"] = {}, [], [], []
     for letter, res in deep.items():
@@ -202,7 +208,7 @@ def assemble_extras(data, deep, recycle):
             dyn[item["id"]] = {"type": "junk", "path": j["path"]}
         for t in res["top_dirs"]:
             t["id"] = scanners.short_id("td_", t["path"])
-            dyn[t["id"]] = {"type": "bigfile", "path": t["path"]}  # только показать в проводнике
+            dyn[t["id"]] = {"type": "bigfile", "path": t["path"]}  # only reveal in Explorer
         data["overview"][letter] = {"top_dirs": res["top_dirs"], "big_files": res["big_files"], "partial": res["partial"]}
     data["bigfiles"].sort(key=lambda f: -f["size_gb"])
     for letter, size in recycle.items():
@@ -223,19 +229,19 @@ def register_dynamic(data):
         dyn[f["id"]] = {"type": "download", "path": f["path"]}
     for grp in data.get("profile", []):
         for i in grp["entries"]:
-            dyn[i["id"]] = {"type": "bigfile", "path": i["path"]}  # только показать в проводнике
+            dyn[i["id"]] = {"type": "bigfile", "path": i["path"]}  # only reveal in Explorer
     for p in data["programs"]:
         dyn[p["id"]] = {"type": "uninstall", "cmd": p.pop("_cmd", None), "name": p["DisplayName"]}
 
 
 def mock_extras(data, sel):
-    """Демо-данные для умного Temp, Python, дубликатов, программ и обзора дисков."""
+    """Demo data for smart Temp, Python, duplicates, programs and the disk overview."""
     dyn = data["dynamic"]
     for t in catalog.MOCK["smart_temp"]:
         item = dict(id=scanners.short_id("tmp_", t["path"]), name=t["name"], icon="📁", path=t["path"],
                     resolved=t["path"], kind="folder", deletable=True, size_gb=t["size_gb"], drive="C",
-                    age_days=t["age_days"], desc=f'{t["reason"]} Не изменялась {t["age_days"]} дн.',
-                    restore="Ничего: если установщик понадобится, он распакуется заново.")
+                    age_days=t["age_days"], desc=f'{t["reason"]} Not modified for {t["age_days"]} days.',
+                    restore="Nothing: if the installer is needed, it will be extracted again.")
         data["temp_items"].append(item)
     for g in catalog.MOCK["dups"]:
         group = {"hash": scanners.short_id("grp_", g["files"][0]["path"]), "size_gb": g["size_gb"],
@@ -263,11 +269,11 @@ def do_scan(opts):
     try:
         mock = not IS_WINDOWS
         _mock_unlocked.clear()
-        set_state(status="scanning", progress=2, message="Определяю диски…")
+        set_state(status="scanning", progress=2, message="Detecting drives…")
         all_drives = get_drives(force=True)
         sel = [d["Name"] for d in all_drives if d["Name"] in opts["drives"] and d.get("scannable")]
         if not sel:
-            raise ValueError("не выбран ни один доступный диск")
+            raise ValueError("no available drive selected")
         sysd = system_drive() if not mock else "C"
         want_dups = opts.get("dups", True)
 
@@ -284,33 +290,33 @@ def do_scan(opts):
 
         if mock:
             for n, item in enumerate(items):
-                set_state(progress=5 + int(70 * n / max(len(items), 1)), message=f"Замеряю: {item['name']}")
+                set_state(progress=5 + int(70 * n / max(len(items), 1)), message=f"Measuring: {item['name']}")
                 it = scan_item(item)
                 it.update(size_gb=catalog.MOCK["sizes"].get(it["id"], 0), drive="C")
                 it["exists"] = it["size_gb"] > 0
                 found.append(it)
                 time.sleep(0.04)
-            set_state(progress=80, message="Windows не обнаружена — показываю демо-данные")
+            set_state(progress=80, message="Windows not detected — showing demo data")
             deep, recycle = mock_extras(data, sel)
         else:
             tasks = {}
             for item in items:
                 tasks[f"item:{item['id']}"] = (item["name"], lambda it=item: scan_item(it))
             if sysd in sel:
-                tasks["temp"] = ("остатки установщиков в Temp", scanners.scan_smart_temp)
-            tasks["programs"] = ("установленные программы", scan_programs)
-            tasks["python"] = ("установки Python", scanners.scan_python)
+                tasks["temp"] = ("installer leftovers in Temp", scanners.scan_smart_temp)
+            tasks["programs"] = ("installed programs", scan_programs)
+            tasks["python"] = ("Python installations", scanners.scan_python)
             roots = [r for r in scanners.dup_roots() if drive_of(r) in sel]
             if want_dups and roots:
-                tasks["dups"] = ("дубликаты файлов", lambda: scanners.scan_duplicates(roots=roots))
+                tasks["dups"] = ("duplicate files", lambda: scanners.scan_duplicates(roots=roots))
             if drive_of(scanners.downloads_root(), sysd) in sel:
-                tasks["downloads"] = ("крупные файлы в Загрузках", scanners.scan_downloads)
+                tasks["downloads"] = ("big files in Downloads", scanners.scan_downloads)
             if opts.get("profile", True) and drive_of(expand("%USERPROFILE%"), sysd) in sel:
-                tasks["profile"] = ("обзор профиля и AppData", scanners.scan_profile_overview)
+                tasks["profile"] = ("profile and AppData overview", scanners.scan_profile_overview)
             for L in sel:
-                tasks[f"recycle:{L}"] = (f"корзина {L}:", lambda L=L: scanners.scan_recycle(L))
+                tasks[f"recycle:{L}"] = (f"recycle bin {L}:", lambda L=L: scanners.scan_recycle(L))
                 if L != sysd or opts.get("deep_system", True):
-                    tasks[f"deep:{L}"] = (f"обзор диска {L}: целиком", lambda L=L: scanners.scan_drive_deep(
+                    tasks[f"deep:{L}"] = (f"full overview of drive {L}:", lambda L=L: scanners.scan_drive_deep(
                         L, deadline=150 if L == sysd else 90, system=(L == sysd)))
             results, done = {}, 0
             with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
@@ -319,10 +325,10 @@ def do_scan(opts):
                     key, label = futs[fut]
                     try:
                         results[key] = fut.result()
-                    except Exception:  # noqa: BLE001 — один сбойный сканер не должен ронять весь скан
+                    except Exception:  # noqa: BLE001 — one failing scanner must not bring down the whole scan
                         results[key] = None
                     done += 1
-                    set_state(progress=5 + int(85 * done / len(tasks)), message=f"Готово: {label}")
+                    set_state(progress=5 + int(85 * done / len(tasks)), message=f"Done: {label}")
             found = [results[k] for k in results if k.startswith("item:") and results[k]]
             data["temp_items"] = [t for t in (results.get("temp") or [])]
             data["programs"] = [p for p in (results.get("programs") or []) if p["drive"] in sel]
@@ -336,7 +342,7 @@ def do_scan(opts):
             recycle = {k[8:]: v for k, v in results.items() if k.startswith("recycle:") and v is not None}
 
         seen, unique = set(), []
-        for it in found:  # %TEMP% и %LOCALAPPDATA%\Temp — обычно одна папка, не считаем дважды
+        for it in found:  # %TEMP% and %LOCALAPPDATA%\Temp are usually the same folder, do not count twice
             key = os.path.normcase(os.path.realpath(it["resolved"]))
             if key not in seen:
                 seen.add(key)
@@ -351,7 +357,7 @@ def do_scan(opts):
         assemble_extras(data, deep, recycle)
         link_temp_parents(data)
         if not mock:
-            set_state(progress=94, message="Загружаю иконки приложений…")
+            set_state(progress=94, message="Loading application icons…")
             attach_icons(data)
 
         by_size = lambda i: -i["size_gb"]
@@ -366,15 +372,15 @@ def do_scan(opts):
         with _lock:
             scan_data.clear()
             scan_data.update(data)
-        set_state(status="done", progress=100, message="Готово")
-    except Exception as e:  # noqa: BLE001 — поток не должен падать молча
-        set_state(status="error", message=f"Ошибка сканирования: {e}")
+        set_state(status="done", progress=100, message="Done")
+    except Exception as e:  # noqa: BLE001 — the thread must not fail silently
+        set_state(status="error", message=f"Scan error: {e}")
 
 
-# ───────────────────────────── история и экспорт ─────────────────────────────
+# ───────────────────────────── history and export ─────────────────────────────
 
 def public_data(d):
-    """Данные отчёта без служебного реестра динамических id."""
+    """Report data without the internal registry of dynamic ids."""
     return {k: v for k, v in d.items() if k not in ("dynamic", "readonly", "_locks")}
 
 
@@ -387,7 +393,7 @@ def save_history(data):
         for old in sorted(f for f in os.listdir(SCANS_DIR) if HISTORY_RE.match(f))[:-HISTORY_KEEP]:
             os.remove(os.path.join(SCANS_DIR, old))
     except OSError:
-        pass  # история — удобство, не причина ронять скан
+        pass  # history is a convenience, no reason to crash the scan
 
 
 def list_history(limit=3):
@@ -406,11 +412,11 @@ def list_history(limit=3):
     return rows
 
 
-# ─────────────────────────────── удаление ───────────────────────────────
+# ─────────────────────────────── deletion ───────────────────────────────
 
 def delete_item(item):
-    """Удаляет по каталогу, пропуская занятые файлы.
-    Возвращает (освобождено ГБ, осталось ГБ, пропущено файлов, образцы путей пропущенных)."""
+    """Deletes according to the catalog, skipping files in use.
+    Returns (GB freed, GB left, files skipped, sample paths of the skipped ones)."""
     path = expand(item["path"])
     if not os.path.isdir(path):
         return 0.0, 0.0, 0, []
@@ -434,10 +440,10 @@ def err(msg, code):
     return jsonify(ok=False, error=msg), code
 
 
-# ───────────────────────────────── строки отчёта ─────────────────────────────────
+# ───────────────────────────────── report rows ─────────────────────────────────
 
 def build_rows(d):
-    """Единый список строк таблицы: A — безопасно, B — на усмотрение, C — только вручную."""
+    """Unified list of table rows: A — safe, B — your call, C — manual only."""
     rows, sysd = [], d.get("system_drive", "C")
 
     def row(i, cat, kind):
@@ -464,14 +470,14 @@ def build_rows(d):
 
 
 def with_defaults(d):
-    """Старые сохранённые отчёты не знают про новые поля."""
+    """Old saved reports do not know about the new fields."""
     d.setdefault("scanned", [x["Name"] for x in d.get("drives", [])] or ["C"])
     d.setdefault("system_drive", "C")
     for k in ("junk", "recycle", "dups", "python", "programs", "temp_items", "protected", "downloads", "profile"):
         d.setdefault(k, [])
     d.setdefault("overview", {})
-    if "bigfiles" not in d:  # отчёты, сохранённые до отдельной вкладки
-        d["bigfiles"] = [dict(f, drive=L, deletable=False, why="сохранённый отчёт")
+    if "bigfiles" not in d:  # reports saved before the separate tab existed
+        d["bigfiles"] = [dict(f, drive=L, deletable=False, why="saved report")
                          for L, o in d["overview"].items() for f in o.get("big_files", [])]
         d["bigfiles"].sort(key=lambda f: -f["size_gb"])
     for x in d.get("drives", []):
@@ -489,17 +495,17 @@ def with_defaults(d):
 
 
 
-# ───────────────────────────── AI-сводка (Cloudflare Workers AI) ─────────────────────────────
+# ───────────────────────────── AI summary (Cloudflare Workers AI) ─────────────────────────────
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # можно заменить переменной CF_MODEL (например, на модель побольше)
-CF_MAX_TOKENS = 700  # по-русски токенов уходит в 2–3 раза больше, чем слов: 300 обрывало ответ
+CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # can be overridden via the CF_MODEL variable (e.g. with a bigger model)
+CF_MAX_TOKENS = 700  # leave enough tokens for a full answer: 300 cut the reply off
 CF_BASE = "https://api.cloudflare.com/client/v4"
 _ai_cache = {}
 
 
 class AIError(Exception):
-    """Ошибка AI-сводки; текст безопасен для показа пользователю (токен в нём не бывает)."""
+    """AI summary error; the text is safe to show to the user (it never contains the token)."""
 
     def __init__(self, message, code=502):
         super().__init__(message)
@@ -507,7 +513,7 @@ class AIError(Exception):
 
 
 def read_env_file(path=ENV_FILE):
-    """Минимальный разбор .env (KEY=VALUE, # комментарии, кавычки) — без внешних библиотек."""
+    """Minimal .env parser (KEY=VALUE, # comments, quotes) — no external libraries."""
     out = {}
     try:
         with open(path, encoding="utf-8") as f:
@@ -523,14 +529,14 @@ def read_env_file(path=ENV_FILE):
 
 
 def cf_setting(name):
-    """Переменная окружения важнее .env; заглушку из .env.example считаем «не задано»."""
+    """An environment variable takes precedence over .env; the placeholder from .env.example counts as “not set”."""
     v = os.environ.get(name) or read_env_file().get(name) or ""
     return "" if v.startswith("your_") else v
 
 
 def plan_groups(d, drive=None):
-    """Готовый план из реальных находок. Букв A/B/C модели не даём: слабая модель начинает
-    рассуждать про «зоны» вместо файлов — поэтому только слова и конкретные названия."""
+    """A ready plan built from the real findings. We do not give the model the letters A/B/C: a weak model starts
+    talking about “zones” instead of files — so only words and concrete names."""
     rows = [r for r in build_rows(d) if r["kind"] != "temp" and (not drive or r["drive"] == drive)]
     pick = lambda cats, n: [f"{r['name'][:50]} — {fmt_gb(r['size_gb'])}" for r in rows if r["cat"] in cats][:n]
     return {"safe": pick("A", 3), "ask": pick("B", 2), "manual": pick("C", 2),
@@ -538,36 +544,36 @@ def plan_groups(d, drive=None):
 
 
 def fmt_gb(g):
-    return f"{g:g} ГБ" if g >= 1 else f"{round(g * 1024)} МБ"
+    return f"{g:g} GB" if g >= 1 else f"{round(g * 1024)} MB"
 
 
 def build_prompt(d, drive=None):
     p = plan_groups(d, drive)
-    block = lambda items: "\n".join(f"- {x}" for x in items) or "- ничего"
+    block = lambda items: "\n".join(f"- {x}" for x in items) or "- nothing"
     return (
-        "Ты — ассистент по очистке Windows. Сканирование ПК нашло следующее.\n\n"
-        f"Можно удалить сразу, это безопасно и само восстановится (всего {p['safe_total']} ГБ):\n{block(p['safe'])}\n\n"
-        f"Удалять можно, но решать пользователю:\n{block(p['ask'])}\n\n"
-        f"Не удалять автоматически, только вручную и осторожно:\n{block(p['manual'])}\n\n"
-        "Перескажи это простыми словами тремя короткими предложениями, называя конкретные пункты из списков:\n"
-        "1) главный вывод с общим объёмом безопасного мусора; "
-        "2) что удалить первым и почему оно безопасно; "
+        "You are a Windows cleanup assistant. A PC scan found the following.\n\n"
+        f"Can be deleted right away, it is safe and recovers by itself (total {p['safe_total']} GB):\n{block(p['safe'])}\n\n"
+        f"Can be deleted, but the user should decide:\n{block(p['ask'])}\n\n"
+        f"Do not delete automatically, only manually and carefully:\n{block(p['manual'])}\n\n"
+        "Retell this in plain words in three short sentences, naming concrete items from the lists:\n"
+        "1) the main takeaway with the total amount of safe junk; "
+        "2) what to delete first and why it is safe; "
         
-        + ("3) что не трогать без раздумий (из последнего списка). Без воды."
-           if p["manual"] else "3) что из списка «решать пользователю» стоит проверить перед удалением. Без воды.")
+        + ("3) what not to touch without thinking (from the last list). No fluff."
+           if p["manual"] else "3) which item from the “user decides” list is worth checking before deletion. No fluff.")
     )
 
 
 CF_SYSTEM = (
-    "Отвечай только по-русски, обычным текстом. Ровно три коротких предложения, пронумерованные 1), 2), 3). "
-    "Называй программы и размеры точно как в данных, ничего не выдумывай. "
-    "Слова «зона», «категория» и буквы A/B/C не используй."
+    "Answer in English only, as plain text. Exactly three short sentences numbered 1), 2), 3). "
+    "Name programs and sizes exactly as in the data, do not invent anything. "
+    "Do not use the words “zone”, “category” or the letters A/B/C."
 )
 
 
 def tidy_summary(text):
-    """Ответ мог оборваться по лимиту токенов: обрезаем до последнего законченного предложения
-    и убираем повисший маркер списка («5. **»)."""
+    """The answer may have been cut off by the token limit: trim to the last complete sentence
+    and remove a dangling list marker (“5. **”)."""
     text = text.strip()
     if text and text[-1] not in ".!?…»)":
         cut = max(text.rfind(c) for c in ".!?…")
@@ -578,7 +584,7 @@ def tidy_summary(text):
 
 
 def cloudflare_ai_summary(data, drive=None):
-    """Запрашивает у Cloudflare Workers AI краткую сводку по результатам скана."""
+    """Asks Cloudflare Workers AI for a short summary of the scan results."""
     account, token = cf_setting("CF_ACCOUNT_ID"), cf_setting("CF_API_TOKEN")
     if not token:
         raise AIError("CF_API_TOKEN not set", 400)
@@ -600,22 +606,22 @@ def cloudflare_ai_summary(data, drive=None):
             msgs = [x.get("message", "") for x in json.load(e).get("errors", [])]
         except (ValueError, OSError):
             msgs = []
-        hint = {401: "токен недействителен", 403: "у токена нет права Workers AI",
-                429: "превышен лимит запросов"}.get(e.code, "")
-        raise AIError(f"Cloudflare вернул {e.code}" + (f": {hint}" if hint else "")
+        hint = {401: "the token is invalid", 403: "the token lacks Workers AI permission",
+                429: "request limit exceeded"}.get(e.code, "")
+        raise AIError(f"Cloudflare returned {e.code}" + (f": {hint}" if hint else "")
                       + (f" ({'; '.join(m for m in msgs if m)[:200]})" if any(msgs) else ""))
     except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise AIError(f"Нет связи с Cloudflare: {getattr(e, 'reason', e)}")
+        raise AIError(f"Cannot reach Cloudflare: {getattr(e, 'reason', e)}")
     except ValueError:
-        raise AIError("Cloudflare вернул некорректный ответ")
+        raise AIError("Cloudflare returned an invalid response")
     text = ((payload.get("result") or {}).get("response") or "").strip()
     if not payload.get("success", True) or not text:
         errs = "; ".join(x.get("message", "") for x in payload.get("errors") or [])[:200]
-        raise AIError("Пустой ответ модели" + (f": {errs}" if errs else ""))
+        raise AIError("Empty model response" + (f": {errs}" if errs else ""))
     return tidy_summary(text)
 
 
-# ───────────────────────────────── маршруты ─────────────────────────────────
+# ───────────────────────────────── routes ─────────────────────────────────
 
 @app.get("/")
 def index():
@@ -641,7 +647,7 @@ def scan():
     with _lock:
         if scan_state["status"] == "scanning":
             return jsonify(ok=True, already=True)
-        scan_state.update(status="scanning", progress=0, message="Запуск…")
+        scan_state.update(status="scanning", progress=0, message="Starting…")
     opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True)),
             "deep_system": bool(body.get("deep_system", True))}
     threading.Thread(target=do_scan, args=(opts,), daemon=True).start()
@@ -666,14 +672,14 @@ def report():
 
 @app.get("/api/ai-summary")
 def api_ai_summary():
-    """AI-сводка по текущему отчёту. Запрос уходит наружу, поэтому только по явному клику
-    со страницы приложения: чужие сайты (cross-site) не могут тратить токен."""
+    """AI summary of the current report. The request leaves the machine, so it is only made on an explicit click
+    from the app page: foreign sites (cross-site) cannot spend the token."""
     if request.headers.get("Sec-Fetch-Site") == "cross-site":
         return jsonify(summary=None, error="forbidden"), 403
     drive = (request.args.get("drive") or "").upper()[:1] or None
     with _lock:
         if not scan_data:
-            return jsonify(summary=None, error="Сначала запустите сканирование"), 400
+            return jsonify(summary=None, error="Run a scan first"), 400
         d = with_defaults(dict(scan_data))
         key = (d.get("scanned_at"), d.get("total_gb"), drive)
     if not request.args.get("refresh") and key in _ai_cache:
@@ -706,13 +712,13 @@ def history_list():
 @app.get("/history/<name>")
 def history(name):
     if not HISTORY_RE.match(name):
-        return err("Неверное имя", 404)
+        return err("Invalid name", 404)
     try:
         with open(os.path.join(SCANS_DIR, name), encoding="utf-8") as f:
             d = json.load(f)
     except (OSError, ValueError):
         return redirect("/history")
-    d.update(dynamic={}, readonly=True)  # старый отчёт — только просмотр
+    d.update(dynamic={}, readonly=True)  # old report — view only
     with _lock:
         scan_data.clear()
         scan_data.update(d)
@@ -724,13 +730,13 @@ def find_item(zone_list, item_id):
 
 
 def perform_delete(item_id, running=None):
-    """Удаляет один пункт. Возвращает (payload, http_code). running — готовый список процессов."""
+    """Deletes one item. Returns (payload, http_code). running is a ready list of processes."""
     def fail(msg, code):
         return {"ok": False, "id": item_id, "error": msg}, code
 
     with _lock:
         if scan_data.get("readonly"):
-            return fail("Это сохранённый отчёт — он только для просмотра", 403)
+            return fail("This is a saved report — view only", 403)
         dyn = scan_data.get("dynamic", {}).get(item_id)
         mock = scan_data.get("mock", False)
         scanned = list(scan_data.get("scanned", []))
@@ -740,25 +746,25 @@ def perform_delete(item_id, running=None):
     elif dyn and dyn["type"] in ("temp", "dup", "junk", "recycle", "download", "bigdel"):
         kind, item = dyn["type"], dyn
     else:
-        return fail("Этот пункт нельзя удалять через приложение", 403)
+        return fail("This item cannot be deleted through the app", 403)
 
-    # Жёстко блокируем только то, что реально опасно: чистка Temp посреди установки может её сломать.
-    # Всё остальное (кэши) удаляем сразу: занятые файлы просто пропускаются, об этом скажем в ответе.
+    # We hard-block only what is truly dangerous: cleaning Temp in the middle of an install can break it.
+    # Everything else (caches) is deleted right away: files in use are simply skipped, and the response says so.
     is_temp = kind == "temp" or item_id in ("user_temp", "local_temp", "windows_temp")
     running = running_names() if running is None else running
     installing = running_blockers(["vs_installer"], running) if is_temp else []
     if installing:
-        return fail("Сейчас идёт установка (" + ", ".join(installing) + ") — дождитесь её завершения, "
-                    "иначе её можно повредить", 409)
+        return fail("An installation is in progress (" + ", ".join(installing) + ") — wait for it to finish, "
+                    "otherwise it may be corrupted", 409)
     hints = running_blockers(item.get("blockers", []) if kind == "static" else [], running)
     skipped, locked_paths = 0, []
 
-    if mock and item_id in MOCK_LOCKED and item_id not in _mock_unlocked:  # демо: показываем, как выглядит «файл занят»
+    if mock and item_id in MOCK_LOCKED and item_id not in _mock_unlocked:  # demo: show what a “file in use” looks like
         lock = {"count": 7, "files": MOCK_LOCKED[item_id]["files"], "procs": MOCK_LOCKED[item_id]["procs"]}
         with _lock:
             scan_data.setdefault("_locks", {})[item_id] = {p["pid"]: p for p in lock["procs"] if not p["protected"]}
         return {"ok": False, "id": item_id, "freed_gb": 0, "locked": lock,
-                "error": "Часть файлов занята программами"}, 409
+                "error": "Some files are in use by programs"}, 409
     freed = remaining = 0.0
     group = None
     pool = {"static": lambda: scan_data["safe"] + scan_data["review"], "temp": lambda: scan_data["temp_items"],
@@ -766,7 +772,7 @@ def perform_delete(item_id, running=None):
     if kind in pool:
         entry = find_item(pool[kind](), item_id)
         if not entry:
-            return fail("Пункт не найден — пересканируйте", 404)
+            return fail("Item not found — rescan", 404)
     if kind == "static":
         if mock:
             freed = entry["size_gb"]
@@ -777,21 +783,21 @@ def perform_delete(item_id, running=None):
             freed = entry["size_gb"]
         else:
             if not scanners.verify_smart_temp(item["path"]):
-                return fail("Папка изменилась или больше не подходит под правила — пересканируйте", 409)
+                return fail("The folder changed or no longer fits the rules — rescan", 409)
             freed, remaining, skipped, locked_paths = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "junk":
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_junk(item["path"], [f"{L}:\\" for L in scanned]):
-                return fail("Папка больше не подходит под правила — пересканируйте", 409)
+                return fail("The folder no longer fits the rules — rescan", 409)
             freed, remaining, skipped, locked_paths = delete_item({"path": item["path"], "kind": "folder"})
     elif kind == "recycle":
         freed = entry["size_gb"]
         if not mock:
             letter = item["drive"]
             if not re.fullmatch(r"[A-Z]", letter):
-                return fail("Неверный диск", 400)
+                return fail("Invalid drive", 400)
             run_ps(f"Clear-RecycleBin -DriveLetter {letter} -Force -ErrorAction SilentlyContinue", timeout=120)
             remaining = scanners.scan_recycle(letter)
             freed = round(max(entry["size_gb"] - remaining, 0), 2)
@@ -799,54 +805,54 @@ def perform_delete(item_id, running=None):
         with _lock:
             entry = find_item(scan_data["bigfiles"], item_id)
         if not entry:
-            return fail("Файл не найден в отчёте — пересканируйте", 404)
+            return fail("File not found in the report — rescan", 404)
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_bigfile(item["path"]):
-                return fail("Файл нельзя удалить из приложения (системный, в папке программ или уже удалён)", 409)
+                return fail("The file cannot be deleted from the app (system file, in a program folder or already deleted)", 409)
             try:
                 size = os.path.getsize(item["path"])
                 os.remove(lp(item["path"]))
             except PermissionError:
                 lock = lock_info(item_id, 1, [item["path"]])
                 return {"ok": False, "id": item_id, "freed_gb": 0, "locked": lock,
-                        "error": "Файл занят программой или защищён"}, 409
+                        "error": "The file is in use by a program or protected"}, 409
             except OSError as e:
-                return fail(f"Не удалось удалить файл: {e}", 500)
+                return fail(f"Could not delete the file: {e}", 500)
             freed = gb(size)
     elif kind == "download":
         with _lock:
             entry = find_item(scan_data["downloads"], item_id)
         if not entry:
-            return fail("Файл не найден в отчёте — пересканируйте", 404)
+            return fail("File not found in the report — rescan", 404)
         if mock:
             freed = entry["size_gb"]
         else:
             if not scanners.verify_download(item["path"]):
-                return fail("Файл не в Загрузках или уже удалён — пересканируйте", 409)
+                return fail("The file is not in Downloads or already deleted — rescan", 409)
             try:
                 size = os.path.getsize(item["path"])
                 os.remove(lp(item["path"]))
             except OSError as e:
-                return fail(f"Не удалось удалить файл: {e}", 500)
+                return fail(f"Could not delete the file: {e}", 500)
             freed = gb(size)
     else:  # dup
         with _lock:
             group = next((g for g in scan_data["dups"] if g["hash"] == item["group"]), None)
         if not group:
-            return fail("Группа дубликатов не найдена", 404)
+            return fail("Duplicate group not found", 404)
         if mock:
             freed = group["size_gb"]
         else:
             siblings = [f["path"] for f in group["files"]]
             if not scanners.verify_duplicate(item["path"], siblings):
-                return fail("Нельзя удалить: не найдена идентичная копия, которая останется на диске", 409)
+                return fail("Cannot delete: no identical copy that would remain on disk was found", 409)
             try:
                 size = os.path.getsize(item["path"])
                 os.remove(item["path"])
             except OSError as e:
-                return fail(f"Не удалось удалить файл: {e}", 500)
+                return fail(f"Could not delete the file: {e}", 500)
             freed = gb(size)
 
     lock = lock_info(item_id, skipped, locked_paths) if skipped else None
@@ -868,7 +874,7 @@ def perform_delete(item_id, running=None):
         elif kind in pool:
             entry["size_gb"] = remaining
             if kind == "temp":
-                for i in d["safe"]:  # размер Temp уменьшился на освобождённое
+                for i in d["safe"]:  # Temp size decreased by the freed amount
                     if i["id"] == entry.get("parent_id"):
                         i["size_gb"] = round(max(i["size_gb"] - freed, 0), 2)
         else:
@@ -877,7 +883,7 @@ def perform_delete(item_id, running=None):
             group["wasted_gb"] = round(group["size_gb"] * (len(group["files"]) - 1), 2)
             if len(group["files"]) < 2:
                 for f in group["files"]:
-                    d["dynamic"].pop(f["id"], None)  # последняя копия больше не удаляема
+                    d["dynamic"].pop(f["id"], None)  # the last copy is no longer deletable
                 d["dups"].remove(group)
         compute_totals(d)
     out = {"ok": True, "id": item_id, "freed_gb": freed, "kind": kind, "remaining_gb": remaining, "skipped": skipped}
@@ -888,8 +894,8 @@ def perform_delete(item_id, running=None):
 
 
 def lock_info(item_id, skipped, paths):
-    """Кто держит пропущенные файлы. Список процессов запоминаем на сервере: закрывать потом
-    можно только их (клиент присылает pid, но мы сверяем с этим списком)."""
+    """Who holds the skipped files. The process list is remembered on the server: only those
+    can be closed afterwards (the client sends a pid, but we check it against this list)."""
     procs = describe_lockers(find_lockers(paths)) if IS_WINDOWS else []
     with _lock:
         scan_data.setdefault("_locks", {})[item_id] = {p["pid"]: p for p in procs if not p["protected"]}
@@ -897,10 +903,10 @@ def lock_info(item_id, skipped, paths):
 
 
 def skipped_message(item_id, skipped, hints):
-    who = f"закройте {', '.join(hints)}" if hints else "закройте программы, которые могли их занять"
-    msg = f"{skipped} файл(ов) заняты и пропущены — {who} и повторите"
+    who = f"close {', '.join(hints)}" if hints else "close the programs that may be holding them"
+    msg = f"{skipped} file(s) are in use and were skipped — {who} and try again"
     if item_id == "windows_temp" and not ADMIN:
-        msg = f"{skipped} файл(ов) системного Temp требуют прав администратора — запустите Dusty Ai от имени администратора"
+        msg = f"{skipped} file(s) in the system Temp require administrator rights — run Dusty Ai as administrator"
     return msg
 
 
@@ -917,10 +923,10 @@ def delete():
 def delete_batch():
     ids = (request.get_json(silent=True) or {}).get("ids")
     if not isinstance(ids, list) or not ids or len(ids) > 200:
-        return err("Нужен непустой список id", 400)
-    running = running_names()  # один вызов PowerShell на всю партию
+        return err("A non-empty list of ids is required", 400)
+    running = running_names()  # one PowerShell call for the whole batch
     results, seen = [], set()
-    # сначала остатки Temp, потом сам Temp: так «родитель» не успеет удалить «детей» из-под ног
+    # Temp leftovers first, then Temp itself: so the “parent” does not delete the “children” from under our feet
     ordered = sorted((i for i in ids if isinstance(i, str)), key=lambda i: not i.startswith("tmp_"))
     for item_id in ordered:
         if item_id in seen:
@@ -935,15 +941,15 @@ def delete_batch():
 
 @app.post("/api/unlock-retry")
 def unlock_retry():
-    """Закрывает выбранные пользователем программы, которые держат файлы, и повторяет удаление.
-    Закрыть можно только процессы из нашего же списка блокировщиков (id из клиента сверяются с ним)."""
+    """Closes the programs chosen by the user that hold files, and retries the deletion.
+    Only processes from our own blocker list can be closed (ids from the client are checked against it)."""
     body = request.get_json(silent=True) or {}
     ids = [i for i in body.get("ids") or [] if isinstance(i, str)][:50]
     want = {int(p) for p in body.get("pids") or [] if isinstance(p, int)}
     force = bool(body.get("force"))
     with _lock:
         if scan_data.get("readonly"):
-            return err("Это сохранённый отчёт — он только для просмотра", 403)
+            return err("This is a saved report — view only", 403)
         mock = scan_data.get("mock", False)
         allowed = {}
         for i in ids:
@@ -954,7 +960,7 @@ def unlock_retry():
         closed = [allowed[p]["app"] for p in pids]
         _mock_unlocked.update(ids)
     elif pids:
-        now = process_names(pids)  # pid мог достаться другой программе, пока пользователь думал
+        now = process_names(pids)  # the pid may have been reassigned to another program while the user was thinking
         safe = [p for p in pids if now.get(p) and now[p] == (allowed[p].get("proc") or "").lower()]
         still = close_processes(safe, force)
         closed = [allowed[p]["app"] for p in safe if p not in still]
@@ -967,21 +973,21 @@ def unlock_retry():
 
 @app.post("/api/elevate")
 def elevate():
-    """Перезапускает приложение с правами администратора (Windows покажет окно UAC)."""
+    """Restarts the app with administrator rights (Windows will show the UAC prompt)."""
     if not IS_WINDOWS or ADMIN:
-        return err("Уже запущено с правами администратора" if ADMIN else "Доступно только в Windows", 400)
+        return err("Already running as administrator" if ADMIN else "Only available on Windows", 400)
     import ctypes
     here = os.path.dirname(os.path.abspath(__file__))
     params = "" if getattr(sys, "frozen", False) else f'"{os.path.abspath(__file__)}"'
     if ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, here, 1) <= 32:
-        return err("Запуск от администратора отменён", 409)
-    threading.Timer(1.5, lambda: os._exit(0)).start()  # старый экземпляр закрываем, чтобы не держать порт
+        return err("Running as administrator was cancelled", 409)
+    threading.Timer(1.5, lambda: os._exit(0)).start()  # close the old instance so it does not keep the port
     return jsonify(ok=True)
 
 
 @app.post("/open")
 def open_location():
-    """Показывает папку/файл в проводнике. Путь берётся только из каталога или отчёта."""
+    """Reveals a folder/file in Explorer. The path is taken only from the catalog or the report."""
     item_id = (request.get_json(silent=True) or {}).get("id")
     path = None
     with _lock:
@@ -994,16 +1000,16 @@ def open_location():
         if dyn and dyn.get("path"):
             path = dyn["path"]
     if not path:
-        return err("Неизвестный пункт", 404)
+        return err("Unknown item", 404)
     if not IS_WINDOWS:
         return jsonify(ok=True, demo=True)
     try:
         if os.path.isfile(path):
             subprocess.Popen(["explorer", "/select,", path])
         elif os.path.isdir(path):
-            os.startfile(path)  # noqa: S606 — путь из белого списка
+            os.startfile(path)  # noqa: S606 — path from the whitelist
         else:
-            return err("Папка уже не существует", 404)
+            return err("The folder no longer exists", 404)
     except OSError as e:
         return err(str(e), 500)
     return jsonify(ok=True)
@@ -1011,29 +1017,29 @@ def open_location():
 
 @app.post("/uninstall")
 def uninstall():
-    """Запускает штатный деинсталлятор программы (его команда берётся из реестра при скане,
-    клиент присылает только id). Windows сама покажет свои окна подтверждения."""
+    """Launches the program's standard uninstaller (its command is taken from the registry during the scan,
+    the client sends only an id). Windows itself shows its confirmation dialogs."""
     item_id = (request.get_json(silent=True) or {}).get("id")
     with _lock:
         if scan_data.get("readonly"):
-            return err("Это сохранённый отчёт — он только для просмотра", 403)
+            return err("This is a saved report — view only", 403)
         dyn = scan_data.get("dynamic", {}).get(item_id)
         mock = scan_data.get("mock", False)
     if not dyn or dyn["type"] != "uninstall":
-        return err("Неизвестная программа", 404)
+        return err("Unknown program", 404)
     if mock:
         return jsonify(ok=True, demo=True)
     try:
         if dyn["cmd"]:
-            subprocess.Popen(dyn["cmd"], shell=True)  # noqa: S602 — команда из реестра, не от клиента
+            subprocess.Popen(dyn["cmd"], shell=True)  # noqa: S602 — command from the registry, not from the client
             return jsonify(ok=True, mode="uninstaller")
-        os.startfile("ms-settings:appsfeatures")  # noqa: S606 — у программы нет команды удаления
+        os.startfile("ms-settings:appsfeatures")  # noqa: S606 — the program has no uninstall command
         return jsonify(ok=True, mode="settings")
     except OSError as e:
-        return err(f"Не удалось запустить деинсталлятор: {e}", 500)
+        return err(f"Could not start the uninstaller: {e}", 500)
 
 
-# ─────────────────────────────── запуск в окне ───────────────────────────────
+# ─────────────────────────────── launching in a window ───────────────────────────────
 
 def free_port(preferred=PORT):
     import socket
@@ -1047,7 +1053,7 @@ def free_port(preferred=PORT):
 
 
 def main():
-    """Flask в фоновом потоке + нативное окно (pywebview). Без pywebview — браузер."""
+    """Flask in a background thread + a native window (pywebview). Without pywebview — the browser."""
     from werkzeug.serving import make_server
     port = free_port()
     server = make_server(HOST, port, app, threaded=True)
@@ -1059,16 +1065,16 @@ def main():
             import webview
             webview.settings["ALLOW_DOWNLOADS"] = True
             webview.create_window(APP_NAME, url, width=1360, height=860, min_size=(1000, 640))
-            webview.start()  # блокирует до закрытия окна
+            webview.start()  # blocks until the window is closed
             server.shutdown()
             return
         except ImportError:
-            print("pywebview не установлен — открываю в браузере (pip install pywebview)")
-        except Exception as e:  # noqa: BLE001 — нет WebView2 и т.п.
-            print(f"Не удалось открыть окно ({e}) — открываю в браузере")
+            print("pywebview is not installed — opening in the browser (pip install pywebview)")
+        except Exception as e:  # noqa: BLE001 — no WebView2 etc.
+            print(f"Could not open the window ({e}) — opening in the browser")
     if "--no-browser" not in sys.argv:
         webbrowser.open(url)
-    print(f"{APP_NAME}: {url}  (Ctrl+C — остановить)")
+    print(f"{APP_NAME}: {url}  (Ctrl+C to stop)")
     try:
         threading.Event().wait()
     except KeyboardInterrupt:

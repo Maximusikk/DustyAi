@@ -1,72 +1,78 @@
 # 🧹 Dusty Ai
 
-Очистка диска Windows, которая объясняет, **что** лежит в папке и **что будет, если удалить**.
-Находит кэши разработчика (npm, Gradle, pip, NuGet, Cargo), остатки установщиков, дампы сбоев и ИИ-модели
-(Hugging Face, Ollama, Playwright). Работает локально, ничего никуда не отправляет.
+A Windows disk cleaner that explains **what** is in a folder and **what happens if you delete it**.
+It finds developer caches (npm, Gradle, pip, NuGet, Cargo), installer leftovers, crash dumps and AI models
+(Hugging Face, Ollama, Playwright). Runs locally and sends nothing anywhere.
 
-## Запуск
+## Download
 
-Windows, Python 3.10+: двойной клик по `run.bat` — откроется **отдельное окно приложения** (Flask внутри нативного окна через pywebview/WebView2).
+Get the ready-made `DustyAi.exe` (no Python needed) from the **Releases** page, or from the latest
+**Build Windows exe** run under *Actions → Artifacts* (`DustyAi-windows`). Releases are created automatically
+when a `v*` tag is pushed (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
+
+## Run from source
+
+Windows, Python 3.10+: double-click `run.bat` — the app opens in its **own window** (Flask inside a native window via pywebview/WebView2).
 
 ```
 pip install -r requirements.txt
-python app.py             # окно приложения
-python app.py --browser   # то же самое во вкладке браузера
+python app.py             # app window
+python app.py --browser   # same thing in a browser tab
 ```
 
-Один `.exe` без установки Python: `build.bat` → `dist\DustyAi.exe` (PyInstaller).
-На Linux/macOS приложение стартует в демо-режиме с примерными данными и ничего не удаляет.
+Build a single `.exe` locally: `build.bat` → `dist\DustyAi.exe` (PyInstaller).
+On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
-## Что умеет
+## Features
 
-- **Выбор дисков:** C, D или несколько сразу; на переключаемом отчёте можно смотреть каждый диск отдельно
-- **Обзор диска целиком** (в том числе системного, кроме папки Windows): крупнейшие папки в корне (например `C:\llama`), файлы от 500 МБ с определением типа (ИИ-модель, образ ВМ/WSL, архив, дамп…), `node_modules`/`venv`/`__pycache__`, корзина. Папки установленных программ защищены: `node_modules` внутри Program Files и AppData не предлагается к удалению
-- **Крупные файлы** — отдельная вкладка по всем просканированным дискам: тип (ИИ-модель, образ ВМ, архив…), дата изменения, фильтр по типу. Удалить можно любой файл (с подтверждением и предупреждением, если он часть программы или Python-пакета); блокируются только папка Windows и файлы подкачки/гибернации
-- **Фильтр по риску** над таблицей очистки (Все / A / B / C)
-- **Загрузки:** самые крупные файлы с датами, пометка «старый установщик», удаление выбранных
-- **Обзор профиля и AppData:** крупнейшие папки без пометок «мусор» — видно любые программы, которых нет в каталоге
-- Кнопка **«Удалить…»** у программ запускает штатный деинсталлятор Windows
-- Кэши и мусор из каталога (`catalog.py`) с описанием и пояснением, что восстановится
-- **Умный Temp** — папки-остатки установщиков (`*vs_*`, `*setup*`, `*installer*`, либо >500 МБ) старше 7 дней
-- **Python** — установки из `py -0p`, тяжёлые пакеты, предупреждение, если установка занята процессом (в т.ч. MCP-сервером)
-- **Дубликаты** — файлы >50 МБ в Загрузках и Документах (MD5); всегда остаётся одна копия
-- **Иконки приложений** (из exe/реестра), диаграммы, таблица с выбором и пакетным удалением, категории A/B/C
-- **Экспорт** отчёта в JSON и **история** сканирований (`scans/`, последние 3 на главной, открываются только для просмотра)
+- **Drive selection:** C, D or several at once; the report can switch between drives
+- **Whole-drive overview** (including the system drive, except the Windows folder): largest root folders (e.g. `C:\llama`), files of 500 MB+ with type detection (AI model, VM/WSL image, archive, dump…), `node_modules`/`venv`/`__pycache__`, recycle bin. Folders of installed programs are protected: `node_modules` inside Program Files and AppData is never offered for deletion
+- **Big files** — a separate tab across all scanned drives: type, modification date, type filter. Any file can be deleted (with confirmation and a warning if it is part of a program or Python package); only the Windows folder and page/hibernation files are blocked
+- **Risk filter** above the cleanup table (All / A / B / C)
+- **Downloads:** largest files with dates, an “old installer” marker, deletion of the selected ones
+- **Profile and AppData overview:** largest folders with no “junk” labels — shows any program the catalog does not know about
+- **Programs:** every installed program (not just the top 20), largest first; the **Uninstall…** button launches the standard Windows uninstaller
+- Caches and junk from the catalog (`catalog.py`) with a description and an explanation of what gets restored
+- **Smart Temp** — installer leftover folders (`*vs_*`, `*setup*`, `*installer*`, or >500 MB) older than 7 days
+- **Python** — installations from `py -0p`, heavy packages, a warning if an installation is in use by a process (including an MCP server)
+- **Duplicates** — files >50 MB in Downloads and Documents (MD5); one copy always remains
+- **App icons** (from exe/registry), charts, a table with selection and batch deletion, categories A/B/C
+- **Export** of the report to JSON and a **history** of scans (`scans/`, the last 3 on the home page, view-only)
 
-## AI-анализ
+## AI analysis
 
-Кнопка **«✨ AI-анализ»** над вкладками отчёта просит модель Llama 3.2 3B на Cloudflare Workers AI коротко объяснить результаты: главный вывод, что удалить первым и что не трогать. Работает без новых зависимостей (только `urllib`).
+The **“✨ AI analysis”** button above the report tabs asks Llama 3.2 3B on Cloudflare Workers AI to briefly explain the results: the main takeaway, what to delete first and what to leave alone. Needs no extra dependencies (only `urllib`).
 
-> **Приватность.** Это единственное, что приложение отправляет наружу, и только по вашему клику. Уходят названия и размеры до семи крупнейших находок (сгруппированных как «безопасно / решать вам / только вручную») и общий объём безопасного мусора — **без путей к файлам**.
+> **Privacy.** This is the only thing the app sends out, and only when you click. It sends names and sizes of up to seven of the largest findings (grouped as “safe / your call / manual only”) and the total amount of safe junk — **no file paths**.
 
-### Как получить токен
+### Getting a token
 
-1. Зарегистрируйтесь или войдите на [dash.cloudflare.com](https://dash.cloudflare.com) (бесплатного плана достаточно, у Workers AI есть бесплатный дневной лимит).
-2. **Account ID:** на главной странице аккаунта, справа или в разделе *Workers & Pages → Overview*.
-3. **API-токен:** *My Profile → API Tokens → Create Token → Create Custom Token*. Право: **Account → Workers AI → Read** (достаточно для запуска моделей; при ошибке 403 выберите шаблон «Workers AI»). Скопируйте токен — показывается один раз.
-4. Скопируйте `.env.example` в `.env` и впишите значения:
+1. Sign up or log in at [dash.cloudflare.com](https://dash.cloudflare.com) (the free plan is enough; Workers AI has a free daily limit).
+2. **Account ID:** on the account home page, on the right, or under *Workers & Pages → Overview*.
+3. **API token:** *My Profile → API Tokens → Create Token → Create Custom Token*. Permission: **Account → Workers AI → Read** (enough to run models; on a 403 error pick the “Workers AI” template). Copy the token — it is shown only once.
+4. Copy `.env.example` to `.env` and fill in the values:
 
 ```
-CF_ACCOUNT_ID=ваш_account_id
-CF_API_TOKEN=ваш_токен
+CF_ACCOUNT_ID=your_account_id
+CF_API_TOKEN=your_token
 ```
 
-Если ответ кажется слабым (3B-модель путается в русском), в `.env` можно указать модель побольше: `CF_MODEL=@cf/meta/llama-3.1-8b-instruct` (или другую из каталога Workers AI).
+If the answer seems weak, you can set a bigger model in `.env`: `CF_MODEL=@cf/meta/llama-3.1-8b-instruct` (or another one from the Workers AI catalog).
 
-Те же переменные можно задать в окружении Windows — они важнее `.env`. Файл `.env` в git не попадает (он в `.gitignore`); не публикуйте токен.
+The same variables can be set in the Windows environment — they take precedence over `.env`. The `.env` file is not committed (it is in `.gitignore`); never publish your token.
 
-Если ключей нет, кнопка покажет `CF_API_TOKEN not set`. Эндпоинт: `GET /api/ai-summary` (`?drive=D` — сводка по одному диску, `?refresh=1` — игнорировать кэш).
+Without keys the button shows `CF_API_TOKEN not set`. Endpoint: `GET /api/ai-summary` (`?drive=D` — summary for one drive, `?refresh=1` — ignore the cache).
 
-## Безопасность
+## Safety
 
-- Путь для удаления берётся только из `catalog.py`; клиент присылает лишь `id` из белого списка (`DELETABLE_IDS`), иначе 403.
-- Кэши удаляются сразу, даже если IDE или браузер открыты. Если часть файлов занята, приложение показывает, **какие программы их держат** (Windows Restart Manager), и вы сами решаете: закрыть выбранные и повторить, повторить без закрытия или оставить как есть. Программы сначала закрываются мягко (как крестик), принудительное завершение — отдельной галочкой. Системные процессы закрыть нельзя, а закрываются только программы из списка блокировщиков, который определил сервер. Жёстко блокируется только чистка Temp во время установки (`vs_installer`).
-- Для системного Temp и защищённых папок нужны права администратора — кнопка «🛡 Запустить от администратора» в боковой панели.
-- Удаляется содержимое/конкретная папка кэша, а не корень программы.
-- Двойное подтверждение в UI (сброс через 4 с).
-- Динамические пункты (Temp, дубликаты) перед удалением проверяются заново: путь внутри Temp/Загрузок/Документов, возраст, наличие идентичной копии.
-- Модели ИИ и браузеры Playwright показываются, но удаляются только вручную.
+- The deletion path is taken only from `catalog.py`; the client sends just an `id` from the whitelist (`DELETABLE_IDS`), otherwise 403.
+- Caches are deleted right away, even if an IDE or browser is open. If some files are in use, the app shows **which programs hold them** (Windows Restart Manager) and you decide: close the selected ones and retry, retry without closing, or leave as is. Programs are first asked to close gently (like clicking the X); forced termination is a separate checkbox. System processes cannot be closed, and only programs from the server-determined blocker list can be. The only hard block is cleaning Temp during an installation (`vs_installer`).
+- The system Temp and protected folders need administrator rights — use the “🛡 Run as administrator” button in the sidebar.
+- Only the cache contents/specific folder is deleted, never a program's root.
+- Double confirmation in the UI (resets after 4 s).
+- Dynamic items (Temp, duplicates) are re-validated before deletion: path inside Temp/Downloads/Documents, age, presence of an identical copy.
+- AI models and Playwright browsers are shown but can only be deleted manually.
 
-## Структура
+## Layout
 
-`app.py` — Flask, скан, `/delete`, история, экспорт · `scanners.py` — Temp, Python, дубликаты · `util.py` — PowerShell и размеры · `catalog.py` — каталог мест · `templates/` — UI
+`app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py` — catalog of locations · `templates/` — UI

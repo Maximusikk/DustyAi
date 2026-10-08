@@ -25,36 +25,36 @@
 .hist:hover{color:var(--accent)}
 </style>{% endblock %}
 {% block body %}
-<div class="hero"><div class="eyebrow">{{ APP_NAME }}</div><h1>Узнайте, что занимает место на диске</h1>
-<p class="sub">Не «удалить всё», а «вот что здесь лежит и почему». Находит кэши, остатки установщиков, дубликаты и ИИ-модели, объясняет что это и удаляет с подстраховкой.</p></div>
+<div class="hero"><div class="eyebrow">{{ APP_NAME }}</div><h1>Find out what is taking up your disk space</h1>
+<p class="sub">Not “delete everything”, but “here is what lies here and why”. Finds caches, installer leftovers, duplicates and AI models, explains what they are and deletes with safeguards.</p></div>
 <div class="card" style="margin-bottom:16px">
-  <div class="tbl-head"><div><h3>Какие диски сканировать</h3><div class="hint" style="margin:2px 0 0">Можно выбрать один или несколько. Сетевые диски не трогаем.</div></div>
-    <div class="quick"><button class="btn sm" onclick="pick('sys')">Только системный</button><button class="btn sm" onclick="pick('all')">Все локальные</button></div></div>
-  <div class="drives" id="drives"><div class="empty">Определяю диски…</div></div>
-  <label class="opt"><input type="checkbox" id="deep" checked> Глубокий скан системного диска целиком: папки в корне, крупные файлы, мусор разработчика <span class="sub">(дольше: 1–3 минуты)</span></label>
-  <label class="opt"><input type="checkbox" id="profile" checked> Показать, что занимает место в профиле и AppData <span class="sub">(крупнейшие папки, только просмотр)</span></label>
-  <label class="opt"><input type="checkbox" id="dups" checked> Искать дубликаты файлов в Загрузках и Документах <span class="sub">(дольше на несколько секунд)</span></label>
+  <div class="tbl-head"><div><h3>Which drives to scan</h3><div class="hint" style="margin:2px 0 0">Pick one or several. Network drives are not touched.</div></div>
+    <div class="quick"><button class="btn sm" onclick="pick('sys')">System drive only</button><button class="btn sm" onclick="pick('all')">All local</button></div></div>
+  <div class="drives" id="drives"><div class="empty">Detecting drives…</div></div>
+  <label class="opt"><input type="checkbox" id="deep" checked> Deep scan of the whole system drive: root folders, big files, developer junk <span class="sub">(slower: 1–3 minutes)</span></label>
+  <label class="opt"><input type="checkbox" id="profile" checked> Show what takes up space in the profile and AppData <span class="sub">(largest folders, view only)</span></label>
+  <label class="opt"><input type="checkbox" id="dups" checked> Look for duplicate files in Downloads and Documents <span class="sub">(a few seconds longer)</span></label>
 </div>
 <div class="card">
-  <h3>Что проверяется</h3>
+  <h3>What is checked</h3>
   <div class="grid">
   {% for i in catalog.SAFE + catalog.REVIEW %}<div class="chip"><span class="app-ico">{{ i.icon }}</span>{{ i.name }}</div>{% endfor %}
-  <div class="chip"><span class="app-ico">📁</span>Остатки установщиков в Temp</div>
-  <div class="chip"><span class="app-ico">🐍</span>Установки Python</div>
-  <div class="chip"><span class="app-ico">🧬</span>Дубликаты файлов</div>
-  <div class="chip"><span class="app-ico">⬇️</span>Крупные файлы в Загрузках</div>
-  <div class="chip"><span class="app-ico">🔎</span>Обзор профиля и AppData</div>
-  <div class="chip"><span class="app-ico">🧠</span>Крупные файлы и папки по всему диску</div>
-  <div class="chip"><span class="app-ico">🧩</span>Тяжёлые программы</div>
+  <div class="chip"><span class="app-ico">📁</span>Installer leftovers in Temp</div>
+  <div class="chip"><span class="app-ico">🐍</span>Python installations</div>
+  <div class="chip"><span class="app-ico">🧬</span>Duplicate files</div>
+  <div class="chip"><span class="app-ico">⬇️</span>Big files in Downloads</div>
+  <div class="chip"><span class="app-ico">🔎</span>Profile and AppData overview</div>
+  <div class="chip"><span class="app-ico">🧠</span>Big files and folders across the whole drive</div>
+  <div class="chip"><span class="app-ico">🧩</span>Heavy programs</div>
   </div>
-  <button class="btn primary" id="go" onclick="go()" disabled style="margin-top:6px">Начать сканирование</button>
+  <button class="btn primary" id="go" onclick="go()" disabled style="margin-top:6px">Start scan</button>
   <div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
 </div>
 {% if history %}
-<div class="card" style="margin-top:16px"><h3>Последние сканирования</h3><div class="hint">Откроются только для просмотра</div>
+<div class="card" style="margin-top:16px"><h3>Recent scans</h3><div class="hint">Open in view-only mode</div>
 {% for h in history %}<a href="/history/{{ h.name }}" class="hist"><span class="mono">{{ h.scanned_at }}</span>
-<span class="mono">{{ h.total_gb }} ГБ можно освободить{% if h.mock %} · демо{% endif %}</span></a>{% endfor %}
-<a href="/history" class="hist" style="color:var(--accent)">Вся история →</a></div>
+<span class="mono">{{ h.total_gb }} GB can be freed{% if h.mock %} · demo{% endif %}</span></a>{% endfor %}
+<a href="/history" class="hist" style="color:var(--accent)">Full history →</a></div>
 {% endif %}
 {% endblock %}
 {% block script %}<script>
@@ -63,11 +63,11 @@ const pickedSet = new Set();
 const cls = p => p < 70 ? 'var(--a)' : p <= 85 ? 'var(--s4)' : 'var(--c)';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function drawDrives(){
-  $('drives').innerHTML = DRIVES.map(d => `<div class="dv ${pickedSet.has(d.Name)?'on':''} ${d.scannable?'':'off'}" data-n="${d.Name}" ${d.scannable?'':'title="Сетевые диски не сканируются"'}>
+  $('drives').innerHTML = DRIVES.map(d => `<div class="dv ${pickedSet.has(d.Name)?'on':''} ${d.scannable?'':'off'}" data-n="${d.Name}" ${d.scannable?'':'title="Network drives are not scanned"'}>
     <div class="ltr">${d.Name}:</div>
-    <div><div class="nm">${esc(d.Label || 'Локальный диск')} <small>${d.Type==='network'?'· сетевой':d.Type==='removable'?'· съёмный':''}</small></div></div>
+    <div><div class="nm">${esc(d.Label || 'Local disk')} <small>${d.Type==='network'?'· network':d.Type==='removable'?'· removable':''}</small></div></div>
     <div class="meter"><i style="width:${d.Pct}%;background:${cls(d.Pct)}"></i></div>
-    <div class="cap">Свободно ${d.FreeGB} из ${d.TotalGB} ГБ · занято ${d.Pct}%${d.scannable?'':' · не сканируется'}</div></div>`).join('');
+    <div class="cap">${d.FreeGB} of ${d.TotalGB} GB free · ${d.Pct}% used${d.scannable?'':' · not scanned'}</div></div>`).join('');
   document.querySelectorAll('.dv:not(.off)').forEach(el => el.onclick = () => {
     const n = el.dataset.n; pickedSet.has(n) ? pickedSet.delete(n) : pickedSet.add(n); drawDrives(); updateGo() });
 }
@@ -76,12 +76,12 @@ function pick(mode){
   DRIVES.filter(d => d.scannable && (mode === 'all' || d.Name === SYS)).forEach(d => pickedSet.add(d.Name));
   drawDrives(); updateGo();
 }
-function updateGo(){ $('go').disabled = !pickedSet.size; $('go').textContent = pickedSet.size > 1 ? `Сканировать ${pickedSet.size} диска` : 'Начать сканирование';
-  if(pickedSet.size > 4) $('go').textContent = `Сканировать ${pickedSet.size} дисков`; }
+function updateGo(){ $('go').disabled = !pickedSet.size; $('go').textContent = pickedSet.size > 1 ? `Scan ${pickedSet.size} drives` : 'Start scan';
+  if(pickedSet.size > 4) $('go').textContent = `Scan ${pickedSet.size} drives`; }
 const $ = id => document.getElementById(id);
 (async () => {
   try{ const j = await (await fetch('/api/drives')).json(); DRIVES = j.drives; SYS = j.system; pick('sys'); }
-  catch(e){ $('drives').innerHTML = '<div class="empty">Не удалось определить диски</div>' }
+  catch(e){ $('drives').innerHTML = '<div class="empty">Could not detect drives</div>' }
 })();
 async function go(){
   $('go').disabled = true; $('bar').style.display = 'block';

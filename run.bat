@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-echo Установка зависимостей...
+echo Installing dependencies...
 python -m pip install -q -r requirements.txt
 if errorlevel 1 (
-    echo Не удалось установить зависимости. Проверьте, что Python 3.10+ установлен и добавлен в PATH.
+    echo Failed to install dependencies. Make sure Python 3.10+ is installed and added to PATH.
     pause
     exit /b 1
 )

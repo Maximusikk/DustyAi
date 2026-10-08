@@ -4,5 +4,5 @@ cd /d "%~dp0"
 python -m pip install -q -r requirements.txt pyinstaller
 python -m PyInstaller --noconfirm --onefile --windowed --name DustyAi ^
   --add-data "templates;templates" app.py
-echo Готово: dist\DustyAi.exe
+echo Done: dist\DustyAi.exe
 pause
