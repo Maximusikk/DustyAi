@@ -197,14 +197,17 @@ def scan_programs():
 def scan_item(item):
     """Пункт каталога: сумма по всем найденным папкам (шаблон с `*` даёт по папке на профиль)."""
     paths = expand_all(catalog.item_patterns(item))
-    size = sum(folder_size(p) for p in paths)
+    sizes = {p: folder_size(p) for p in paths}
+    size = sum(sizes.values())
     resolved = expand(item["path"])
     if paths:  # для показа в проводнике — общий родитель всех найденных папок
         try:
             resolved = paths[0] if len(paths) == 1 else os.path.commonpath(paths)
         except ValueError:  # папки на разных дисках
             resolved = paths[0]
-    return {**item, "resolved": resolved, "exists": bool(paths), "size_gb": gb(size),
+    # что именно будет удалено: пользователь видит конкретные папки и размеры, а не общий корень
+    parts = [dict(path=p, size_gb=gb(s)) for p, s in sorted(sizes.items(), key=lambda x: -x[1])[:12] if s > 0] if len(paths) > 1 else []
+    return {**item, "resolved": resolved, "exists": bool(paths), "size_gb": gb(size), "parts": parts,
             "drive": drive_of(expand(item["path"])), "paths_key": "|".join(sorted(os.path.normcase(p) for p in paths))}
 
 
@@ -530,6 +533,7 @@ def delete_item(item):
     # шаблоны с `*` — только у пунктов каталога; найденные динамически пути берём как есть (в них бывают [ ])
     paths = expand_all(catalog.item_patterns(item)) if item.get("id") in catalog.ALL_ITEMS else (
         [expand(item["path"])] if os.path.isdir(expand(item["path"])) else [])
+    paths = [p for p in paths if not catalog.is_profile_root(p)]  # страховка: корень профиля не удаляем никогда
     if not paths:
         return 0.0, 0.0, 0, []
     before = sum(folder_size(p, 120) for p in paths)
@@ -565,7 +569,7 @@ def build_rows(d):
             id=i["id"], name=i["name"], path=path, size_gb=i["size_gb"], cat=cat, kind=kind,
             drive=i.get("drive") or drive_of(path, sysd), reason=i["desc"], restore=i.get("restore", ""),
             deletable=bool(i.get("deletable")) and not d.get("readonly"),
-            icon=i.get("icon", "📁"), img=i.get("icon_img"), parent_id=i.get("parent_id")))
+            icon=i.get("icon", "📁"), img=i.get("icon_img"), parent_id=i.get("parent_id"), parts=i.get("parts") or []))
 
     for i in d["safe"]:
         row(i, "A", "static")

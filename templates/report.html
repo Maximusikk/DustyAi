@@ -686,10 +686,14 @@ async function aiRun(){
 $('#ai-btn').addEventListener('click', aiRun);
 
 /* ── подробности ── */
+// путь без общего «...\\User Data\\»: видно профиль и тип кэша
+function shortPath(p){ const m = p.replace(/\//g, '\\').split('\\'); return m.slice(-3).join('\\') }
 function showInfo(r){
   openModal(`<div class="modal-h"><span class="ico" style="width:44px;height:44px;border-radius:14px">${r.img ? `<img src="${esc(r.img)}" alt="">` : esc(r.icon)}</span>
     <div><h3>${esc(r.name)}</h3><div style="margin-top:6px"><span class="risk ${r.cat}"><b>${r.cat}</b>${catLong[r.cat]}</span></div></div></div>
-    <div class="pbox mono">${esc(r.path)}</div>
+    ${r.parts && r.parts.length ? `<div class="kv"><b>Что именно будет удалено</b><p style="margin:0 0 8px">Только перечисленные подпапки с кэшем. Сами папки профилей, пароли, куки, история и закладки остаются.</p>
+      <div class="pbox mono" style="display:grid;gap:6px;max-height:190px;overflow:auto">${r.parts.map(p => `<div style="display:flex;justify-content:space-between;gap:14px"><span class="cut" title="${esc(p.path)}">${esc(shortPath(p.path))}</span><span class="num">${fmt(p.size_gb)}</span></div>`).join('')}</div></div>`
+      : `<div class="pbox mono">${esc(r.path)}</div>`}
     <div class="kv"><b>Что это</b><p>${esc(r.reason)}</p></div>
     <div class="kv"><b>Что восстановится после удаления</b><p>${esc(r.restore || '—')}</p></div>
     <div class="kv"><b>Размер</b><p class="num">${fmt(r.size_gb)}</p></div>

@@ -1,5 +1,7 @@
 """Каталог известных мест, где копится мусор. Единственный источник путей:
 клиент присылает только id, путь всегда берётся отсюда."""
+import re
+
 
 # kind: "contents" — удаляем содержимое, корень оставляем; "folder" — удаляем папку целиком
 # deletable: можно ли удалять через API
@@ -107,6 +109,16 @@ REVIEW += REVIEW_EXTRA
 def item_patterns(item):
     """Все шаблоны путей пункта (переменные окружения и `*` раскрывает util.expand_all)."""
     return [item["path"], *item.get("also", [])]
+
+
+# Имена папок, которые для каталога — «корень данных»: удалить их целиком = потерять профили и пароли
+PROFILE_ROOTS = {"user data", "default", "profiles", "firefox", "chrome", "edge", "google", "mozilla", "brave-browser",
+                 "opera stable", "opera gx stable", "yandexbrowser", "vivaldi", "appdata", "local", "roaming"}
+
+
+def is_profile_root(path):
+    name = re.split(r"[\\/]", path.rstrip("\\/"))[-1].lower()
+    return name in PROFILE_ROOTS or name.startswith("profile ")
 
 
 # Вычищаем только эти id — это и есть белый список для POST /delete

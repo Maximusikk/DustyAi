@@ -27,30 +27,44 @@ def item(id, name, icon, path, desc, restore, blockers=(), also=(), kind="folder
 
 
 def chromium(id, name, user_data, blockers, icon_src=None, extra_root=()):
-    """Кэши Chromium-браузера по всем профилям. Пароли, куки, историю и закладки не трогаем."""
-    per = ["Cache", "Code Cache", "GPUCache", "DawnCache", "Service Worker\\CacheStorage", "Service Worker\\ScriptCache"]
+    """Чистые кэши Chromium-браузера по всем профилям: страницы, скомпилированный JS, графика.
+    Профили целиком, пароли, куки, историю, закладки, расширения и данные сайтов не трогаем."""
+    per = ["Cache", "Code Cache", "GPUCache", "DawnCache"]
     paths = [f"{user_data}\\*\\{p}" for p in per] + [f"{user_data}\\{p}" for p in
-                                                      ("ShaderCache", "GrShaderCache", "GraphiteDawnCache", "component_crx_cache")]
+                                                      ("ShaderCache", "GrShaderCache", "GraphiteDawnCache")]
     paths += list(extra_root)
     return item(id, f"Кэш {name} (все профили)", "🌐", paths[0],
-                f"Кэш страниц, скомпилированного JS и графики {name} по всем профилям. Пароли, куки, история, закладки и расширения НЕ затрагиваются.",
-                "Сайты загрузятся заново — первое открытие чуть медленнее. Входы на сайтах сохраняются.",
+                f"Только временный кэш {name}: страницы, скомпилированный JS, графика. Профили, пароли, куки, история, закладки и расширения НЕ затрагиваются.",
+                "Сайты загрузятся заново — первое открытие чуть медленнее. Входы на сайтах и профили сохраняются.",
                 blockers, also=paths[1:], icon_src=icon_src)
+
+
+def chromium_sw(id, name, user_data, blockers, icon_src=None):
+    """Офлайн-кэш сайтов (Service Worker): может быть очень большим, у сайтов-приложений хранит офлайн-данные."""
+    return item(id + "_sw", f"Офлайн-кэш сайтов {name}", "🌐", f"{user_data}\\*\\Service Worker\\CacheStorage",
+                f"Кэш сайтов-приложений (почта, мессенджеры, PWA) в {name}. Часто самая тяжёлая часть. Входы и пароли не затрагиваются.",
+                "Сайты-приложения подгрузят данные заново; офлайн-режим на время перестанет работать.",
+                blockers, also=[f"{user_data}\\*\\Service Worker\\ScriptCache"], icon_src=icon_src)
+
+
+BROWSERS = [
+    ("chrome_cache", "Chrome", L + "Google\\Chrome\\User Data", ["chrome"], EXE["chrome"], ()),
+    ("edge_cache", "Edge", L + "Microsoft\\Edge\\User Data", ["msedge"], EXE["edge"], ()),
+    ("brave_cache", "Brave", L + "BraveSoftware\\Brave-Browser\\User Data", ["brave"], EXE["brave"], ()),
+    ("vivaldi_cache", "Vivaldi", L + "Vivaldi\\User Data", ["vivaldi"], None, ()),
+    ("yandex_cache", "Яндекс Браузера", L + "Yandex\\YandexBrowser\\User Data", ["browser", "yandex"], None, ()),
+    ("opera_cache", "Opera", L + "Opera Software\\Opera Stable", ["opera"], None, [
+        L + "Opera Software\\Opera Stable\\Cache", L + "Opera Software\\Opera Stable\\Code Cache",
+        L + "Opera Software\\Opera Stable\\GPUCache"]),
+    ("operagx_cache", "Opera GX", L + "Opera Software\\Opera GX Stable", ["opera"], None, [
+        L + "Opera Software\\Opera GX Stable\\Cache", L + "Opera Software\\Opera GX Stable\\Code Cache",
+        L + "Opera Software\\Opera GX Stable\\GPUCache"]),
+]
 
 
 SAFE_EXTRA = [
     # ── браузеры ──
-    chromium("chrome_cache", "Chrome", L + "Google\\Chrome\\User Data", ["chrome"], EXE["chrome"]),
-    chromium("edge_cache", "Edge", L + "Microsoft\\Edge\\User Data", ["msedge"], EXE["edge"]),
-    chromium("brave_cache", "Brave", L + "BraveSoftware\\Brave-Browser\\User Data", ["brave"], EXE["brave"]),
-    chromium("vivaldi_cache", "Vivaldi", L + "Vivaldi\\User Data", ["vivaldi"]),
-    chromium("yandex_cache", "Яндекс Браузера", L + "Yandex\\YandexBrowser\\User Data", ["browser", "yandex"]),
-    chromium("opera_cache", "Opera", L + "Opera Software\\Opera Stable", ["opera"], extra_root=[
-        L + "Opera Software\\Opera Stable\\Cache", L + "Opera Software\\Opera Stable\\Code Cache",
-        L + "Opera Software\\Opera Stable\\GPUCache"]),
-    chromium("operagx_cache", "Opera GX", L + "Opera Software\\Opera GX Stable", ["opera"], extra_root=[
-        L + "Opera Software\\Opera GX Stable\\Cache", L + "Opera Software\\Opera GX Stable\\Code Cache",
-        L + "Opera Software\\Opera GX Stable\\GPUCache"]),
+    *[chromium(*b[:5], extra_root=b[5]) for b in BROWSERS],
     item("firefox_cache", "Кэш Firefox (все профили)", "🦊", L + "Mozilla\\Firefox\\Profiles\\*\\cache2",
          "Кэш страниц Firefox. Пароли, закладки и история лежат в другой папке (AppData\\Roaming) и не затрагиваются.",
          "Сайты загрузятся заново.", ["firefox"], also=[L + "Mozilla\\Firefox\\Profiles\\*\\startupCache",
@@ -131,6 +145,7 @@ SAFE_EXTRA = [
 ]
 
 REVIEW_EXTRA = [
+    *[chromium_sw(*b[:5]) for b in BROWSERS if not b[5]],
     item("jetbrains_caches", "Кэши и индексы JetBrains IDE", "🧰", L + "JetBrains\\*\\caches",
          "Индексы проектов PyCharm, IntelliJ, WebStorm и др. Занимают 1–10 ГБ.",
          "IDE заново проиндексирует проекты — первый запуск будет долгим.",
