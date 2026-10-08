@@ -98,7 +98,7 @@ def running_blockers(names, running=None):
 
 
 def is_reparse(path):
-    """Junction/symlink: в такие точки каталожных шаблонов не заходим."""
+    """Junction/symlink: catalog patterns never enter such points."""
     try:
         return os.path.islink(path) or bool(os.lstat(path).st_file_attributes & 0x400)
     except (OSError, AttributeError):
@@ -106,8 +106,8 @@ def is_reparse(path):
 
 
 def expand_all(patterns):
-    """Существующие папки по шаблонам каталога: переменные окружения и `*` (например, все профили браузера).
-    Ссылки и неразвёрнутые переменные пропускаем; дубли убираем."""
+    """Existing folders matching catalog patterns: environment variables and `*` (e.g. all browser profiles).
+    Links and unexpanded variables are skipped; duplicates are removed."""
     import glob
     out, seen = [], set()
     for pat in patterns:
@@ -117,7 +117,7 @@ def expand_all(patterns):
                 continue
             seen.add(key)
             out.append(p)
-    # вложенные пути (GPUCache внутри ShaderCache) не считаем и не удаляем дважды
+    # nested paths (GPUCache inside ShaderCache) are not counted or deleted twice
     norm = [os.path.normcase(p) + os.sep for p in out]
     return [p for p, n in zip(out, norm) if not any(n != o and n.startswith(o) for o in norm)]
 
@@ -139,8 +139,8 @@ def system_drive():
 
 
 def drive_media():
-    """{буква: 'SSD'|'HDD'}. Тип носителя определяет, сколько потоков можно пускать (на HDD много потоков
-    дают лишние перемещения головки) и насколько долгим будет скан. Не вышло определить — пусто."""
+    """{letter: 'SSD'|'HDD'}. The media type decides how many threads can be used (on an HDD many threads
+    cause extra head movement) and how long the scan will take. Empty if it could not be determined."""
     rows = ps_json("$m=@{}; Get-PhysicalDisk | ForEach-Object { $m[[string]$_.DeviceId]=[string]$_.MediaType }; "
                    "Get-Partition | Where-Object DriveLetter | ForEach-Object { [pscustomobject]@{L=[string]$_.DriveLetter; "
                    "M=$m[[string]$_.DiskNumber]} } | ConvertTo-Json -Compress", timeout=30)

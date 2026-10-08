@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% from "_macros.html" import day, hm %}
-{% block title %}Отчёт — {{ APP_NAME }}{% endblock %}
+{% block title %}Report — {{ APP_NAME }}{% endblock %}
 {% block head %}<style>
-/* ── выбор диска ── */
+/* ── drive selection ── */
 .scope{margin:0 0 16px}
 .scope .seg button small{max-width:190px;overflow:hidden;text-overflow:ellipsis}
 
-/* ── итог: герой-число + метр диска ── */
+/* ── summary: hero number + disk meter ── */
 .sum{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:0;margin-bottom:14px;padding:0;border-radius:var(--r-xl);
   background:linear-gradient(125deg,var(--surface) 0%,var(--surface) 52%,var(--accent-soft) 170%)}
 .sum-l{padding:30px 34px 32px;display:flex;flex-direction:column;justify-content:center}
@@ -41,7 +41,7 @@
 .dk-row .pc{text-align:right;font-weight:600;font-size:12.5px}
 .dk-row.dim{opacity:.55;cursor:default}
 
-/* ── KPI-плитки: заодно фильтры таблицы ── */
+/* ── KPI tiles: also table filters ── */
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
 .kpi{display:block;text-align:left;padding:16px 18px 15px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:inherit;font:inherit;
   cursor:pointer;box-shadow:var(--sh-1);transition:border-color .15s,box-shadow .15s,transform .15s var(--ease)}
@@ -57,7 +57,7 @@
 .kpi-bar i{display:block;height:100%;border-radius:99px;transition:width .6s var(--ease)}
 .kpi.A .kpi-bar i{background:var(--ok)}.kpi.B .kpi-bar i{background:var(--warn)}.kpi.C .kpi-bar i{background:var(--danger)}
 
-/* ── корзина ── */
+/* ── recycle bin ── */
 .rbin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:12px;margin-bottom:14px}
 .bin-empty{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 4px;color:var(--muted);font-size:13px}
 .bin-empty .ic{width:16px;height:16px;color:var(--faint)}
@@ -68,7 +68,7 @@
 .bin-t b{font-weight:600}.bin-t small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35}
 .bin .sz{font-size:17px;font-weight:700;white-space:nowrap}
 
-/* ── графики: состав и AI ── */
+/* ── charts: composition and AI ── */
 .insights{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;margin-bottom:26px;align-items:stretch}
 .comp-total{text-align:right;line-height:1.2}.comp-total small{display:block;color:var(--muted);font-size:12px}.comp-total b{font-size:21px;font-weight:700;letter-spacing:-.01em}
 .stackbar{display:flex;gap:2px;height:18px;margin:4px 0 16px}
@@ -99,7 +99,7 @@
 .ai-f{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
 .ai-f small{color:var(--muted);font-size:12px;line-height:1.45;flex:1 1 220px}
 
-/* ── вкладки (липкие) ── */
+/* ── tabs (sticky) ── */
 .tabs.fade-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
 .tabs.fade-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px);mask-image:linear-gradient(90deg,transparent,#000 36px)}
 .tabs.fade-l.fade-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent)}
@@ -112,8 +112,8 @@
 .pad{padding:22px}
 .pad>.card-h{margin-bottom:12px}
 
-/* ── таблица очистки ── */
-.tbl-wrap{overflow-x:auto;position:relative}   /* relative: чтобы скрытый .sr в заголовке не расширял страницу */
+/* ── cleanup table ── */
+.tbl-wrap{overflow-x:auto;position:relative}   /* relative: so the hidden .sr in the header does not widen the page */
 .tbl{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:640px}
 .tbl thead th{padding:10px 12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
   background:var(--surface-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);white-space:nowrap}
@@ -142,7 +142,7 @@
 @media (max-width:1320px){ .c-path{display:none} }
 @media (max-width:980px){ .risk .rt{display:none} .risk{padding:0 4px} }
 
-/* ── списки (крупные файлы, загрузки, Python, программы…) ── */
+/* ── lists (big files, downloads, Python, programs…) ── */
 .list{display:flex;flex-direction:column;gap:8px}
 .lr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:13px 15px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}
 .lr-l{display:flex;gap:13px;align-items:flex-start;min-width:0}
@@ -175,7 +175,7 @@
 .prot .lr{grid-template-columns:minmax(0,1fr)}
 @media (max-width:900px){ .ob{grid-template-columns:minmax(70px,120px) 1fr 80px} .ob>:nth-child(4){display:none} }
 
-/* ── структура страницы: адаптив ── */
+/* ── page structure: responsive ── */
 @media (max-width:1180px){
   .sum{grid-template-columns:1fr}.sum-r{border-left:0;border-top:1px solid var(--border)}
   .insights{grid-template-columns:1fr}
@@ -184,7 +184,7 @@
 @media (max-width:1100px){ .tabs-wrap{margin:0 -28px 18px;padding:6px 28px 0} }
 @media (max-width:720px){ .tabs-wrap{margin:0 -16px 18px;padding:6px 16px 0} .sum-l,.sum-r{padding:22px} .hero-num b{font-size:54px} }
 
-/* ── панель выбора ── */
+/* ── selection bar ── */
 .selbar{position:sticky;bottom:22px;z-index:30;display:flex;align-items:center;gap:14px;width:fit-content;max-width:100%;margin:22px auto 0;padding:10px 10px 10px 20px;
   border-radius:18px;background:var(--surface);border:1px solid var(--border-2);box-shadow:var(--sh-3);animation:pop .25s var(--ease)}
 .selbar .sb-i{white-space:nowrap}.selbar .sb-i b{font-weight:700}
@@ -193,7 +193,7 @@
 .btn.armed::after{content:"";position:absolute;left:0;bottom:0;height:3px;background:rgba(255,255,255,.65);animation:drain 4s linear forwards}
 @keyframes drain{from{width:100%}to{width:0}}
 
-/* ── содержимое модальных окон ── */
+/* ── modal contents ── */
 .modal ul.list li .li-m{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
 .modal ul.list li .li-w{display:flex;gap:6px;align-items:flex-start;color:var(--warn-ink);font-size:12.5px;line-height:1.4}
 .modal ul.list li b{white-space:nowrap}
@@ -210,191 +210,191 @@
 
 {% block body %}
 <header class="page-head">
-  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>Результат сканирования</h1>
-    <p class="sub">Что лежит на диске, что это такое и что будет, если удалить · <span class="num">{{ day(d.scanned_at) }}, {{ hm(d.scanned_at) }}</span></p></div>
-  <div class="acts"><a class="btn" href="/export"><svg class="ic"><use href="#i-download"/></svg>Экспорт JSON</a>
-    <a class="btn primary" href="/"><svg class="ic"><use href="#i-scan"/></svg>Новое сканирование</a></div>
+  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>Scan results</h1>
+    <p class="sub">What is on the disk, what it is and what happens if you delete it · <span class="num">{{ day(d.scanned_at) }}, {{ hm(d.scanned_at) }}</span></p></div>
+  <div class="acts"><a class="btn" href="/export"><svg class="ic"><use href="#i-download"/></svg>Export JSON</a>
+    <a class="btn primary" href="/"><svg class="ic"><use href="#i-scan"/></svg>New scan</a></div>
 </header>
-{% if d.readonly %}<div class="banner info"><svg class="ic"><use href="#i-eye"/></svg><span>Сохранённый отчёт от {{ d.scanned_at }} — только просмотр, удаление отключено.</span></div>{% endif %}
-{% if d.mock %}<div class="banner warn"><svg class="ic"><use href="#i-info"/></svg><span>Демо-режим: Windows не обнаружена, показаны примерные данные. Ничего не удаляется.</span></div>{% endif %}
+{% if d.readonly %}<div class="banner info"><svg class="ic"><use href="#i-eye"/></svg><span>Saved report from {{ d.scanned_at }} — view only, deletion is disabled.</span></div>{% endif %}
+{% if d.mock %}<div class="banner warn"><svg class="ic"><use href="#i-info"/></svg><span>Demo mode: Windows not detected, sample data is shown. Nothing is deleted.</span></div>{% endif %}
 
 <div class="scope" {% if d.drives|selectattr('scanned')|list|length < 2 %}hidden{% endif %}>
-  <div class="seg" id="dsw" role="tablist" aria-label="Диск">
-    {% if d.drives|selectattr('scanned')|list|length > 1 %}<button data-d="ALL" role="tab">Все диски</button>{% endif %}
+  <div class="seg" id="dsw" role="tablist" aria-label="Drive">
+    {% if d.drives|selectattr('scanned')|list|length > 1 %}<button data-d="ALL" role="tab">All drives</button>{% endif %}
     {% for dr in d.drives if dr.scanned %}<button data-d="{{ dr.Name }}" role="tab">{{ dr.Name }}:<small>{{ dr.Label }}</small></button>{% endfor %}
   </div>
 </div>
 
 <section class="card sum">
   <div class="sum-l">
-    <div class="sum-label">Можно освободить <span class="tag info" id="hero-scope">Все диски</span></div>
-    <div class="hero-num"><b id="st-total">—</b><span id="st-unit">ГБ</span></div>
+    <div class="sum-label">Can be freed <span class="tag info" id="hero-scope">All drives</span></div>
+    <div class="hero-num"><b id="st-total">—</b><span id="st-unit">GB</span></div>
     <p class="sum-text" id="sum-text"></p>
     <div class="sum-acts">
-      <button class="btn primary lg" id="pick-safe"><svg class="ic"><use href="#i-check-circle"/></svg>Выбрать безопасное</button>
-      <button class="btn lg" id="to-list">К списку<svg class="ic"><use href="#i-arrow-down"/></svg></button>
+      <button class="btn primary lg" id="pick-safe"><svg class="ic"><use href="#i-check-circle"/></svg>Select the safe ones</button>
+      <button class="btn lg" id="to-list">To the list<svg class="ic"><use href="#i-arrow-down"/></svg></button>
     </div>
   </div>
   <div class="sum-r" id="disk"></div>
 </section>
 
 <div class="kpis" id="kpis">
-  <button class="kpi" data-k="ALL" title="Показать все находки"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-layers"/></svg></span>Найдено элементов</span>
-    <span class="kpi-v" id="k-n">0</span><span class="kpi-d">в таблице очистки</span></button>
-  <button class="kpi A" data-k="A" title="Только безопасное"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-check-circle"/></svg></span>Безопасно · A</span>
-    <span class="kpi-v" id="k-A">0</span><span class="kpi-d">Удаляется без последствий — программы создадут заново</span><span class="kpi-bar"><i id="kb-A"></i></span></button>
-  <button class="kpi B" data-k="B" title="Только «на усмотрение»"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-alert"/></svg></span>На усмотрение · B</span>
-    <span class="kpi-v" id="k-B">0</span><span class="kpi-d">Проверьте перед удалением: дубликаты и мусор разработчика</span><span class="kpi-bar"><i id="kb-B"></i></span></button>
-  <button class="kpi C" data-k="C" title="Только «вручную»"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-lock"/></svg></span>Только вручную · C</span>
-    <span class="kpi-v" id="k-C">0</span><span class="kpi-d">Приложение это не удаляет — решение за вами</span><span class="kpi-bar"><i id="kb-C"></i></span></button>
+  <button class="kpi" data-k="ALL" title="Show all findings"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-layers"/></svg></span>Items found</span>
+    <span class="kpi-v" id="k-n">0</span><span class="kpi-d">in the cleanup table</span></button>
+  <button class="kpi A" data-k="A" title="Safe only"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-check-circle"/></svg></span>Safe · A</span>
+    <span class="kpi-v" id="k-A">0</span><span class="kpi-d">Deleted without consequences — programs will recreate it</span><span class="kpi-bar"><i id="kb-A"></i></span></button>
+  <button class="kpi B" data-k="B" title="Your call only"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-alert"/></svg></span>Your call · B</span>
+    <span class="kpi-v" id="k-B">0</span><span class="kpi-d">Check before deleting: duplicates and developer junk</span><span class="kpi-bar"><i id="kb-B"></i></span></button>
+  <button class="kpi C" data-k="C" title="Manual only"><span class="kpi-l"><span class="dot"><svg class="ic"><use href="#i-lock"/></svg></span>Manual only · C</span>
+    <span class="kpi-v" id="k-C">0</span><span class="kpi-d">The app does not delete this — the decision is yours</span><span class="kpi-bar"><i id="kb-C"></i></span></button>
 </div>
 
 <div class="rbin" id="rbin"></div>
 
 <div class="insights">
   <div class="card">
-    <div class="card-h"><div><h2 class="t3">Где занято место</h2><div class="hint">Крупнейшие находки; остатки Temp входят в размер самого Temp и здесь не дублируются</div></div>
-      <div class="comp-total"><small>Всего</small><b class="num" id="comp-total">—</b></div></div>
-    <div class="stackbar" id="comp-bar" role="img" aria-label="Распределение найденного по размеру"></div>
+    <div class="card-h"><div><h2 class="t3">Where the space goes</h2><div class="hint">Largest findings; Temp leftovers are part of the Temp size and are not duplicated here</div></div>
+      <div class="comp-total"><small>Total</small><b class="num" id="comp-total">—</b></div></div>
+    <div class="stackbar" id="comp-bar" role="img" aria-label="Distribution of findings by size"></div>
     <div class="legend" id="legend"></div>
   </div>
   <div class="card ai" id="ai">
-    <div class="ai-h"><span class="ai-ico"><svg class="ic"><use href="#i-sparkles"/></svg></span><div><h2 class="t3">AI-анализ</h2><div class="muted" style="font-size:13px">Что удалить первым и что не трогать</div></div></div>
+    <div class="ai-h"><span class="ai-ico"><svg class="ic"><use href="#i-sparkles"/></svg></span><div><h2 class="t3">AI analysis</h2><div class="muted" style="font-size:13px">What to delete first and what to leave alone</div></div></div>
     <div class="ai-body muted" id="ai-out">
-      <p style="margin-bottom:12px">Модель коротко объяснит результаты простыми словами:</p>
+      <p style="margin-bottom:12px">The model will briefly explain the results in plain words:</p>
       <ul class="ai-hint">
-        <li><svg class="ic"><use href="#i-check-circle"/></svg>главный вывод и объём безопасного мусора</li>
-        <li><svg class="ic"><use href="#i-trash"/></svg>что удалить первым и почему это безопасно</li>
-        <li><svg class="ic"><use href="#i-lock"/></svg>что лучше не трогать без раздумий</li>
+        <li><svg class="ic"><use href="#i-check-circle"/></svg>the main takeaway and the amount of safe junk</li>
+        <li><svg class="ic"><use href="#i-trash"/></svg>what to delete first and why it is safe</li>
+        <li><svg class="ic"><use href="#i-lock"/></svg>what is better not to touch without thinking</li>
       </ul></div>
-    <div class="ai-f"><button class="btn soft" id="ai-btn"><svg class="ic"><use href="#i-sparkles"/></svg><span>Запустить AI-анализ</span></button>
-      <small>По кнопке в Cloudflare Workers AI уходят только названия и размеры нескольких крупнейших находок — без путей к файлам.</small></div>
+    <div class="ai-f"><button class="btn soft" id="ai-btn"><svg class="ic"><use href="#i-sparkles"/></svg><span>Run AI analysis</span></button>
+      <small>On click, only the names and sizes of the few largest findings are sent to Cloudflare Workers AI — no file paths.</small></div>
   </div>
 </div>
 
 <div class="tabs-wrap" id="tabs-wrap">
   <div class="tabs" id="tabs" role="tablist">
-    <button class="tab on" data-p="clean" role="tab" aria-selected="true">Очистка<span id="c-clean">{{ rows|length }}</span></button>
-    <button class="tab" data-p="bf" role="tab" aria-selected="false">Крупные файлы<span id="c-bf">0</span></button>
-    <button class="tab" data-p="over" role="tab" aria-selected="false">Обзор дисков<span id="c-over">0</span></button>
-    <button class="tab" data-p="dl" role="tab" aria-selected="false">Загрузки<span id="c-dl">0</span></button>
-    <button class="tab" data-p="dups" role="tab" aria-selected="false">Дубликаты<span id="c-dups">{{ d.dups|length }}</span></button>
+    <button class="tab on" data-p="clean" role="tab" aria-selected="true">Cleanup<span id="c-clean">{{ rows|length }}</span></button>
+    <button class="tab" data-p="bf" role="tab" aria-selected="false">Big files<span id="c-bf">0</span></button>
+    <button class="tab" data-p="over" role="tab" aria-selected="false">Disk overview<span id="c-over">0</span></button>
+    <button class="tab" data-p="dl" role="tab" aria-selected="false">Downloads<span id="c-dl">0</span></button>
+    <button class="tab" data-p="dups" role="tab" aria-selected="false">Duplicates<span id="c-dups">{{ d.dups|length }}</span></button>
     <button class="tab" data-p="py" role="tab" aria-selected="false">Python<span id="c-py">{{ d.python|length }}</span></button>
-    <button class="tab" data-p="prog" role="tab" aria-selected="false">Программы<span id="c-prog">{{ d.programs|length }}</span></button>
-    <button class="tab" data-p="prot" role="tab" aria-selected="false">Не трогать<span>{{ d.protected|length }}</span></button>
+    <button class="tab" data-p="prog" role="tab" aria-selected="false">Programs<span id="c-prog">{{ d.programs|length }}</span></button>
+    <button class="tab" data-p="prot" role="tab" aria-selected="false">Do not touch<span>{{ d.protected|length }}</span></button>
   </div>
 </div>
 
 <div class="panel on" id="p-clean" role="tabpanel"><div class="card flush">
-  <div class="tbar"><div><h2 class="t3">Можно очистить</h2><div class="hint">Отметьте то, что больше не нужно. Для каждого пункта указано, что это и что будет после удаления.</div></div></div>
+  <div class="tbar"><div><h2 class="t3">Can be cleaned</h2><div class="hint">Select what you no longer need. Each item states what it is and what happens after deletion.</div></div></div>
   <div class="tbar-f"><div class="chips" id="riskf"></div></div>
   <div class="tbl-wrap"><table class="tbl {{ 'ro' if d.readonly }}" id="tbl">
     <colgroup><col class="c-ck" style="width:50px"><col><col class="c-path" style="width:22%"><col style="width:150px"><col style="width:112px"><col style="width:118px"></colgroup>
-    <thead><tr><th class="c-ck"><div class="thead-ck"><input type="checkbox" id="all" title="Выбрать всё в списке" aria-label="Выбрать всё"></div></th><th>Название</th><th class="c-path">Путь</th><th>Риск</th><th class="r">Размер</th><th><span class="sr">Действия</span></th></tr></thead>
+    <thead><tr><th class="c-ck"><div class="thead-ck"><input type="checkbox" id="all" title="Select all in the list" aria-label="Select all"></div></th><th>Name</th><th class="c-path">Path</th><th>Risk</th><th class="r">Size</th><th><span class="sr">Actions</span></th></tr></thead>
     <tbody id="rows"></tbody></table></div>
-  <div class="empty none" id="none-clean"><div class="em-ico"><svg class="ic"><use href="#i-check-circle"/></svg></div><b>Здесь чисто</b><span>Ничего лишнего в этой категории не нашлось.</span></div>
+  <div class="empty none" id="none-clean"><div class="em-ico"><svg class="ic"><use href="#i-check-circle"/></svg></div><b>All clean here</b><span>Nothing extra was found in this category.</span></div>
 </div></div>
 
 <div class="panel" id="p-bf" role="tabpanel"><div class="card pad">
-  <div class="card-h"><div><h2 class="t3">Крупные файлы</h2>
-    <div class="hint">Файлы от 500 МБ по всем просканированным дискам. Удаляются навсегда — смотрите на тип и дату. Если файл — часть программы или пакета, приложение предупредит о последствиях. Папку Windows и файл подкачки удалить нельзя.</div></div></div>
+  <div class="card-h"><div><h2 class="t3">Big files</h2>
+    <div class="hint">Files of 500 MB and larger across all scanned drives. They are deleted permanently — check the type and date. If a file is part of a program or package, the app warns about the consequences. The Windows folder and the page file cannot be deleted.</div></div></div>
   <div class="chips pad-b" id="bf-types"></div>
   <div class="list">
   {% for f in d.bigfiles %}<div class="big lr" data-drives="{{ f.drive }}" data-kind="{{ f.kind }}">
     <div class="lr-l">
-      {% if f.deletable and not d.readonly %}<input type="checkbox" data-bf="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}" data-warn="{{ f.warn }}" aria-label="Выбрать {{ f.name }}">
-      {% elif not d.readonly %}<span class="lockic" title="Только просмотр: {{ f.why }}"><svg class="ic"><use href="#i-lock"/></svg></span>{% endif %}
+      {% if f.deletable and not d.readonly %}<input type="checkbox" data-bf="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}" data-warn="{{ f.warn }}" aria-label="Select {{ f.name }}">
+      {% elif not d.readonly %}<span class="lockic" title="View only: {{ f.why }}"><svg class="ic"><use href="#i-lock"/></svg></span>{% endif %}
       <span class="ico">{{ f.icon or '📄' }}</span>
       <div class="lr-m"><div class="lr-t cut" title="{{ f.path }}">{{ f.name }}</div>
-        <div class="lr-s">{{ f.kind or 'Файл' }}{% if f.date %} · изменён <span class="num">{{ f.date }}</span>{% if f.age_days is not none %} ({{ f.age_days }} дн. назад){% endif %}{% endif %}</div>
+        <div class="lr-s">{{ f.kind or 'File' }}{% if f.date %} · modified <span class="num">{{ f.date }}</span>{% if f.age_days is not none %} ({{ f.age_days }} days ago){% endif %}{% endif %}</div>
         <div class="lr-p mono">{{ f.path }}</div>
-        {% if not f.deletable %}<div class="callout"><svg class="ic"><use href="#i-lock"/></svg><span>Только просмотр: {{ f.why }}</span></div>{% elif f.warn %}<div class="callout"><svg class="ic"><use href="#i-alert"/></svg><span>{{ f.warn }}</span></div>{% endif %}</div></div>
-    <div class="lr-r"><b class="num">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button></div></div>
+        {% if not f.deletable %}<div class="callout"><svg class="ic"><use href="#i-lock"/></svg><span>View only: {{ f.why }}</span></div>{% elif f.warn %}<div class="callout"><svg class="ic"><use href="#i-alert"/></svg><span>{{ f.warn }}</span></div>{% endif %}</div></div>
+    <div class="lr-r"><b class="num">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}"><svg class="ic"><use href="#i-folder"/></svg>Show</button></div></div>
   {% endfor %}</div>
-  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-file"/></svg></div><b>Крупных файлов не найдено</b><span>Они ищутся при глубоком скане диска.</span></div>
+  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-file"/></svg></div><b>No big files found</b><span>They are searched for during a deep drive scan.</span></div>
 </div></div>
 
-<div class="panel" id="p-over" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Обзор дисков</h2>
-  <div class="hint">Крупнейшие папки и файлы по всему диску (на системном без самого Windows), плюс профиль и AppData. Здесь всё только показывается — решение за вами.</div></div></div>
+<div class="panel" id="p-over" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Disk overview</h2>
+  <div class="hint">Largest folders and files across the whole drive (on the system drive without Windows itself), plus the profile and AppData. Everything here is display only — the decision is yours.</div></div></div>
   {% for L in d.scanned %}{% set o = d.overview.get(L) %}
-  <div class="blk" data-drives="{{ L }}"><h3 class="t4"><span class="ltr-chip">{{ L }}:</span> {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% if dr.Media %} · {{ dr.Media }}{% endif %}{% endfor %}{% if L != d.system_drive %} <span class="tag">диск с данными</span>{% endif %}</h3>
-  {% if L != d.system_drive %}<p class="lr-s">Это не системный диск: здесь в основном ваши личные файлы (загрузки, медиа, проекты), а не кэши. Ничего не помечено мусором — крупные папки только показаны, решение за вами.</p>{% endif %}
-  {% if o %}{% if o.partial %}<div class="callout" style="margin:0 0 10px"><svg class="ic"><use href="#i-alert"/></svg><span>Диск очень медленный или огромный: часть папок не успела замериться (помечены «≥»; размер мог быть взят из прошлого скана). Повторный скан дойдёт дальше — сначала проверяются самые тяжёлые папки.</span></div>{% endif %}
+  <div class="blk" data-drives="{{ L }}"><h3 class="t4"><span class="ltr-chip">{{ L }}:</span> {% for dr in d.drives if dr.Name == L %}{{ dr.Label }}{% if dr.Media %} · {{ dr.Media }}{% endif %}{% endfor %}{% if L != d.system_drive %} <span class="tag">data drive</span>{% endif %}</h3>
+  {% if L != d.system_drive %}<p class="lr-s">This is not the system drive: it mostly holds your personal files (downloads, media, projects), not caches. Nothing is marked as junk — large folders are only shown, the decision is yours.</p>{% endif %}
+  {% if o %}{% if o.partial %}<div class="callout" style="margin:0 0 10px"><svg class="ic"><use href="#i-alert"/></svg><span>The drive is very slow or huge: some folders were not measured in time (marked “≥”; the size may come from the previous scan). A repeat scan will get further — the heaviest folders are checked first.</span></div>{% endif %}
     {% set mx = (o.top_dirs[0].size_gb if o.top_dirs else 1) or 1 %}
-    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v" {% if t.stale %}title="По прошлому скану — в этот раз папка не успела замериться"{% endif %}>{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
+    {% for t in o.top_dirs %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span><div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div><span class="v" {% if t.stale %}title="From the previous scan — the folder was not measured in time this run"{% endif %}>{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span>{% if t.id %}<button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Show</button>{% else %}<span></span>{% endif %}</div>{% endfor %}
   {% endif %}
   {% if L == d.system_drive and d.profile %}
-    <p class="lr-s" style="margin-top:18px">Крупнейшие папки профиля. Здесь ничего не помечено как мусор — это просто то, что занимает место. Откройте папку и решите сами.</p>
+    <p class="lr-s" style="margin-top:18px">Largest profile folders. Nothing here is marked as junk — this is simply what takes up space. Open a folder and decide for yourself.</p>
     {% for g in d.profile %}<h3 class="t4 sub-h">{{ g.title }}</h3>
     {% set mx = (g.entries[0].size_gb if g.entries else 1) or 1 %}
     {% for t in g.entries %}<div class="ob"><span class="t" title="{{ t.path }}">{{ t.name }}</span>
       <div class="rail"><i style="width:{{ (t.size_gb / mx * 100)|round(1) }}%"></i></div>
-      <span class="v">{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span><button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button></div>{% endfor %}{% endfor %}
+      <span class="v">{% if t.partial %}≥ {% endif %}{{ t.size_gb|size }}</span><button class="btn sm ghost" data-reveal="{{ t.id }}"><svg class="ic"><use href="#i-folder"/></svg>Show</button></div>{% endfor %}{% endfor %}
   {% endif %}
-  {% if not o and not (L == d.system_drive and d.profile) %}<p class="lr-s">Для этого диска обзор не запускался — включите «Глубокий скан» при новом сканировании.</p>{% endif %}
+  {% if not o and not (L == d.system_drive and d.profile) %}<p class="lr-s">The overview was not run for this drive — enable “Deep scan” in a new scan.</p>{% endif %}
   </div>{% endfor %}
 </div></div>
 
-<div class="panel" id="p-dl" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Крупные файлы в Загрузках</h2>
-  <div class="hint">Файлы от 50 МБ, самые большие сверху. Удаляются навсегда — решайте сами, что ещё нужно.</div></div></div>
+<div class="panel" id="p-dl" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Big files in Downloads</h2>
+  <div class="hint">Files of 50 MB and larger, biggest first. They are deleted permanently — decide for yourself what is still needed.</div></div></div>
   <div class="list">
   {% for f in d.downloads %}<div class="big lr" data-drives="{{ f.drive }}">
-    <div class="lr-l">{% if not d.readonly %}<input type="checkbox" data-dl="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}" aria-label="Выбрать {{ f.name }}">{% endif %}
+    <div class="lr-l">{% if not d.readonly %}<input type="checkbox" data-dl="{{ f.id }}" data-name="{{ f.name }}" data-gb="{{ f.size_gb }}" aria-label="Select {{ f.name }}">{% endif %}
       <span class="ico">{{ '📦' if f.installer else '📄' }}</span>
       <div class="lr-m"><div class="lr-t cut" title="{{ f.path }}">{{ f.name }}</div>
-      <div class="lr-s"><span class="num">{{ f.date }}</span> · {{ f.age_days }} дн. назад{% if f.installer and f.age_days > 90 %} <span class="tag warn">старый установщик/архив</span>{% endif %}</div></div></div>
-    <div class="lr-r"><b class="num">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}"><svg class="ic"><use href="#i-folder"/></svg>Показать</button></div></div>
+      <div class="lr-s"><span class="num">{{ f.date }}</span> · {{ f.age_days }} days ago{% if f.installer and f.age_days > 90 %} <span class="tag warn">old installer/archive</span>{% endif %}</div></div></div>
+    <div class="lr-r"><b class="num">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}"><svg class="ic"><use href="#i-folder"/></svg>Show</button></div></div>
   {% endfor %}</div>
-  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-download"/></svg></div><b>Крупных файлов в Загрузках нет</b></div>
+  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-download"/></svg></div><b>No big files in Downloads</b></div>
 </div></div>
 
-<div class="panel" id="p-dups" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Дубликаты файлов</h2>
-  <div class="hint">Файлы больше 50 МБ в Загрузках и Документах с одинаковым содержимым (MD5). Одна копия всегда остаётся.</div></div></div>
+<div class="panel" id="p-dups" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Duplicate files</h2>
+  <div class="hint">Files over 50 MB in Downloads and Documents with identical content (MD5). One copy always remains.</div></div></div>
   <div class="list">
   {% for g in d.dups %}<div class="grp" data-drives="{{ g.drives|join(' ') }}">
-    <div class="grp-h"><span class="ico sm"><svg class="ic"><use href="#i-copy"/></svg></span><b class="num">{{ g.size_gb|size }} × {{ g.files|length }}</b><span class="tag warn">лишнее: {{ g.wasted_gb|size }}</span></div>
+    <div class="grp-h"><span class="ico sm"><svg class="ic"><use href="#i-copy"/></svg></span><b class="num">{{ g.size_gb|size }} × {{ g.files|length }}</b><span class="tag warn">wasted: {{ g.wasted_gb|size }}</span></div>
     {% for f in g.files %}<div class="file"><div class="file-m"><div class="lr-p mono" style="color:var(--fg);margin-top:0">{{ f.path }}</div>
-      <div class="lr-s"><span class="num">{{ f.date }}</span>{% if f.original %} · <span class="tag ok">самая старая</span>{% endif %}</div></div>
-      {% if not d.readonly %}<button class="btn sm link-d" data-dup="{{ f.id }}" data-name="{{ f.path.replace('\\','/').split('/')[-1] }}" data-gb="{{ g.size_gb }}"><svg class="ic"><use href="#i-trash"/></svg>Удалить</button>{% endif %}</div>{% endfor %}
+      <div class="lr-s"><span class="num">{{ f.date }}</span>{% if f.original %} · <span class="tag ok">oldest</span>{% endif %}</div></div>
+      {% if not d.readonly %}<button class="btn sm link-d" data-dup="{{ f.id }}" data-name="{{ f.path.replace('\\','/').split('/')[-1] }}" data-gb="{{ g.size_gb }}"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>{% endif %}</div>{% endfor %}
   </div>{% endfor %}</div>
-  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-copy"/></svg></div><b>Дубликатов не найдено</b></div>
+  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-copy"/></svg></div><b>No duplicates found</b></div>
 </div></div>
 
-<div class="panel" id="p-py" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Установки Python</h2><div class="hint">Только просмотр: удаляйте через «Параметры → Приложения»</div></div></div>
+<div class="panel" id="p-py" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Python installations</h2><div class="hint">View only: uninstall via “Settings → Apps”</div></div></div>
   <div class="list">
   {% for p in d.python %}<div class="lr" data-drives="{{ p.drive }}">
     <div class="lr-l">{{ ico(p.icon_img, '🐍') }}
       <div class="lr-m"><div class="lr-t">Python {{ p.version }}</div><div class="lr-p mono">{{ p.path }}</div>
-      {% if p.packages %}<div class="pk">Тяжёлые пакеты: {% for n, mb in p.packages %}<span class="tag">{{ n }} · {{ mb }} МБ</span>{% endfor %}</div>{% endif %}
-      {% if p.in_use %}<div class="callout danger"><svg class="ic"><use href="#i-alert"/></svg><span>Сейчас используется{% if p.mcp %} (похоже, MCP-сервером){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} и ещё {{ p.in_use|length - 1 }}{% endif %}. Не удаляйте.</span></div>
-      {% else %}<div class="lr-s" style="margin-top:6px">Запущенных процессов с этой установкой не найдено. Перед удалением проверьте venv и скрипты, которые её вызывают.</div>{% endif %}</div></div>
+      {% if p.packages %}<div class="pk">Heavy packages: {% for n, mb in p.packages %}<span class="tag">{{ n }} · {{ mb }} MB</span>{% endfor %}</div>{% endif %}
+      {% if p.in_use %}<div class="callout danger"><svg class="ic"><use href="#i-alert"/></svg><span>Currently in use{% if p.mcp %} (looks like an MCP server){% endif %}: <span class="mono">{{ p.in_use[0] }}</span>{% if p.in_use|length > 1 %} and {{ p.in_use|length - 1 }} more{% endif %}. Do not delete.</span></div>
+      {% else %}<div class="lr-s" style="margin-top:6px">No running processes use this installation. Before deleting, check the venvs and scripts that call it.</div>{% endif %}</div></div>
     <div class="lr-r"><b class="num">{{ p.size_gb|size }}</b></div></div>
   {% endfor %}</div>
-  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-package"/></svg></div><b>Установки Python не найдены</b></div>
+  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-package"/></svg></div><b>No Python installations found</b></div>
 </div></div>
 
-<div class="panel" id="p-prog" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Тяжёлые программы</h2>
-  <div class="hint">Больше 300 МБ. Кнопка «Удалить» запускает штатный деинсталлятор Windows — он сам спросит подтверждение и корректно уберёт программу.</div></div></div>
+<div class="panel" id="p-prog" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Installed programs</h2>
+  <div class="hint">All installed programs, largest first. The “Uninstall” button launches the standard Windows uninstaller — it asks for confirmation itself and removes the program cleanly.</div></div></div>
   <div class="list">
   {% for p in d.programs %}<div class="lr" data-drives="{{ p.drive }}">
     <div class="lr-l">{{ ico(p.icon_img, '🧩') }}
       <div class="lr-m"><div class="lr-t cut">{{ p.DisplayName }}</div><div class="lr-p mono">{{ p.DisplayVersion or '' }}{% if p.InstallLocation %} · {{ p.InstallLocation }}{% endif %}</div></div></div>
     <div class="lr-r"><b class="num">{{ (p.SizeMB / 1024)|size }}</b>
-      {% if not d.readonly %}<button class="btn sm link-d" data-uninstall="{{ p.id }}" data-name="{{ p.DisplayName }}">Удалить…</button>{% endif %}</div></div>
+      {% if not d.readonly %}<button class="btn sm link-d" data-uninstall="{{ p.id }}" data-name="{{ p.DisplayName }}">Uninstall…</button>{% endif %}</div></div>
   {% endfor %}</div>
-  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-grid"/></svg></div><b>Программ больше 300 МБ не найдено</b></div>
+  <div class="empty none"><div class="em-ico"><svg class="ic"><use href="#i-grid"/></svg></div><b>No installed programs found</b></div>
 </div></div>
 
-<div class="panel" id="p-prot" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Не трогать</h2><div class="hint">Приложение никогда не удаляет эти места</div></div></div>
+<div class="panel" id="p-prot" role="tabpanel"><div class="card pad"><div class="card-h"><div><h2 class="t3">Do not touch</h2><div class="hint">The app never deletes these locations</div></div></div>
   <div class="prot">
   {% for p in d.protected %}<div class="lr"><div class="lr-l"><span class="ico">{{ p.icon }}</span><div class="lr-m"><div class="lr-t mono">{{ p.name }}</div><div class="lr-s">{{ p.reason }}</div></div></div></div>{% endfor %}
   </div>
 </div></div>
 
-<div class="selbar" id="selbar" hidden role="region" aria-label="Выбранные элементы">
-  <div class="sb-i"><b id="sb-n">0</b> <span id="sb-w">элементов</span> · <b class="num" id="sb-gb">0</b></div>
-  <button class="btn ghost sm" id="sb-clear">Снять выбор</button>
-  <button class="btn danger" id="sb-del"><svg class="ic"><use href="#i-trash"/></svg>Удалить выбранное</button>
+<div class="selbar" id="selbar" hidden role="region" aria-label="Selected items">
+  <div class="sb-i"><b id="sb-n">0</b> <span id="sb-w">items</span> · <b class="num" id="sb-gb">0</b></div>
+  <button class="btn ghost sm" id="sb-clear">Clear selection</button>
+  <button class="btn danger" id="sb-del"><svg class="ic"><use href="#i-trash"/></svg>Delete selected</button>
 </div>
 {% endblock %}
 
@@ -404,17 +404,17 @@ const CAN_ELEVATE = {{ 'true' if CAN_ELEVATE else 'false' }};
 const READONLY = {{ 'true' if d.readonly else 'false' }};
 const DRIVES = {{ d.drives|tojson }};
 const DUPS = {{ d.dups|map(attribute='drives')|list|tojson }}.map((dr, i) => ({drives: dr, wasted: {{ d.dups|map(attribute='wasted_gb')|list|tojson }}[i]}));
-const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];   // фиксированный порядок категориальной палитры
+const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];   // fixed order of the categorical palette
 const sel = new Set();
 let cur = 'ALL', riskF = 'ALL', bfF = 'ALL';
 const scannedDrives = DRIVES.filter(d => d.scanned);
 const inCur = list => cur === 'ALL' || list.includes(cur);
-const catTitle = {A:'Безопасно', B:'На усмотрение', C:'Вручную'};
-const catLong = {A:'Безопасно', B:'На усмотрение', C:'Только вручную'};
-const pluralEl = n => plural(n, ['элемент', 'элемента', 'элементов']);
+const catTitle = {A:'Safe', B:'Your call', C:'Manual'};
+const catLong = {A:'Safe', B:'Your call', C:'Manual only'};
+const pluralEl = n => plural(n, ['item', 'items']);
 const usageCls = p => p > 85 ? 'crit' : p >= 70 ? 'warn' : '';
 
-/* ── данные текущего среза ── */
+/* ── data of the current slice ── */
 const curRows = () => ROWS.filter(r => inCur([r.drive]));
 const tableRows = () => curRows().filter(r => r.kind !== 'recycle');
 const shownRows = () => tableRows().filter(r => riskF === 'ALL' || r.cat === riskF);
@@ -422,11 +422,11 @@ function summary(){
   const rows = curRows();
   const dupGb = DUPS.filter(x => inCur(x.drives)).reduce((s, x) => s + x.wasted, 0);
   const sums = {A: 0, B: dupGb, C: 0};
-  rows.filter(r => r.kind !== 'temp').forEach(r => sums[r.cat] += r.size_gb);   // остатки Temp уже входят в размер Temp
+  rows.filter(r => r.kind !== 'temp').forEach(r => sums[r.cat] += r.size_gb);   // Temp leftovers are already part of the Temp size
   return {rows, sums, dupGb, total: sums.A + sums.B + sums.C};
 }
 
-/* ── вкладки ── */
+/* ── tabs ── */
 const activePanel = () => $('.tab.on').dataset.p;
 function switchTab(p){
   $$('.tab').forEach(b => { const on = b.dataset.p === p; b.classList.toggle('on', on); b.setAttribute('aria-selected', on) });
@@ -434,24 +434,24 @@ function switchTab(p){
   updateSelBar();
 }
 $$('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.p));
-$('#tabs').addEventListener('keydown', e => {   // стрелки/Home/End — как в стандартном паттерне вкладок
+$('#tabs').addEventListener('keydown', e => {   // arrows/Home/End — as in the standard tabs pattern
   const keys = {ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last'}; if(!(e.key in keys)) return;
   const tabs = $$('.tab'), i = tabs.indexOf(document.activeElement); if(i < 0) return;
   const n = keys[e.key] === 'first' ? 0 : keys[e.key] === 'last' ? tabs.length - 1 : (i + keys[e.key] + tabs.length) % tabs.length;
   e.preventDefault(); tabs[n].focus(); tabs[n].click(); tabs[n].scrollIntoView({block: 'nearest', inline: 'nearest'});
 });
-function tabsFade(){   // на узком окне вкладки прокручиваются — подсказываем это затуханием у края
+function tabsFade(){   // in a narrow window the tabs scroll — hinted by a fade at the edge
   const t = $('#tabs'); t.classList.toggle('fade-l', t.scrollLeft > 4); t.classList.toggle('fade-r', t.scrollLeft + t.clientWidth < t.scrollWidth - 4);
 }
 $('#tabs').addEventListener('scroll', tabsFade, {passive: true}); addEventListener('resize', tabsFade); setTimeout(tabsFade, 0);
 const toTabs = () => $('#tabs-wrap').scrollIntoView({behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start'});
 
-/* ── переключение диска ── */
+/* ── drive switching ── */
 function applyDrive(d){
   cur = d; sel.clear();
   try{ sessionStorage.setItem('dusty.drive', d) }catch(_){}
   $$('#dsw button').forEach(b => { const on = b.dataset.d === cur; b.classList.toggle('on', on); b.setAttribute('aria-selected', on) });
-  // блоки с data-drives: скрываем чужие диски и считаем видимые
+  // blocks with data-drives: hide other drives and count the visible ones
   const counts = {};
   $$('[data-drives]').forEach(el => {
     const show = inCur(el.dataset.drives.split(' ')); el.hidden = !show;
@@ -461,7 +461,7 @@ function applyDrive(d){
     const n = counts[p] || 0; $('#c-' + p).textContent = n;
     const none = $('#p-' + p + ' .none'); if(none) none.classList.toggle('show', !n);
   });
-  $$('[data-bf],[data-dl]').forEach(c => c.checked = false);   // выбор скрытых дисков не должен «доживать» до удаления
+  $$('[data-bf],[data-dl]').forEach(c => c.checked = false);   // the selection on hidden drives must not “survive” until deletion
   $('#c-clean').textContent = tableRows().length;
   renderAll();
 }
@@ -472,17 +472,17 @@ function renderAll(){
 }
 $$('#dsw button').forEach(b => b.onclick = () => applyDrive(b.dataset.d));
 
-/* ── итог ── */
+/* ── summary ── */
 function renderHero(S){
   const t = S.total, big = t >= 1 || t === 0;
   $('#st-total').textContent = big ? nf(t, t >= 10 ? 1 : 2) : String(Math.round(t * 1024));
-  $('#st-unit').textContent = big ? 'ГБ' : 'МБ';
-  $('#hero-scope').textContent = cur === 'ALL' ? 'Все диски' : 'Диск ' + cur + ':';
+  $('#st-unit').textContent = big ? 'GB' : 'MB';
+  $('#hero-scope').textContent = cur === 'ALL' ? 'All drives' : 'Drive ' + cur + ':';
   let txt;
-  if(!t) txt = 'Здесь чисто — освобождать нечего.';
-  else if(S.sums.A > 0) txt = `Безопасно можно удалить <b>${fmt(S.sums.A)}</b> — это кэши и временные файлы, программы создадут их заново. Остальное — на ваше усмотрение.`;
-  else txt = 'Автоматически безопасного мусора нет: всё найденное требует вашего решения. Посмотрите список и решите сами.';
-  if(READONLY) txt += ' Это сохранённый отчёт — удаление отключено.';
+  if(!t) txt = 'All clean here — nothing to free.';
+  else if(S.sums.A > 0) txt = `<b>${fmt(S.sums.A)}</b> can be deleted safely — these are caches and temporary files, programs will recreate them. The rest is your call.`;
+  else txt = 'There is no automatically safe junk: everything found needs your decision. Look through the list and decide.';
+  if(READONLY) txt += ' This is a saved report — deletion is disabled.';
   $('#sum-text').innerHTML = txt;
   $('#pick-safe').hidden = READONLY || !tableRows().some(r => r.cat === 'A' && r.deletable);
   $('#to-list').hidden = !tableRows().length;
@@ -491,7 +491,7 @@ function renderKpis(S){
   const all = tableRows();
   $('#k-n').textContent = all.length;
   ['A', 'B', 'C'].forEach(c => {
-    $('#k-' + c).textContent = S.sums[c] ? fmt(S.sums[c]) : '0' + NB + 'ГБ';
+    $('#k-' + c).textContent = S.sums[c] ? fmt(S.sums[c]) : '0' + NB + 'GB';
     $('#kb-' + c).style.width = (S.total ? S.sums[c] / S.total * 100 : 0) + '%';
   });
   $$('.kpi').forEach(k => k.classList.toggle('on', k.dataset.k === riskF));
@@ -500,35 +500,35 @@ function renderDisk(S){
   const dr = cur === 'ALL' ? scannedDrives : scannedDrives.filter(x => x.Name === cur);
   const used = dr.reduce((s, x) => s + (x.UsedGB ?? (x.TotalGB - x.FreeGB)), 0), free = dr.reduce((s, x) => s + x.FreeGB, 0);
   const rec = Math.min(S.total, used), den = (used + free) || 1;
-  const title = cur === 'ALL' ? `Все диски · ${dr.length}` : `Диск ${cur}: ${esc(dr[0]?.Label || '')}`;
+  const title = cur === 'ALL' ? `All drives · ${dr.length}` : `Drive ${cur}: ${esc(dr[0]?.Label || '')}`;
   const seg = (cls, v) => v > 0.0001 ? `<i class="${cls}" style="flex:${v / den} 1 0"></i>` : '';
-  let html = `<div class="dk-h"><b>${title}</b><span>Свободно сейчас <b class="num">${fmt(free)}</b></span></div>
-    <div class="dk-bar" role="img" aria-label="Занято ${fmt(used - rec)}, можно освободить ${fmt(rec)}, свободно ${fmt(free)}">${seg('dk-used', used - rec)}${seg('dk-rec', rec)}${seg('dk-free', free)}</div>
-    <div class="dk-leg"><span><i style="background:var(--s8)"></i>Занято <b class="num">${fmt(used - rec)}</b></span>
-      <span><i style="background:var(--accent)"></i>Можно освободить <b class="num">${fmt(rec)}</b></span>
-      <span><i style="background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--border-2)"></i>Свободно <b class="num">${fmt(free)}</b></span></div>`;
-  if(rec > 0) html += `<div class="dk-after">${ic('check-circle')}<span>Если очистить всё найденное, свободно будет <b class="num">${fmt(free + rec)}</b> <em>(+${fmt(rec)})</em></span></div>`;
+  let html = `<div class="dk-h"><b>${title}</b><span>Free now <b class="num">${fmt(free)}</b></span></div>
+    <div class="dk-bar" role="img" aria-label="Used ${fmt(used - rec)}, can be freed ${fmt(rec)}, free ${fmt(free)}">${seg('dk-used', used - rec)}${seg('dk-rec', rec)}${seg('dk-free', free)}</div>
+    <div class="dk-leg"><span><i style="background:var(--s8)"></i>Used <b class="num">${fmt(used - rec)}</b></span>
+      <span><i style="background:var(--accent)"></i>Can be freed <b class="num">${fmt(rec)}</b></span>
+      <span><i style="background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--border-2)"></i>Free <b class="num">${fmt(free)}</b></span></div>`;
+  if(rec > 0) html += `<div class="dk-after">${ic('check-circle')}<span>If you clean everything found, free space will be <b class="num">${fmt(free + rec)}</b> <em>(+${fmt(rec)})</em></span></div>`;
   if(cur === 'ALL' && dr.length > 1) html += '<div class="dk-rows">' + DRIVES.map(x => `<button type="button" class="dk-row ${x.scanned ? '' : 'dim'}" ${x.scanned ? `data-card="${esc(x.Name)}"` : 'disabled'}
-      title="${x.scanned ? 'Показать только этот диск' : (x.Type === 'network' ? 'Сетевой диск — не сканируется' : 'Этот диск не сканировался')}">
-      <span class="ltr">${esc(x.Name)}:</span><span class="dk-nm"><span class="dk-l">${esc(x.Label || 'Локальный диск')}</span><small class="num">${x.scanned ? `свободно ${nf(x.FreeGB, 0)} из ${nf(x.TotalGB, 0)}${NB}ГБ` : 'не сканировался'}</small></span>
+      title="${x.scanned ? 'Show this drive only' : (x.Type === 'network' ? 'Network drive — not scanned' : 'This drive was not scanned')}">
+      <span class="ltr">${esc(x.Name)}:</span><span class="dk-nm"><span class="dk-l">${esc(x.Label || 'Local disk')}</span><small class="num">${x.scanned ? `${nf(x.FreeGB, 0)} of ${nf(x.TotalGB, 0)}${NB}GB free` : 'not scanned'}</small></span>
       <span class="meter ${usageCls(x.Pct)}"><i style="width:${x.Pct}%"></i></span><span class="pc num">${x.Pct}%</span></button>`).join('') + '</div>';
   $('#disk').innerHTML = html;
 }
 
-/* ── состав: составная полоса + легенда (части целого, ≤7 категорий + «Другое») ── */
+/* ── composition: stacked bar + legend (parts of a whole, ≤7 categories + “Other”) ── */
 function renderComp(S){
   const base = S.rows.filter(r => r.kind !== 'temp' && r.size_gb > 0).map(r => ({name: r.name, v: r.size_gb}));
-  if(S.dupGb > 0) base.push({name: 'Дубликаты файлов (лишние копии)', v: S.dupGb});   // чтобы сумма совпадала с «Можно освободить»
+  if(S.dupGb > 0) base.push({name: 'Duplicate files (extra copies)', v: S.dupGb});   // so the total matches “Can be freed”
   base.sort((a, b) => b.v - a.v);
   const top = base.slice(0, 7), rest = base.slice(7).reduce((s, r) => s + r.v, 0);
   const parts = top.map((r, i) => ({name: r.name, v: r.v, c: `var(${SLOTS[i]})`}));
-  if(rest > 0) parts.push({name: 'Другое', v: rest, c: 'var(--s8)'});
+  if(rest > 0) parts.push({name: 'Other', v: rest, c: 'var(--s8)'});
   const total = parts.reduce((s, p) => s + p.v, 0);
   $('#comp-total').textContent = total ? fmt(total) : '—';
   const pct = p => { const x = p.v / total * 100; return x < 1 ? '<1%' : Math.round(x) + '%' };
   $('#comp-bar').innerHTML = parts.map((p, i) => `<i role="img" data-i="${i}" style="flex-grow:${p.v};background:${p.c}" tabindex="0" aria-label="${esc(p.name)}: ${fmt(p.v)}, ${pct(p)}"></i>`).join('');
   $('#legend').innerHTML = parts.map((p, i) => `<div class="leg" data-i="${i}"><i style="background:${p.c}"></i><span class="cut" title="${esc(p.name)}">${esc(p.name)}</span><b>${fmt(p.v)}</b><small>${pct(p)}</small></div>`).join('')
-    || '<div class="empty" style="padding:24px 0">Нет данных</div>';
+    || '<div class="empty" style="padding:24px 0">No data</div>';
   const hl = (i, on) => { $('#comp-bar').classList.toggle('dim', on);
     $$('#comp-bar i').forEach(c => c.classList.toggle('hl', on && c.dataset.i == i)); $$('.leg').forEach(l => l.classList.toggle('hl', on && l.dataset.i == i)) };
   $$('#comp-bar i, .leg').forEach(el => {
@@ -537,23 +537,23 @@ function renderComp(S){
   $$('#comp-bar i').forEach(el => { const p = parts[el.dataset.i]; el.onmousemove = e => tipOn(e, `${p.name}: ${fmt(p.v)} · ${pct(p)}`) });
 }
 
-/* ── корзина: по плашке на каждый просканированный диск ── */
+/* ── recycle bin: one card per scanned drive ── */
 function renderRecycle(){
   const letters = (cur === 'ALL' ? scannedDrives : scannedDrives.filter(d => d.Name === cur)).map(d => d.Name);
   const full = [], empty = [];
   letters.forEach(L => { const r = ROWS.find(x => x.kind === 'recycle' && x.drive === L), size = r ? r.size_gb : 0; (size ? full : empty).push({L, r, size}) });
-  // непустые корзины — карточками с кнопкой, пустые — одной строкой, чтобы не шуметь
+  // non-empty bins as cards with a button, empty ones in a single line to reduce noise
   $('#rbin').innerHTML = full.map(({L, r, size}) => `<div class="bin"><span class="ico">${ic('trash')}</span>
-      <div class="bin-t"><b>Корзина ${L}:</b><small>Файлы, которые вы уже удалили, но они ещё занимают место</small></div>
+      <div class="bin-t"><b>Recycle Bin ${L}:</b><small>Files you have already deleted but which still take up space</small></div>
       <b class="sz num">${fmt(size)}</b>
-      ${READONLY ? '<span></span>' : `<button class="btn danger sm" data-bin="${L}" ${r.deletable ? '' : 'disabled'}>Очистить</button>`}</div>`).join('')
-    + (empty.length ? `<div class="bin-empty">${ic('trash')}<span>${empty.length === 1 ? 'Корзина пуста' : 'Корзины пусты'}: ${empty.map(x => x.L + ':').join(', ')}</span></div>` : '');
+      ${READONLY ? '<span></span>' : `<button class="btn danger sm" data-bin="${L}" ${r.deletable ? '' : 'disabled'}>Empty</button>`}</div>`).join('')
+    + (empty.length ? `<div class="bin-empty">${ic('trash')}<span>${empty.length === 1 ? 'Recycle bin is empty' : 'Recycle bins are empty'}: ${empty.map(x => x.L + ':').join(', ')}</span></div>` : '');
 }
 
-/* ── фильтры ── */
+/* ── filters ── */
 function renderRiskChips(){
   const all = tableRows(), n = c => all.filter(r => r.cat === c).length;
-  const defs = [['ALL', 'Все', all.length], ['A', 'A · безопасно', n('A')], ['B', 'B · на усмотрение', n('B')], ['C', 'C · вручную', n('C')]];
+  const defs = [['ALL', 'All', all.length], ['A', 'A · safe', n('A')], ['B', 'B · your call', n('B')], ['C', 'C · manual', n('C')]];
   $('#riskf').innerHTML = defs.map(([k, l, c]) => `<button class="chip ${riskF === k ? 'on' : ''}" data-risk="${k}">${l}<b>${c}</b></button>`).join('');
 }
 function renderBfChips(){
@@ -562,7 +562,7 @@ function renderBfChips(){
   const kinds = {}; items.forEach(el => { const k = el.dataset.kind; kinds[k] = (kinds[k] || 0) + 1 });
   if(bfF !== 'ALL' && !kinds[bfF]) bfF = 'ALL';
   const short = k => k.split(' (')[0].split(' — ')[0];
-  box.innerHTML = Object.keys(kinds).length > 1 ? [['ALL', 'Все', items.length], ...Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, c]) => [k, short(k), c])]
+  box.innerHTML = Object.keys(kinds).length > 1 ? [['ALL', 'All', items.length], ...Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, c]) => [k, short(k), c])]
     .map(([k, l, c]) => `<button class="chip ${bfF === k ? 'on' : ''}" data-bfk="${esc(k)}">${esc(l)}<b>${c}</b></button>`).join('') : '';
   $$('#p-bf .big[data-kind]').forEach(el => el.classList.toggle('kf', bfF !== 'ALL' && el.dataset.kind !== bfF));
 }
@@ -571,22 +571,22 @@ function setRisk(k){
   renderKpis(summary()); renderRiskChips(); renderRows(); updateSelBar();
 }
 
-/* ── таблица очистки ── */
+/* ── cleanup table ── */
 function renderRows(){
   const tb = $('#rows'); if(!tb) return;
   const rows = shownRows(), mx = Math.max(...rows.map(r => r.size_gb), 0.001);
   tb.innerHTML = rows.map(r => `<tr class="row ${sel.has(r.id) ? 'sel' : ''}" data-id="${esc(r.id)}">
-    <td class="c-ck">${r.deletable ? `<input type="checkbox" data-id="${esc(r.id)}" ${sel.has(r.id) ? 'checked' : ''} aria-label="Выбрать ${esc(r.name)}">`
-      : `<span class="lockic" title="Удаляется только вручную">${ic('lock')}</span>`}</td>
+    <td class="c-ck">${r.deletable ? `<input type="checkbox" data-id="${esc(r.id)}" ${sel.has(r.id) ? 'checked' : ''} aria-label="Select ${esc(r.name)}">`
+      : `<span class="lockic" title="Can only be deleted manually">${ic('lock')}</span>`}</td>
     <td><div class="nm"><span class="ico">${r.img ? `<img src="${esc(r.img)}" alt="">` : esc(r.icon)}</span>
       <div class="nm-t"><div class="t"><span title="${esc(r.name)}">${esc(r.name)}</span>${r.kind === 'temp' ? '<span class="tag">Temp</span>' : ''}</div>
       <div class="d cut" title="${esc(r.reason)}">${esc(r.reason)}</div></div></div></td>
     <td class="c-path cut mono" title="${esc(r.path)}">${esc(r.path)}</td>
     <td><span class="risk ${r.cat}" title="${catLong[r.cat]}"><b>${r.cat}</b><span class="rt">${catTitle[r.cat]}</span></span></td>
     <td class="c-size r"><div class="v">${fmt(r.size_gb)}</div><div class="sbar"><i style="width:${Math.max(r.size_gb / mx * 100, 2)}%"></i></div></td>
-    <td><div class="row-acts"><button class="btn ghost icon sm" data-act="info" title="Подробности" aria-label="Подробности: ${esc(r.name)}">${ic('info')}</button>
-      <button class="btn ghost icon sm" data-act="open" title="Показать в проводнике" aria-label="Показать в проводнике: ${esc(r.name)}">${ic('folder')}</button>
-      ${READONLY ? '' : `<button class="btn ghost icon sm del" data-act="del" title="${r.deletable ? 'Удалить' : 'Удаляется только вручную'}" aria-label="Удалить: ${esc(r.name)}" ${r.deletable ? '' : 'disabled'}>${ic('trash')}</button>`}</div></td></tr>`).join('');
+    <td><div class="row-acts"><button class="btn ghost icon sm" data-act="info" title="Details" aria-label="Details: ${esc(r.name)}">${ic('info')}</button>
+      <button class="btn ghost icon sm" data-act="open" title="Show in Explorer" aria-label="Show in Explorer: ${esc(r.name)}">${ic('folder')}</button>
+      ${READONLY ? '' : `<button class="btn ghost icon sm del" data-act="del" title="${r.deletable ? 'Delete' : 'Can only be deleted manually'}" aria-label="Delete: ${esc(r.name)}" ${r.deletable ? '' : 'disabled'}>${ic('trash')}</button>`}</div></td></tr>`).join('');
   $('#none-clean').classList.toggle('show', !rows.length);
   $('#tbl').hidden = !rows.length;
   syncAll();
@@ -598,7 +598,7 @@ function syncAll(){
   a.disabled = !boxes.length;
 }
 
-/* ── выбор и панель действий ── */
+/* ── selection and action bar ── */
 function selection(){
   const p = activePanel();
   if(p === 'clean') return ROWS.filter(r => sel.has(r.id));
@@ -609,7 +609,7 @@ function selection(){
 function updateSelBar(){
   const items = selection(), bar = $('#selbar');
   bar.hidden = !items.length; if(!items.length) return;
-  const ids = new Set(items.map(i => i.id));   // остаток Temp входит в размер родителя: не считаем дважды
+  const ids = new Set(items.map(i => i.id));   // a Temp leftover is part of the parent size: do not count twice
   const total = items.filter(i => !(i.parent_id && ids.has(i.parent_id))).reduce((s, i) => s + i.size_gb, 0);
   $('#sb-n').textContent = items.length; $('#sb-w').textContent = pluralEl(items.length); $('#sb-gb').textContent = fmt(total);
 }
@@ -632,7 +632,7 @@ document.addEventListener('change', e => {
   } else if(t.matches('[data-bf],[data-dl]')) updateSelBar();
 });
 
-/* ── клики ── */
+/* ── clicks ── */
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   if(a){
@@ -646,7 +646,7 @@ document.addEventListener('click', e => {
   const kp = e.target.closest('[data-k]'); if(kp){ setRisk(kp.dataset.k); return toTabs() }
   const bk = e.target.closest('[data-bfk]'); if(bk){ bfF = bk.dataset.bfk; renderBfChips(); return }
   const bn = e.target.closest('[data-bin]');
-  if(bn){ const r = ROWS.find(x => x.kind === 'recycle' && x.drive === bn.dataset.bin); return ask([{...r, name: 'Корзина ' + r.drive + ':', bin: true}]) }
+  if(bn){ const r = ROWS.find(x => x.kind === 'recycle' && x.drive === bn.dataset.bin); return ask([{...r, name: 'Recycle Bin ' + r.drive + ':', bin: true}]) }
   const d = e.target.closest('[data-dup]'); if(d) return ask([{id: d.dataset.dup, name: d.dataset.name, size_gb: parseFloat(d.dataset.gb), dup: true}]);
   const u = e.target.closest('[data-uninstall]'); if(u) return askUninstall(u.dataset.uninstall, u.dataset.name);
   const v = e.target.closest('[data-reveal]'); if(v) return openLoc(v.dataset.reveal);
@@ -659,82 +659,82 @@ $('#pick-safe').onclick = () => {
   renderKpis(summary()); renderRiskChips(); renderRows(); updateSelBar(); toTabs();
 };
 
-/* ── AI-сводка ── */
-const aiFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(\d+)\.(\d+)(\s*(?:ГБ|МБ|КБ))/g, '$1,$2$3');
-function aiSteps(t){   // «1) … 2) … 3) …» → список; если формат другой — вернём null и покажем абзацем
+/* ── AI summary ── */
+const aiFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(\d+)\.(\d+)(\s*(?:GB|MB|KB))/g, '$1.$2$3');
+function aiSteps(t){   // “1) … 2) … 3) …” → list; if the format is different, return null and show a paragraph
   const parts = t.split(/(?:^|\s)(?=\d\)\s)/).map(x => x.trim()).filter(Boolean);
   return parts.length >= 2 && parts.every(p => /^\d\)\s/.test(p)) ? parts.map(p => p.replace(/^\d\)\s*/, '')) : null;
 }
 async function aiRun(){
   const b = $('#ai-btn'), out = $('#ai-out'), lbl = $('span', b);
   b.disabled = true; out.className = 'ai-body muted';
-  out.innerHTML = '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><span class="spin"></span>Анализирую результаты…</div><div class="skel" style="width:92%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:85%"></div>';
+  out.innerHTML = '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><span class="spin"></span>Analyzing the results…</div><div class="skel" style="width:92%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:85%"></div>';
   try{
     const q = cur === 'ALL' ? '' : '?drive=' + encodeURIComponent(cur);
     const r = await fetch('/api/ai-summary' + q); const j = await r.json();
     if(j.summary){
       out.className = 'ai-body'; const st = aiSteps(j.summary);
       out.innerHTML = st ? '<ol class="ai-steps">' + st.map(s => `<li><span>${aiFmt(s)}</span></li>`).join('') + '</ol>' : `<div style="white-space:pre-wrap">${aiFmt(j.summary)}</div>`;
-      lbl.textContent = 'Обновить анализ';
+      lbl.textContent = 'Refresh analysis';
     }else{
       out.className = 'ai-body err';
-      out.textContent = (j.error || 'Не удалось получить сводку') + (/not set/.test(j.error || '') ? '. Добавьте ключи Cloudflare в файл .env — см. README, раздел «AI-анализ».' : '');
+      out.textContent = (j.error || 'Could not get the summary') + (/not set/.test(j.error || '') ? '. Add your Cloudflare keys to the .env file — see the README, section “AI analysis”.' : '');
     }
-  }catch(e){ out.className = 'ai-body err'; out.textContent = 'Ошибка: ' + e.message }
+  }catch(e){ out.className = 'ai-body err'; out.textContent = 'Error: ' + e.message }
   b.disabled = false;
 }
 $('#ai-btn').addEventListener('click', aiRun);
 
-/* ── подробности ── */
-// путь без общего «...\\User Data\\»: видно профиль и тип кэша
+/* ── details ── */
+// path without the common “...\\User Data\\”: the profile and the cache type stay visible
 function shortPath(p){ const m = p.replace(/\//g, '\\').split('\\'); return m.slice(-3).join('\\') }
 function showInfo(r){
   openModal(`<div class="modal-h"><span class="ico" style="width:44px;height:44px;border-radius:14px">${r.img ? `<img src="${esc(r.img)}" alt="">` : esc(r.icon)}</span>
     <div><h3>${esc(r.name)}</h3><div style="margin-top:6px"><span class="risk ${r.cat}"><b>${r.cat}</b>${catLong[r.cat]}</span></div></div></div>
-    ${r.parts && r.parts.length ? `<div class="kv"><b>Что именно будет удалено</b><p style="margin:0 0 8px">Только перечисленные подпапки с кэшем. Сами папки профилей, пароли, куки, история и закладки остаются.</p>
+    ${r.parts && r.parts.length ? `<div class="kv"><b>What exactly will be deleted</b><p style="margin:0 0 8px">Only the listed cache subfolders. The profile folders themselves, passwords, cookies, history and bookmarks stay.</p>
       <div class="pbox mono" style="display:grid;gap:6px;max-height:190px;overflow:auto">${r.parts.map(p => `<div style="display:flex;justify-content:space-between;gap:14px"><span class="cut" title="${esc(p.path)}">${esc(shortPath(p.path))}</span><span class="num">${fmt(p.size_gb)}</span></div>`).join('')}</div></div>`
       : `<div class="pbox mono">${esc(r.path)}</div>`}
-    <div class="kv"><b>Что это</b><p>${esc(r.reason)}</p></div>
-    <div class="kv"><b>Что восстановится после удаления</b><p>${esc(r.restore || '—')}</p></div>
-    <div class="kv"><b>Размер</b><p class="num">${fmt(r.size_gb)}</p></div>
-    ${r.deletable || READONLY ? '' : '<div class="callout"><svg class="ic"><use href="#i-lock"/></svg><span>Приложение не удаляет это автоматически — решение за вами.</span></div>'}
-    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Закрыть</button>
-      <button class="btn" id="info-open">${ic('folder')}Показать в проводнике</button>
-      ${r.deletable && !READONLY ? `<button class="btn danger" id="info-del">${ic('trash')}Удалить…</button>` : ''}</div>`);
+    <div class="kv"><b>What it is</b><p>${esc(r.reason)}</p></div>
+    <div class="kv"><b>What is restored after deletion</b><p>${esc(r.restore || '—')}</p></div>
+    <div class="kv"><b>Size</b><p class="num">${fmt(r.size_gb)}</p></div>
+    ${r.deletable || READONLY ? '' : '<div class="callout"><svg class="ic"><use href="#i-lock"/></svg><span>The app does not delete this automatically — the decision is yours.</span></div>'}
+    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Close</button>
+      <button class="btn" id="info-open">${ic('folder')}Show in Explorer</button>
+      ${r.deletable && !READONLY ? `<button class="btn danger" id="info-del">${ic('trash')}Delete…</button>` : ''}</div>`);
   $('#info-open').onclick = () => openLoc(r.id);
   const del = $('#info-del'); if(del) del.onclick = () => ask([r]);
 }
 
-/* ── удаление: двойное подтверждение ── */
+/* ── deletion: double confirmation ── */
 function ask(items){
   const ids = new Set(items.map(i => i.id));
   const total = items.filter(i => !(i.parent_id && ids.has(i.parent_id))).reduce((s, i) => s + i.size_gb, 0);
   const list = items.slice(0, 8).map(i => `<li><div class="li-m"><span class="cut">${esc(i.name)}</span>${i.warn ? `<span class="li-w">${ic('alert', 'sm')}<span>${esc(i.warn)}</span></span>` : ''}</div><b class="num">${fmt(i.size_gb)}</b></li>`).join('')
-    + (items.length > 8 ? `<li><span class="muted">…и ещё ${items.length - 8}</span><span></span></li>` : '');
-  const how = items.some(i => i.bin) ? 'Всё содержимое корзины будет удалено безвозвратно.' : items.some(i => i.dup) ? 'Удаляется навсегда, идентичная копия остаётся.' : 'Файлы удаляются навсегда, в корзину они не попадают.';
-  openModal(`<div class="modal-h"><div class="modal-ico danger">${ic('trash')}</div><div><h3>Удалить ${items.length} ${pluralEl(items.length)}?</h3>
-    <p class="lead">Освободится примерно <b class="num">${fmt(total)}</b>. ${how}</p></div></div>
-    <ul class="list" tabindex="0" aria-label="Что будет удалено">${list}</ul>
-    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Отмена</button><button class="btn danger" id="confirm">${ic('trash')}<span class="lbl">Удалить</span></button></div>`);
+    + (items.length > 8 ? `<li><span class="muted">…and ${items.length - 8} more</span><span></span></li>` : '');
+  const how = items.some(i => i.bin) ? 'The whole contents of the recycle bin will be permanently deleted.' : items.some(i => i.dup) ? 'Deleted permanently, the identical copy remains.' : 'Files are deleted permanently and do not go to the recycle bin.';
+  openModal(`<div class="modal-h"><div class="modal-ico danger">${ic('trash')}</div><div><h3>Delete ${items.length} ${pluralEl(items.length)}?</h3>
+    <p class="lead">About <b class="num">${fmt(total)}</b>. ${how}</p></div></div>
+    <ul class="list" tabindex="0" aria-label="What will be deleted">${list}</ul>
+    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Cancel</button><button class="btn danger" id="confirm">${ic('trash')}<span class="lbl">Delete</span></button></div>`);
   let armed = false, t;
   $('#confirm').onclick = e => {
     const b = e.currentTarget, lbl = $('.lbl', b);
     if(!armed){
-      armed = true; b.classList.add('armed'); lbl.textContent = 'Точно удалить?';
-      t = setTimeout(() => { armed = false; b.classList.remove('armed'); lbl.textContent = 'Удалить' }, 4000); return;
+      armed = true; b.classList.add('armed'); lbl.textContent = 'Really delete?';
+      t = setTimeout(() => { armed = false; b.classList.remove('armed'); lbl.textContent = 'Delete' }, 4000); return;
     }
     clearTimeout(t); run(items.map(i => i.id), b);
   };
 }
-let freedTotal = 0;   // освобождено за всю операцию, включая повторы после закрытия программ
+let freedTotal = 0;   // freed during the whole operation, including retries after closing programs
 async function run(ids, btn){
-  btn.classList.remove('armed'); btn.classList.add('busy'); $('.lbl', btn).textContent = 'Удаляю…'; freedTotal = 0;
-  $$('#modal-body .acts .btn').forEach(b => b.disabled = true);   // пока идёт удаление, окно не трогаем
+  btn.classList.remove('armed'); btn.classList.add('busy'); $('.lbl', btn).textContent = 'Deleting…'; freedTotal = 0;
+  $$('#modal-body .acts .btn').forEach(b => b.disabled = true);   // leave the window alone while deletion is running
   try{
     const r = await post('/delete_batch', {ids}); const j = await r.json();
-    if(!r.ok) throw new Error(j.error || 'Ошибка');
+    if(!r.ok) throw new Error(j.error || 'Error');
     finish(j, ids);
-  }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
+  }catch(e){ closeModal(); toast('Error: ' + e.message, true) }
 }
 function finish(j, ids, closed){
   freedTotal += j.freed_gb || 0;
@@ -743,69 +743,69 @@ function finish(j, ids, closed){
   reloadWithToast(j, closed);
 }
 function reloadWithToast(j, closed){
-  let m = freedTotal > 0 ? 'Освобождено ' + fmt(freedTotal) : 'Ничего не освобождено';
-  if(closed && closed.length) m += ' · закрыто: ' + closed.join(', ');
+  let m = freedTotal > 0 ? 'Freed ' + fmt(freedTotal) : 'Nothing freed';
+  if(closed && closed.length) m += ' · closed: ' + closed.join(', ');
   const failed = (j && j.failed) || [];
-  if(failed.length) m += ' · ' + failed[0].error + (failed.length > 1 ? ` (и ещё ${failed.length - 1})` : '');
+  if(failed.length) m += ' · ' + failed[0].error + (failed.length > 1 ? ` (and ${failed.length - 1} more)` : '');
   try{
     sessionStorage.setItem('toast', m); if(freedTotal <= 0) sessionStorage.setItem('toastKind', failed.length ? 'err' : 'info');
-    sessionStorage.setItem('dusty.view', JSON.stringify({tab: activePanel(), risk: riskF, y: $('#main').scrollTop}));   // после перезагрузки вернёмся на то же место
+    sessionStorage.setItem('dusty.view', JSON.stringify({tab: activePanel(), risk: riskF, y: $('#main').scrollTop}));   // after a reload we return to the same place
   }catch(_){}
   location.reload();
 }
 function showLocked(locked, ids){
-  const procs = new Map();     // дедупликация по pid: одна программа может держать файлы в нескольких пунктах
+  const procs = new Map();     // dedupe by pid: one program may hold files in several items
   locked.forEach(r => r.locked.procs.forEach(p => procs.set(p.pid, p)));
   const items = locked.map(r => { const row = ROWS.find(x => x.id === r.id); const l = r.locked;
     return `<li><div class="li-m"><b class="cut">${esc(row ? row.name : r.id)}</b>
-      <span class="lk-f">${l.count} файл(ов) заняты: ${l.files.map(esc).join(', ')}${l.count > l.files.length ? '…' : ''}</span></div></li>` }).join('');
+      <span class="lk-f">${l.count} file(s) in use: ${l.files.map(esc).join(', ')}${l.count > l.files.length ? '…' : ''}</span></div></li>` }).join('');
   const plist = [...procs.values()].map(p => `<label class="proc ${p.protected ? 'off' : ''}">
     <input type="checkbox" data-pid="${p.pid}" ${p.protected ? 'disabled' : 'checked'}>
-    <span><b>${esc(p.app || p.proc)}</b> <span class="path mono">PID ${p.pid}</span>${p.protected ? `<br><span class="path">${esc(p.why)} — закрыть нельзя</span>` : ''}</span></label>`).join('');
+    <span><b>${esc(p.app || p.proc)}</b> <span class="path mono">PID ${p.pid}</span>${p.protected ? `<br><span class="path">${esc(p.why)} — cannot be closed</span>` : ''}</span></label>`).join('');
   const noProcs = !procs.size;
-  openModal(`<div class="modal-h"><div class="modal-ico warn">${ic('alert')}</div><div><h3>Часть файлов занята программами</h3>
-    <p class="lead">Windows не даёт удалить файлы, пока их держит другая программа. Остальное уже удалено.</p></div></div>
-    <ul class="list" tabindex="0" aria-label="Занятые файлы">${items}</ul>
-    ${noProcs ? `<div class="callout">${ic('info')}<span>Не удалось определить, какая программа держит файлы — возможно, они защищены системой и нужны права администратора.${CAN_ELEVATE ? ' Кнопка «Запустить от администратора» в боковой панели поможет.' : ''}</span></div>`
-      : `<div class="kv"><b>Закрыть эти программы и повторить?</b></div><div class="procs">${plist}</div>
-      <div class="callout">${ic('alert')}<span>Несохранённые данные в закрываемых программах могут пропасть — сначала сохраните работу.</span></div>
-      <label class="proc" style="margin-top:10px"><input type="checkbox" id="force"><span>Если программа не закрылась сама — завершить принудительно <span class="path">(данные точно не сохранятся)</span></span></label>`}
-    <div class="acts"><button class="btn" id="skip" data-autofocus>Оставить как есть</button>
-    ${noProcs ? '' : '<button class="btn" id="again">Повторить без закрытия</button><button class="btn danger" id="killgo">Закрыть выбранные и удалить</button>'}</div>`, 'wide');
+  openModal(`<div class="modal-h"><div class="modal-ico warn">${ic('alert')}</div><div><h3>Some files are in use by programs</h3>
+    <p class="lead">Windows does not allow deleting files while another program holds them. The rest has already been deleted.</p></div></div>
+    <ul class="list" tabindex="0" aria-label="Files in use">${items}</ul>
+    ${noProcs ? `<div class="callout">${ic('info')}<span>Could not determine which program holds the files — they may be protected by the system and need administrator rights.${CAN_ELEVATE ? ' The “Run as administrator” button in the sidebar will help.' : ''}</span></div>`
+      : `<div class="kv"><b>Close these programs and retry?</b></div><div class="procs">${plist}</div>
+      <div class="callout">${ic('alert')}<span>Unsaved data in the programs being closed may be lost — save your work first.</span></div>
+      <label class="proc" style="margin-top:10px"><input type="checkbox" id="force"><span>If a program does not close by itself — terminate it forcibly <span class="path">(data will definitely not be saved)</span></span></label>`}
+    <div class="acts"><button class="btn" id="skip" data-autofocus>Leave as is</button>
+    ${noProcs ? '' : '<button class="btn" id="again">Retry without closing</button><button class="btn danger" id="killgo">Close selected and delete</button>'}</div>`, 'wide');
   $('#skip').onclick = () => { closeModal(); reloadWithToast({failed: []}) };
   if(noProcs) return;
   const retry = async (kill, btn) => {
     const pids = kill ? $$('[data-pid]:checked').map(c => +c.dataset.pid) : [];
     const force = kill && $('#force').checked;
-    $$('#modal-body .acts .btn').forEach(b => b.disabled = true); btn.classList.add('busy'); btn.textContent = kill ? 'Закрываю программы…' : 'Повторяю…';
+    $$('#modal-body .acts .btn').forEach(b => b.disabled = true); btn.classList.add('busy'); btn.textContent = kill ? 'Closing programs…' : 'Retrying…';
     try{
       const j = await (await post('/api/unlock-retry', {ids: locked.map(r => r.id), pids, force})).json();
-      if(!j.ok) throw new Error(j.error || 'Ошибка');
-      if(j.still_running && j.still_running.length) toast('Не все программы закрылись — можно завершить принудительно', true);
+      if(!j.ok) throw new Error(j.error || 'Error');
+      if(j.still_running && j.still_running.length) toast('Not all programs closed — you can terminate them forcibly', true);
       finish(j, ids, j.closed);
-    }catch(e){ closeModal(); toast('Ошибка: ' + e.message, true) }
+    }catch(e){ closeModal(); toast('Error: ' + e.message, true) }
   };
   $('#again').onclick = e => retry(false, e.currentTarget); $('#killgo').onclick = e => retry(true, e.currentTarget);
 }
 function askUninstall(id, name){
-  openModal(`<div class="modal-h"><div class="modal-ico danger">${ic('trash')}</div><div><h3>Удалить «${esc(name)}»?</h3>
-    <p class="lead">Откроется стандартный деинсталлятор этой программы. Windows сама попросит подтверждение — сможете отменить. После удаления запустите новое сканирование, чтобы обновить отчёт.</p></div></div>
-    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Отмена</button><button class="btn danger" id="un-go">Открыть деинсталлятор</button></div>`);
+  openModal(`<div class="modal-h"><div class="modal-ico danger">${ic('trash')}</div><div><h3>Uninstall “${esc(name)}”?</h3>
+    <p class="lead">The standard uninstaller of this program will open. Windows will ask for confirmation — you can cancel. After uninstalling, run a new scan to refresh the report.</p></div></div>
+    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Cancel</button><button class="btn danger" id="un-go">Open uninstaller</button></div>`);
   $('#un-go').onclick = async () => {
     const j = await (await post('/uninstall', {id})).json(); closeModal();
-    if(!j.ok) toast(j.error || 'Не удалось запустить деинсталлятор', true);
-    else toast(j.demo ? 'Демо-режим: деинсталлятор не запускается' : j.mode === 'settings' ? 'Открыты «Приложения и возможности» — найдите программу в списке' : 'Деинсталлятор запущен — следуйте его окнам');
+    if(!j.ok) toast(j.error || 'Could not start the uninstaller', true);
+    else toast(j.demo ? 'Demo mode: the uninstaller is not launched' : j.mode === 'settings' ? 'Apps & features opened — find the program in the list' : 'Uninstaller started — follow its windows');
   };
 }
 async function openLoc(id){
   const j = await (await post('/open', {id})).json();
-  if(!j.ok) toast(j.error || 'Не удалось открыть', true); else if(j.demo) toast('В демо-режиме проводник не открывается');
+  if(!j.ok) toast(j.error || 'Could not open', true); else if(j.demo) toast('Explorer is not opened in demo mode');
 }
 
 let start = scannedDrives.length > 1 ? 'ALL' : (scannedDrives[0] || {}).Name || 'ALL';
 try{ const s = sessionStorage.getItem('dusty.drive'); if(s && (s === 'ALL' ? scannedDrives.length > 1 : scannedDrives.some(d => d.Name === s))) start = s }catch(_){}
 applyDrive(start);
-(function restoreView(){   // вернуть вкладку, фильтр и прокрутку после перезагрузки (например, после удаления)
+(function restoreView(){   // restore the tab, filter and scroll position after a reload (e.g. after deletion)
   try{
     const raw = sessionStorage.getItem('dusty.view'); if(!raw) return; sessionStorage.removeItem('dusty.view');
     const st = JSON.parse(raw);

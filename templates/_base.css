@@ -1,37 +1,37 @@
-/* ───────────────────────── Dusty Ai · дизайн-система ─────────────────────────
-   Подключается в base.html как Jinja-include. Тема — по настройке Windows
-   (prefers-color-scheme); data-theme="light" принудительно включает светлую.
-   Цвета диаграмм (--s1…--s8) — проверенная палитра dataviz, статусы A/B/C — её же статусные цвета.
-   ВАЖНО: файл разбирает Jinja, поэтому в нём нельзя писать открывающую скобку сразу перед решёткой,
-   двумя скобками или процентом (синтаксис комментариев, выражений и тегов) — ставьте пробел. */
+/* ───────────────────────── Dusty Ai · design system ─────────────────────────
+   Included in base.html as a Jinja include. The theme follows the Windows setting
+   (prefers-color-scheme); data-theme="light" forces the light one.
+   Chart colors (--s1…--s8) are a verified dataviz palette, the A/B/C statuses use its status colors.
+   IMPORTANT: the file is parsed by Jinja, so never write an opening brace directly before a hash,
+   another brace or a percent sign (comment, expression and tag syntax) — put a space. */
 
 :root{
   color-scheme:light dark;
-  /* поверхности */
+  /* surfaces */
   --bg:#f2f4f9;--surface:#fff;--surface-2:#f6f8fc;--surface-3:#ebeff6;
   --border:#e2e7f0;--border-2:#cfd6e3;
-  /* текст */
+  /* text */
   --fg:#0e1526;--fg-2:#38435c;--muted:#5f6b85;--faint:#808ca3;
-  /* акцент */
+  /* accent */
   --accent:#2f6df6;--accent-ink:#2255d8;--accent-soft:#e9efff;--accent-line:#c9d8fb;--accent-track:#dbe6ff;
   --btn-1:#3a6bf0;--btn-2:#2a62e8;
   --cta-1:#3f6af2;--cta-2:#6a52ea;
   --glow:rgba(79,109,245,.09);--bg-glass:rgba(242,244,249,.86);
-  /* статусы: A — безопасно, B — на усмотрение, C — вручную (текст — ink, заливки — без суффикса) */
+  /* statuses: A — safe, B — your call, C — manual (text — ink, fills — no suffix) */
   --ok:#0ca30c;--ok-ink:#0b6a2e;--ok-soft:#e2f6e8;
   --warn:#fab219;--warn-ink:#8a5a00;--warn-soft:#fff3d3;--warn-track:#ffeec2;
   --danger:#d03b3b;--danger-ink:#b42323;--danger-soft:#fde8e8;--danger-track:#fbd9d9;
-  /* категориальная палитра диаграмм (порядок фиксирован) */
+  /* categorical chart palette (fixed order) */
   --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#9aa3b2;
-  /* тени и оверлей */
+  /* shadows and overlay */
   --sh-1:0 1px 2px rgba(15,23,42,.05);
   --sh-2:0 1px 2px rgba(15,23,42,.04),0 12px 30px -12px rgba(15,23,42,.14);
   --sh-3:0 30px 80px -16px rgba(15,23,42,.38);
   --overlay:rgba(14,21,38,.46);
-  /* геометрия и движение */
+  /* geometry and motion */
   --r-sm:8px;--r-md:12px;--r-lg:18px;--r-xl:24px;
   --ease:cubic-bezier(.22,.8,.24,1);
-  /* шрифты: родной Segoe UI на Windows, Inter — запасной для демо на других ОС */
+  /* fonts: native Segoe UI on Windows, Inter as a fallback for demos on other OSes */
   --font:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
   --font-display:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,Roboto,Arial,"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
   --mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",Menlo,ui-monospace,monospace;
@@ -53,7 +53,7 @@
 }
 :root[data-theme="light"]{color-scheme:light}
 
-/* ───────── база ───────── */
+/* ───────── base ───────── */
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;display:flex;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);
@@ -65,7 +65,7 @@ h1{font:700 29px/1.2 var(--font-display);letter-spacing:-.022em}
 h2{font:600 18px/1.3 var(--font);letter-spacing:-.01em}
 h3{font:600 15px/1.35 var(--font);letter-spacing:-.005em}
 h4{font:600 14px/1.35 var(--font)}
-/* заголовки карточек — h2 по смыслу, но визуально мельче; подразделы — h3 */
+/* card headings — h2 semantically but visually smaller; subsections — h3 */
 .t3{font:600 15px/1.35 var(--font);letter-spacing:-.005em}
 .t4{font:600 14px/1.35 var(--font)}
 ::selection{background:rgba(47,109,246,.28)}
@@ -77,20 +77,20 @@ h4{font:600 14px/1.35 var(--font)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .eyebrow{font-size:11.5px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:var(--accent-ink)}
 [hidden]{display:none!important}
-button,.switch,.btn,.tab,.chip,.nav-i,.brand,.tag,.risk{user-select:none;-webkit-user-select:none}   /* текст в окне копируется, но кнопки случайно не выделяются */
+button,.switch,.btn,.tab,.chip,.nav-i,.brand,.tag,.risk{user-select:none;-webkit-user-select:none}   /* text in the window can be copied, but buttons are not selected by accident */
 
-/* скроллбары — тонкие, в тон интерфейсу */
+/* scrollbars — thin, matching the interface */
 *{scrollbar-width:thin;scrollbar-color:var(--border-2) transparent}
 @supports not (scrollbar-width:thin){
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:99px;border:3px solid transparent;background-clip:content-box}
 }
 
-/* ───────── иконки ───────── */
+/* ───────── icons ───────── */
 .ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .ic.lg{width:22px;height:22px}.ic.sm{width:15px;height:15px}
 
-/* ───────── оболочка: сайдбар + контент ───────── */
+/* ───────── shell: sidebar + content ───────── */
 .side{width:244px;flex:none;height:100vh;position:sticky;top:0;display:flex;flex-direction:column;gap:4px;
   padding:20px 14px 16px;background:var(--surface);border-right:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:12px;padding:4px 8px 22px;text-decoration:none;color:inherit}
@@ -122,7 +122,7 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes shimmer{to{background-position:-200% 0}}
 
-/* рейка вместо сайдбара на узком окне */
+/* a rail instead of the sidebar in a narrow window */
 @media (max-width:1100px){
   .side{width:72px;padding:18px 10px}
   .brand{justify-content:center;padding:4px 0 18px}
@@ -132,7 +132,7 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
   .side .btn.side-btn{justify-content:center;padding:0;min-height:38px}
   .wrap{padding:28px 28px 100px}
 }
-/* верхняя полоса на совсем узком (режим --browser) */
+/* a top bar on a very narrow window (--browser mode) */
 @media (max-width:720px){
   body{flex-direction:column}
   .side{width:100%;height:auto;position:static;flex-direction:row;align-items:center;gap:6px;padding:10px 14px;
@@ -146,18 +146,18 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
   h1{font-size:25px}
 }
 
-/* ───────── шапка страницы ───────── */
+/* ───────── page header ───────── */
 .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:24px}
 .page-head h1{margin:6px 0 6px}
 .page-head .acts{display:flex;gap:8px;flex-wrap:wrap}
 
-/* ───────── карточки ───────── */
+/* ───────── cards ───────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px;box-shadow:var(--sh-1)}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
 .card-h>div:first-child{flex:1 1 320px;min-width:0}
 .card-h .hint{color:var(--muted);font-size:13px;margin-top:3px}
 
-/* ───────── кнопки ───────── */
+/* ───────── buttons ───────── */
 .btn{--h:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--h);padding:0 16px;
   border-radius:12px;border:1px solid var(--border-2);background:var(--surface);color:var(--fg);
   font:600 13.5px/1 var(--font);cursor:pointer;text-decoration:none;white-space:nowrap;box-shadow:var(--sh-1);
@@ -191,7 +191,7 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
 .btn.cta:hover{filter:brightness(1.07)}
 .btn.cta:disabled{background:var(--surface-3);color:var(--faint);box-shadow:none;opacity:1}
 
-/* ───────── чекбоксы и переключатели ───────── */
+/* ───────── checkboxes and switches ───────── */
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:18px;height:18px;margin:0;flex:none;cursor:pointer;
   display:inline-grid;place-content:center;border:1.6px solid var(--border-2);border-radius:6px;background:var(--surface);
   transition:background .12s,border-color .12s,box-shadow .12s}
@@ -211,7 +211,7 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .switch input:checked+i::after{transform:translateX(18px)}
 .switch input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}
 
-/* ───────── метки ───────── */
+/* ───────── labels ───────── */
 .risk{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px 0 4px;border-radius:99px;font-size:12.5px;font-weight:600;white-space:nowrap}
 .risk b{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:800;line-height:1}
 .risk.A{background:var(--ok-soft);color:var(--ok-ink)}.risk.A b{background:var(--ok-ink);color:var(--ok-soft)}
@@ -222,13 +222,13 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .tag.ok{background:var(--ok-soft);color:var(--ok-ink)}
 .tag.info{background:var(--accent-soft);color:var(--accent-ink)}
 
-/* плитка с иконкой программы / эмодзи из каталога */
+/* tile with a program icon / emoji from the catalog */
 .ico{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;overflow:hidden;
   background:var(--surface-2);border:1px solid var(--border);font-size:18px;line-height:1}
 .ico img{width:24px;height:24px;object-fit:contain}
 .ico.sm{width:32px;height:32px;border-radius:9px;font-size:16px}.ico.sm img{width:20px;height:20px}
 
-/* ───────── сегменты, вкладки, чипы ───────── */
+/* ───────── segments, tabs, chips ───────── */
 .seg{display:inline-flex;gap:2px;padding:3px;max-width:100%;overflow-x:auto;background:var(--surface-3);border-radius:13px}
 .seg button{border:0;background:transparent;color:var(--muted);height:34px;padding:0 15px;border-radius:10px;
   font:600 13px/1 var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;transition:color .15s,background .15s}
@@ -256,19 +256,19 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
 .chip.on b{color:var(--accent-ink)}
 
-/* ───────── метр и прогресс ───────── */
+/* ───────── meter and progress ───────── */
 .meter{--m:var(--accent);--t:var(--accent-track);height:8px;border-radius:99px;background:var(--t);overflow:hidden}
 .meter i{display:block;height:100%;border-radius:99px;background:var(--m);transition:width .6s var(--ease)}
 .meter.warn{--m:var(--warn);--t:var(--warn-track)}
 .meter.crit{--m:var(--danger);--t:var(--danger-track)}
 
-/* ───────── баннеры ───────── */
+/* ───────── banners ───────── */
 .banner{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;margin-bottom:14px;border-radius:14px;font-size:13px;line-height:1.45;border:1px solid}
 .banner .ic{margin-top:1px}
 .banner.warn{background:var(--warn-soft);color:var(--warn-ink);border-color:rgba(250,178,25,.35)}
 .banner.info{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-line)}
 
-/* ───────── модальные окна ───────── */
+/* ───────── modal windows ───────── */
 .modal-bg{position:fixed;inset:0;z-index:40;display:none;place-items:center;padding:20px;background:var(--overlay);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .modal-bg.open{display:grid;animation:fade .16s ease-out}
 .modal{width:min(560px,100%);max-height:88vh;overflow:auto;padding:26px;border-radius:22px;background:var(--surface);
@@ -292,7 +292,7 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .callout .ic{width:16px;height:16px;margin-top:2px}
 .callout.danger{background:var(--danger-soft);color:var(--danger-ink)}
 
-/* ───────── уведомления ───────── */
+/* ───────── notifications ───────── */
 #toasts{position:fixed;right:22px;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:10px;pointer-events:none}
 .toast{pointer-events:auto;display:flex;gap:12px;align-items:flex-start;max-width:420px;padding:13px 16px 13px 14px;border-radius:14px;
   background:var(--surface);border:1px solid var(--border);box-shadow:var(--sh-3);
@@ -304,11 +304,11 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .toast.info .t-ic{background:var(--accent-soft);color:var(--accent-ink)}
 .toast .t-tx{padding-top:2px;line-height:1.45;word-break:break-word}
 
-/* ───────── подсказка ───────── */
+/* ───────── tooltip ───────── */
 .tip{position:fixed;display:none;pointer-events:none;z-index:60;max-width:320px;padding:7px 11px;border-radius:9px;
   background:var(--fg);color:var(--surface);font-size:12px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 
-/* ───────── пустые состояния, спиннер, скелетон ───────── */
+/* ───────── empty states, spinner, skeleton ───────── */
 .empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:40px 16px;text-align:center;color:var(--muted)}
 .empty .em-ico{width:60px;height:60px;border-radius:20px;display:grid;place-items:center;margin-bottom:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--faint)}
 .empty .em-ico .ic{width:28px;height:28px}
@@ -317,7 +317,7 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .spin{width:16px;height:16px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px}
 .skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--surface-3) 25%,var(--surface-2) 50%,var(--surface-3) 75%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
 
-/* ───────── доступность ───────── */
+/* ───────── accessibility ───────── */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }

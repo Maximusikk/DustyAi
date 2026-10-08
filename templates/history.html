@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import day, hm %}
-{% block title %}История — {{ APP_NAME }}{% endblock %}
+{% block title %}History — {{ APP_NAME }}{% endblock %}
 {% block head %}<style>
 .hist-list{display:flex;flex-direction:column;gap:10px}
 .hist{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:16px 20px;border-radius:var(--r-lg);
@@ -19,18 +19,18 @@
 </style>{% endblock %}
 {% block body %}
 <header class="page-head">
-  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>История сканирований</h1>
-    <p class="sub">Сохранённые отчёты открываются только для просмотра — удалять из них нельзя.</p></div>
-  <a class="btn primary" href="/"><svg class="ic"><use href="#i-scan"/></svg>Новое сканирование</a>
+  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>Scan history</h1>
+    <p class="sub">Saved reports open in view-only mode — nothing can be deleted from them.</p></div>
+  <a class="btn primary" href="/"><svg class="ic"><use href="#i-scan"/></svg>New scan</a>
 </header>
 {% if history %}
 <div class="hist-list">
 {% for h in history %}
   <a class="hist card" href="/history/{{ h.name }}">
     <span class="ico"><svg class="ic"><use href="#i-history"/></svg></span>
-    <span class="when"><b>{{ day(h.scanned_at) }}</b>{% if h.mock %}<span class="tag">демо</span>{% endif %}
-      <small class="num">{{ hm(h.scanned_at) }} · диски: {{ h.drives }}{% if h.free_c is not none %} · свободно {{ h.free_c|num(0) }}&nbsp;ГБ{% endif %}</small></span>
-    <span class="amount"><b class="num">{{ h.total_gb|size }}</b><small>можно освободить</small></span>
+    <span class="when"><b>{{ day(h.scanned_at) }}</b>{% if h.mock %}<span class="tag">demo</span>{% endif %}
+      <small class="num">{{ hm(h.scanned_at) }} · drives: {{ h.drives }}{% if h.free_c is not none %} · {{ h.free_c|num(0) }}&nbsp;GB free{% endif %}</small></span>
+    <span class="amount"><b class="num">{{ h.total_gb|size }}</b><small>can be freed</small></span>
     <svg class="ic go"><use href="#i-chevron-right"/></svg>
   </a>
 {% endfor %}
@@ -38,9 +38,9 @@
 {% else %}
 <div class="card"><div class="empty">
   <div class="em-ico"><svg class="ic"><use href="#i-history"/></svg></div>
-  <b>Сканирований пока нет</b>
-  <span>Результаты каждого сканирования сохраняются здесь — к ним можно вернуться позже.</span>
-  <a class="btn primary" href="/" style="margin-top:14px"><svg class="ic"><use href="#i-play"/></svg>Запустить первое</a>
+  <b>No scans yet</b>
+  <span>Results of every scan are saved here — you can come back to them later.</span>
+  <a class="btn primary" href="/" style="margin-top:14px"><svg class="ic"><use href="#i-play"/></svg>Run the first one</a>
 </div></div>
 {% endif %}
 {% endblock %}

@@ -1,6 +1,6 @@
-{# Общие макросы форматирования дат для истории и главной #}
+{# Shared date formatting macros for history and the home page #}
 {% macro day(s) -%}
-{%- set m = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'] -%}
+{%- set m = ['January','February','March','April','May','June','July','August','September','October','November','December'] -%}
 {%- if s and s|length >= 10 -%}{{ s[8:10]|int }} {{ m[(s[5:7]|int) - 1] }} {{ s[:4] }}{%- else -%}—{%- endif -%}
 {%- endmacro %}
 {% macro hm(s) -%}{{ (s or '')[11:16] }}{%- endmacro %}

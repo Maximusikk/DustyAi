@@ -1,13 +1,13 @@
-"""Расширение каталога: браузеры (все профили), мессенджеры, лаунчеры, IDE, Windows, кэши видео/игр.
-Здесь только то, что программы пересоздают сами. Шаблоны: переменные окружения и `*` (все профили).
-Пункты с deletable=False — не удаляются кнопкой, а объясняют, как почистить правильно."""
+"""Catalog extension: browsers (all profiles), messengers, launchers, IDEs, Windows, video/game caches.
+Only things that programs recreate themselves. Patterns: environment variables and `*` (all profiles).
+Items with deletable=False cannot be deleted with the button; they explain how to clean properly."""
 
 L = "%LOCALAPPDATA%\\"
 R = "%APPDATA%\\"
 U = "%USERPROFILE%\\"
 PD = "%ProgramData%\\"
 WIN = "%SystemRoot%\\"
-EXE = {  # иконки приложений
+EXE = {  # application icons
     "chrome": ["%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe", "%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe"],
     "edge": ["%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe", "%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe"],
     "brave": ["%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"],
@@ -27,23 +27,23 @@ def item(id, name, icon, path, desc, restore, blockers=(), also=(), kind="folder
 
 
 def chromium(id, name, user_data, blockers, icon_src=None, extra_root=()):
-    """Чистые кэши Chromium-браузера по всем профилям: страницы, скомпилированный JS, графика.
-    Профили целиком, пароли, куки, историю, закладки, расширения и данные сайтов не трогаем."""
+    """Pure caches of a Chromium browser across all profiles: pages, compiled JS, graphics.
+    Whole profiles, passwords, cookies, history, bookmarks, extensions and site data are not touched."""
     per = ["Cache", "Code Cache", "GPUCache", "DawnCache"]
     paths = [f"{user_data}\\*\\{p}" for p in per] + [f"{user_data}\\{p}" for p in
                                                       ("ShaderCache", "GrShaderCache", "GraphiteDawnCache")]
     paths += list(extra_root)
-    return item(id, f"Кэш {name} (все профили)", "🌐", paths[0],
-                f"Только временный кэш {name}: страницы, скомпилированный JS, графика. Профили, пароли, куки, история, закладки и расширения НЕ затрагиваются.",
-                "Сайты загрузятся заново — первое открытие чуть медленнее. Входы на сайтах и профили сохраняются.",
+    return item(id, f"{name} cache (all profiles)", "🌐", paths[0],
+                f"Only the temporary cache of {name}: pages, compiled JS, graphics. Profiles, passwords, cookies, history, bookmarks and extensions are NOT affected.",
+                "Sites will reload — the first visit is slightly slower. Logins and profiles are kept.",
                 blockers, also=paths[1:], icon_src=icon_src)
 
 
 def chromium_sw(id, name, user_data, blockers, icon_src=None):
-    """Офлайн-кэш сайтов (Service Worker): может быть очень большим, у сайтов-приложений хранит офлайн-данные."""
-    return item(id + "_sw", f"Офлайн-кэш сайтов {name}", "🌐", f"{user_data}\\*\\Service Worker\\CacheStorage",
-                f"Кэш сайтов-приложений (почта, мессенджеры, PWA) в {name}. Часто самая тяжёлая часть. Входы и пароли не затрагиваются.",
-                "Сайты-приложения подгрузят данные заново; офлайн-режим на время перестанет работать.",
+    """Offline site cache (Service Worker): can be very large, stores offline data for web apps."""
+    return item(id + "_sw", f"{name} offline site cache", "🌐", f"{user_data}\\*\\Service Worker\\CacheStorage",
+                f"Cache of web apps (mail, messengers, PWAs) in {name}. Often the heaviest part. Logins and passwords are not affected.",
+                "Web apps will reload their data; offline mode will stop working for a while.",
                 blockers, also=[f"{user_data}\\*\\Service Worker\\ScriptCache"], icon_src=icon_src)
 
 
@@ -52,7 +52,7 @@ BROWSERS = [
     ("edge_cache", "Edge", L + "Microsoft\\Edge\\User Data", ["msedge"], EXE["edge"], ()),
     ("brave_cache", "Brave", L + "BraveSoftware\\Brave-Browser\\User Data", ["brave"], EXE["brave"], ()),
     ("vivaldi_cache", "Vivaldi", L + "Vivaldi\\User Data", ["vivaldi"], None, ()),
-    ("yandex_cache", "Яндекс Браузера", L + "Yandex\\YandexBrowser\\User Data", ["browser", "yandex"], None, ()),
+    ("yandex_cache", "Yandex Browser", L + "Yandex\\YandexBrowser\\User Data", ["browser", "yandex"], None, ()),
     ("opera_cache", "Opera", L + "Opera Software\\Opera Stable", ["opera"], None, [
         L + "Opera Software\\Opera Stable\\Cache", L + "Opera Software\\Opera Stable\\Code Cache",
         L + "Opera Software\\Opera Stable\\GPUCache"]),
@@ -63,128 +63,128 @@ BROWSERS = [
 
 
 SAFE_EXTRA = [
-    # ── браузеры ──
+    # ── browsers ──
     *[chromium(*b[:5], extra_root=b[5]) for b in BROWSERS],
-    item("firefox_cache", "Кэш Firefox (все профили)", "🦊", L + "Mozilla\\Firefox\\Profiles\\*\\cache2",
-         "Кэш страниц Firefox. Пароли, закладки и история лежат в другой папке (AppData\\Roaming) и не затрагиваются.",
-         "Сайты загрузятся заново.", ["firefox"], also=[L + "Mozilla\\Firefox\\Profiles\\*\\startupCache",
+    item("firefox_cache", "Firefox cache (all profiles)", "🦊", L + "Mozilla\\Firefox\\Profiles\\*\\cache2",
+         "Firefox page cache. Passwords, bookmarks and history are stored in a different folder (AppData\\Roaming) and are not affected.",
+         "Sites will reload.", ["firefox"], also=[L + "Mozilla\\Firefox\\Profiles\\*\\startupCache",
                                                        L + "Mozilla\\Firefox\\Profiles\\*\\jumpListCache"], icon_src=EXE["firefox"]),
-    item("zen_cache", "Кэш Zen Browser", "🌐", L + "zen\\Profiles\\*\\cache2",
-         "Кэш страниц Zen. Профиль с паролями и закладками не затрагивается.", "Сайты загрузятся заново.", ["zen"]),
+    item("zen_cache", "Zen Browser cache", "🌐", L + "zen\\Profiles\\*\\cache2",
+         "Zen page cache. The profile with passwords and bookmarks is not affected.", "Sites will reload.", ["zen"]),
 
-    # ── мессенджеры и приложения на Electron ──
-    item("discord_cache", "Кэш Discord", "💬", R + "discord\\Cache", "Кэш картинок и вложений из чатов.",
-         "Подгрузится заново при просмотре.", ["Discord"], also=[R + "discord\\Code Cache", R + "discord\\GPUCache"],
+    # ── messengers and Electron apps ──
+    item("discord_cache", "Discord cache", "💬", R + "discord\\Cache", "Cache of images and attachments from chats.",
+         "Will be reloaded when viewed.", ["Discord"], also=[R + "discord\\Code Cache", R + "discord\\GPUCache"],
          icon_src=["%LOCALAPPDATA%\\Discord\\app-*\\Discord.exe"]),
-    item("slack_cache", "Кэш Slack", "💼", R + "Slack\\Cache", "Кэш изображений и файлов из рабочих чатов. Сообщения хранятся на сервере.",
-         "Slack подгрузит заново.", ["slack"], also=[R + "Slack\\Code Cache", R + "Slack\\GPUCache", R + "Slack\\Service Worker\\CacheStorage"]),
-    item("teams_cache", "Кэш Microsoft Teams", "🟪", R + "Microsoft\\Teams\\Cache",
-         "Кэш классического Teams: изображения, временные данные, GPU.", "Teams пересоздаст при запуске.",
+    item("slack_cache", "Slack cache", "💼", R + "Slack\\Cache", "Cache of images and files from work chats. Messages are stored on the server.",
+         "Slack will reload it.", ["slack"], also=[R + "Slack\\Code Cache", R + "Slack\\GPUCache", R + "Slack\\Service Worker\\CacheStorage"]),
+    item("teams_cache", "Microsoft Teams cache", "🟪", R + "Microsoft\\Teams\\Cache",
+         "Cache of classic Teams: images, temporary data, GPU.", "Teams will recreate it on start.",
          ["teams"], also=[R + "Microsoft\\Teams\\blob_storage", R + "Microsoft\\Teams\\Code Cache", R + "Microsoft\\Teams\\GPUCache",
                           R + "Microsoft\\Teams\\tmp", R + "Microsoft\\Teams\\Service Worker\\CacheStorage"]),
-    item("teams_new_cache", "Кэш нового Teams", "🟪", L + "Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\Cache",
-         "Кэш веб-части нового Teams.", "Teams пересоздаст при запуске.", ["ms-teams", "teams"],
+    item("teams_new_cache", "New Teams cache", "🟪", L + "Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\Cache",
+         "Cache of the web part of new Teams.", "Teams will recreate it on start.", ["ms-teams", "teams"],
          also=[L + "Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\Code Cache",
                L + "Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\GPUCache"]),
-    item("notion_cache", "Кэш Notion", "📝", R + "Notion\\Cache", "Кэш страниц и картинок. Ваши заметки лежат в облаке Notion.",
-         "Notion подгрузит заново.", ["Notion"], also=[R + "Notion\\Code Cache", R + "Notion\\GPUCache"]),
-    item("zoom_logs", "Логи Zoom", "🎥", R + "Zoom\\logs", "Журналы работы Zoom. Записи встреч и аккаунт не затрагиваются.",
-         "Ничего.", ["Zoom"]),
-    item("steam_html", "Кэш браузера Steam", "🎮", L + "Steam\\htmlcache", "Кэш встроенного браузера Steam (магазин, сообщество).",
-         "Steam пересоздаст сам.", ["steam", "steamwebhelper"]),
-    item("epic_cache", "Кэш Epic Games Launcher", "🎮", L + "EpicGamesLauncher\\Saved\\webcache*",
-         "Кэш магазина и браузера лаунчера Epic.", "Лаунчер пересоздаст сам.", ["EpicGamesLauncher", "EpicWebHelper"],
+    item("notion_cache", "Notion cache", "📝", R + "Notion\\Cache", "Cache of pages and images. Your notes are stored in the Notion cloud.",
+         "Notion will reload it.", ["Notion"], also=[R + "Notion\\Code Cache", R + "Notion\\GPUCache"]),
+    item("zoom_logs", "Zoom logs", "🎥", R + "Zoom\\logs", "Zoom logs. Meeting recordings and the account are not affected.",
+         "Nothing.", ["Zoom"]),
+    item("steam_html", "Steam browser cache", "🎮", L + "Steam\\htmlcache", "Cache of the built-in Steam browser (store, community).",
+         "Steam will recreate it itself.", ["steam", "steamwebhelper"]),
+    item("epic_cache", "Epic Games Launcher cache", "🎮", L + "EpicGamesLauncher\\Saved\\webcache*",
+         "Cache of the Epic launcher store and browser.", "The launcher will recreate it itself.", ["EpicGamesLauncher", "EpicWebHelper"],
          also=[L + "EpicGamesLauncher\\Saved\\Logs"]),
-    item("minecraft_logs", "Логи и отчёты Minecraft", "⛏️", R + ".minecraft\\logs", "Журналы запуска игры и клиента.",
-         "Ничего. Миры и настройки не затрагиваются.", ["javaw", "Minecraft"], also=[R + ".minecraft\\crash-reports"]),
+    item("minecraft_logs", "Minecraft logs and reports", "⛏️", R + ".minecraft\\logs", "Game and client launch logs.",
+         "Nothing. Worlds and settings are not affected.", ["javaw", "Minecraft"], also=[R + ".minecraft\\crash-reports"]),
 
-    # ── видеокарты и графика ──
-    item("nvidia_glcache", "Кэш OpenGL NVIDIA", "🟩", L + "NVIDIA\\GLCache", "Скомпилированные OpenGL-шейдеры драйвера.",
-         "Драйвер пересоздаст при запуске игр.", []),
-    item("nvidia_nvcache", "Кэш NVIDIA (ProgramData)", "🟩", PD + "NVIDIA Corporation\\NV_Cache", "Шейдерный кэш драйвера NVIDIA.",
-         "Драйвер пересоздаст сам.", []),
-    item("nvidia_installers", "Старые установщики драйвера NVIDIA", "🟩", PD + "NVIDIA Corporation\\Downloader",
-         "Распакованные пакеты прошлых обновлений драйвера (GeForce Experience).", "Скачаются заново при следующем обновлении.", ["NVIDIA"]),
-    item("amd_dxcache", "Кэш шейдеров AMD", "🟥", L + "AMD\\DxCache", "Шейдерный кэш драйвера AMD.",
-         "Драйвер пересоздаст при запуске игр.", [], also=[L + "AMD\\GLCache", L + "AMD\\VkCache"]),
-    item("intel_shader", "Кэш шейдеров Intel", "🟦", L + "Intel\\ShaderCache", "Шейдерный кэш драйвера Intel.",
-         "Драйвер пересоздаст сам.", []),
+    # ── graphics cards and graphics ──
+    item("nvidia_glcache", "NVIDIA OpenGL cache", "🟩", L + "NVIDIA\\GLCache", "Compiled OpenGL shaders of the driver.",
+         "The driver will recreate it when games start.", []),
+    item("nvidia_nvcache", "NVIDIA cache (ProgramData)", "🟩", PD + "NVIDIA Corporation\\NV_Cache", "Shader cache of the NVIDIA driver.",
+         "The driver will recreate it itself.", []),
+    item("nvidia_installers", "Old NVIDIA driver installers", "🟩", PD + "NVIDIA Corporation\\Downloader",
+         "Extracted packages of previous driver updates (GeForce Experience).", "Will be downloaded again on the next update.", ["NVIDIA"]),
+    item("amd_dxcache", "AMD shader cache", "🟥", L + "AMD\\DxCache", "Shader cache of the AMD driver.",
+         "The driver will recreate it when games start.", [], also=[L + "AMD\\GLCache", L + "AMD\\VkCache"]),
+    item("intel_shader", "Intel shader cache", "🟦", L + "Intel\\ShaderCache", "Shader cache of the Intel driver.",
+         "The driver will recreate it itself.", []),
 
-    # ── Windows и офис ──
-    item("minidump", "Мини-дампы синих экранов", "💥", WIN + "Minidump", "Снимки памяти после критических сбоев Windows. Нужны только для разбора причин.",
-         "Ничего. Новые появятся только при новых сбоях.", kind="contents"),
-    item("livekernel", "Отчёты ядра (LiveKernelReports)", "💥", WIN + "LiveKernelReports", "Дампы сбоев драйверов и оборудования.",
-         "Ничего.", kind="contents"),
-    item("wer_system", "Системные отчёты об ошибках", "📋", PD + "Microsoft\\Windows\\WER\\ReportArchive",
-         "Архив отчётов о сбоях, собранный на уровне системы.", "Ничего.", kind="contents", also=[PD + "Microsoft\\Windows\\WER\\ReportQueue"]),
-    item("delivery_opt", "Кэш оптимизации доставки Windows", "🪟",
+    # ── Windows and Office ──
+    item("minidump", "Blue screen minidumps", "💥", WIN + "Minidump", "Memory snapshots after critical Windows crashes. Only needed to analyze the causes.",
+         "Nothing. New ones appear only after new crashes.", kind="contents"),
+    item("livekernel", "Kernel reports (LiveKernelReports)", "💥", WIN + "LiveKernelReports", "Crash dumps of drivers and hardware.",
+         "Nothing.", kind="contents"),
+    item("wer_system", "System error reports", "📋", PD + "Microsoft\\Windows\\WER\\ReportArchive",
+         "Archive of crash reports collected at the system level.", "Nothing.", kind="contents", also=[PD + "Microsoft\\Windows\\WER\\ReportQueue"]),
+    item("delivery_opt", "Windows Delivery Optimization cache", "🪟",
          WIN + "ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache",
-         "Части обновлений, которые Windows хранит для раздачи другим компьютерам. Часто занимает гигабайты.",
-         "Ничего. Требуются права администратора.", kind="contents"),
-    item("office_cache", "Кэш файлов Office", "📄", L + "Microsoft\\Office\\16.0\\OfficeFileCache",
-         "Кэш синхронизации документов Office с облаком. Сами документы не затрагиваются.", "Office пересоздаст.", ["winword", "excel", "powerpnt", "outlook"]),
-    item("onedrive_logs", "Логи OneDrive", "☁️", L + "Microsoft\\OneDrive\\logs", "Журналы синхронизации OneDrive.", "Ничего.", ["OneDrive"]),
-    item("nuget_v3", "Кэш запросов NuGet", "🟣", L + "NuGet\\v3-cache", "Кэш ответов серверов пакетов NuGet.",
-         "NuGet запросит заново.", ["devenv", "dotnet"], also=[L + "NuGet\\plugins-cache"]),
+         "Update parts that Windows keeps to share with other computers. Often takes gigabytes.",
+         "Nothing. Requires administrator rights.", kind="contents"),
+    item("office_cache", "Office file cache", "📄", L + "Microsoft\\Office\\16.0\\OfficeFileCache",
+         "Cache for syncing Office documents with the cloud. The documents themselves are not affected.", "Office will recreate it.", ["winword", "excel", "powerpnt", "outlook"]),
+    item("onedrive_logs", "OneDrive logs", "☁️", L + "Microsoft\\OneDrive\\logs", "OneDrive sync logs.", "Nothing.", ["OneDrive"]),
+    item("nuget_v3", "NuGet request cache", "🟣", L + "NuGet\\v3-cache", "Cache of NuGet package server responses.",
+         "NuGet will request it again.", ["devenv", "dotnet"], also=[L + "NuGet\\plugins-cache"]),
 
-    # ── разработка: безопасные кэши ──
-    item("vscode_web_cache", "Кэш VS Code (веб-часть)", "🧩", R + "Code\\Cache", "Кэш встроенного браузера редактора.",
-         "VS Code пересоздаст.", ["code"], also=[R + "Code\\Code Cache", R + "Code\\GPUCache", R + "Code\\CachedProfilesData"], icon_src=EXE["vscode"]),
-    item("cursor_cache", "Кэш Cursor", "🧩", R + "Cursor\\Cache", "Кэш редактора Cursor (скомпилированный код, GPU, логи).",
-         "Cursor пересоздаст. Настройки и расширения не затрагиваются.", ["cursor"],
+    # ── development: safe caches ──
+    item("vscode_web_cache", "VS Code cache (web part)", "🧩", R + "Code\\Cache", "Cache of the editor's built-in browser.",
+         "VS Code will recreate it.", ["code"], also=[R + "Code\\Code Cache", R + "Code\\GPUCache", R + "Code\\CachedProfilesData"], icon_src=EXE["vscode"]),
+    item("cursor_cache", "Cursor cache", "🧩", R + "Cursor\\Cache", "Cursor editor cache (compiled code, GPU, logs).",
+         "Cursor will recreate it. Settings and extensions are not affected.", ["cursor"],
          also=[R + "Cursor\\Code Cache", R + "Cursor\\GPUCache", R + "Cursor\\CachedData", R + "Cursor\\logs"]),
-    item("jetbrains_logs", "Логи JetBrains IDE", "🧰", L + "JetBrains\\*\\log", "Журналы PyCharm, IntelliJ, WebStorm, Rider и др.",
-         "Ничего.", ["idea64", "pycharm64", "webstorm64", "rider64", "clion64", "goland64", "phpstorm64", "datagrip64"]),
-    item("vs_componentcache", "Кэш компонентов Visual Studio", "🟣", L + "Microsoft\\VisualStudio\\*\\ComponentModelCache",
-         "Кэш MEF-компонентов. Visual Studio пересоберёт его при запуске (первый старт дольше).", "Пересоздаётся автоматически.", ["devenv"]),
-    item("gradle_daemon_logs", "Логи демона Gradle", "🐘", U + ".gradle\\daemon", "Журналы фоновых процессов Gradle.", "Ничего.", ["java", "gradle"]),
-    item("android_cache", "Кэш Android SDK", "🤖", U + ".android\\cache", "Кэш скачивания компонентов SDK.", "Скачается заново.", ["studio64", "java"]),
-    item("unity_cache", "Кэш Unity", "🧊", L + "Unity\\cache", "Скачанные пакеты и ассеты Unity.", "Unity скачает заново.", ["Unity", "UnityHub"]),
-    item("py_tool_caches", "Кэш Python-инструментов", "🐍", U + ".cache\\pre-commit", "Кэш pre-commit и подобных утилит.",
-         "Утилиты пересоздадут.", ["python"], also=[U + ".mypy_cache", U + ".ruff_cache"]),
+    item("jetbrains_logs", "JetBrains IDE logs", "🧰", L + "JetBrains\\*\\log", "Logs of PyCharm, IntelliJ, WebStorm, Rider and others.",
+         "Nothing.", ["idea64", "pycharm64", "webstorm64", "rider64", "clion64", "goland64", "phpstorm64", "datagrip64"]),
+    item("vs_componentcache", "Visual Studio component cache", "🟣", L + "Microsoft\\VisualStudio\\*\\ComponentModelCache",
+         "MEF component cache. Visual Studio will rebuild it on start (the first start is slower).", "Recreated automatically.", ["devenv"]),
+    item("gradle_daemon_logs", "Gradle daemon logs", "🐘", U + ".gradle\\daemon", "Logs of Gradle background processes.", "Nothing.", ["java", "gradle"]),
+    item("android_cache", "Android SDK cache", "🤖", U + ".android\\cache", "Download cache of SDK components.", "Will be downloaded again.", ["studio64", "java"]),
+    item("unity_cache", "Unity cache", "🧊", L + "Unity\\cache", "Downloaded Unity packages and assets.", "Unity will download it again.", ["Unity", "UnityHub"]),
+    item("py_tool_caches", "Python tool caches", "🐍", U + ".cache\\pre-commit", "Cache of pre-commit and similar tools.",
+         "The tools will recreate it.", ["python"], also=[U + ".mypy_cache", U + ".ruff_cache"]),
 ]
 
 REVIEW_EXTRA = [
     *[chromium_sw(*b[:5]) for b in BROWSERS if not b[5]],
-    item("jetbrains_caches", "Кэши и индексы JetBrains IDE", "🧰", L + "JetBrains\\*\\caches",
-         "Индексы проектов PyCharm, IntelliJ, WebStorm и др. Занимают 1–10 ГБ.",
-         "IDE заново проиндексирует проекты — первый запуск будет долгим.",
+    item("jetbrains_caches", "JetBrains IDE caches and indexes", "🧰", L + "JetBrains\\*\\caches",
+         "Project indexes of PyCharm, IntelliJ, WebStorm and others. Take 1–10 GB.",
+         "The IDE will re-index projects — the first start will be slow.",
          ["idea64", "pycharm64", "webstorm64", "rider64", "clion64", "goland64", "phpstorm64", "datagrip64"],
          also=[L + "JetBrains\\*\\index", L + "JetBrains\\*\\tmp", L + "Google\\AndroidStudio*\\caches"]),
-    item("steam_shadercache", "Шейдерный кэш Steam", "🎮", "%ProgramFiles(x86)%\\Steam\\steamapps\\shadercache",
-         "Скомпилированные шейдеры игр Steam, по папке на игру.", "Steam пересоберёт при запуске игр — первые минуты возможны подтормаживания.",
+    item("steam_shadercache", "Steam shader cache", "🎮", "%ProgramFiles(x86)%\\Steam\\steamapps\\shadercache",
+         "Compiled shaders of Steam games, one folder per game.", "Steam will rebuild it when games start — slight stutters are possible at first.",
          ["steam"], also=["%ProgramFiles(x86)%\\Steam\\steamapps\\temp", "?:\\SteamLibrary\\steamapps\\shadercache", "?:\\Steam\\steamapps\\shadercache",
                           "?:\\Games\\Steam\\steamapps\\shadercache"]),
-    item("telegram_cache", "Кэш Telegram", "✈️", R + "Telegram Desktop\\tdata\\user_data\\cache",
-         "Закэшированные картинки, видео и файлы из чатов. Сами переписки хранятся на серверах Telegram.",
-         "Медиа подгрузится заново при просмотре. Файлы из папки «Загрузки» не затрагиваются.",
+    item("telegram_cache", "Telegram cache", "✈️", R + "Telegram Desktop\\tdata\\user_data\\cache",
+         "Cached images, videos and files from chats. The conversations themselves are stored on Telegram servers.",
+         "Media will be reloaded when viewed. Files in the Downloads folder are not affected.",
          ["Telegram"], also=[R + "Telegram Desktop\\tdata\\user_data\\media_cache"]),
-    item("spotify_storage", "Офлайн-кэш Spotify", "🎧", L + "Spotify\\Storage", "Скачанные для прослушивания без интернета треки.",
-         "Загрузите нужные плейлисты для офлайна заново.", ["Spotify"]),
-    item("adobe_media_cache", "Кэш медиа Adobe", "🎞️", R + "Adobe\\Common\\Media Cache Files",
-         "Кэш Premiere Pro и After Effects: превью, звук, пиковые файлы. Растёт до десятков ГБ.",
-         "Adobe пересоздаст при открытии проекта — первое открытие дольше.", ["Adobe Premiere Pro", "AfterFX", "Adobe Media Encoder"],
+    item("spotify_storage", "Spotify offline cache", "🎧", L + "Spotify\\Storage", "Tracks downloaded for listening without internet.",
+         "Download the playlists you need for offline use again.", ["Spotify"]),
+    item("adobe_media_cache", "Adobe media cache", "🎞️", R + "Adobe\\Common\\Media Cache Files",
+         "Premiere Pro and After Effects cache: previews, audio, peak files. Grows to tens of GB.",
+         "Adobe will recreate it when a project is opened — the first open is slower.", ["Adobe Premiere Pro", "AfterFX", "Adobe Media Encoder"],
          also=[R + "Adobe\\Common\\Media Cache", R + "Adobe\\Common\\Peak Files", R + "Adobe\\CameraRaw\\Cache"]),
-    item("gradle_wrapper", "Дистрибутивы Gradle (wrapper)", "🐘", U + ".gradle\\wrapper\\dists",
-         "Скачанные версии Gradle для проектов. Старые версии почти всегда не нужны.", "Проект скачает нужную версию сам.", ["java", "gradle", "studio64", "idea64"]),
-    item("windows_update_dl", "Загрузки Windows Update", "🪟", WIN + "SoftwareDistribution\\Download",
-         "Скачанные обновления, которые уже установлены или ждут установки. Нужны права администратора.",
-         "Windows скачает нужное заново. Не чистите во время установки обновлений.", kind="contents"),
-    item("torch_cache", "Кэш моделей PyTorch / Whisper", "🧠", U + ".cache\\torch",
-         "Скачанные веса моделей (torch hub, checkpoints). Решите, нужны ли они.", "Модели скачаются при следующем запуске кода.",
+    item("gradle_wrapper", "Gradle distributions (wrapper)", "🐘", U + ".gradle\\wrapper\\dists",
+         "Downloaded Gradle versions for projects. Old versions are almost never needed.", "The project will download the version it needs.", ["java", "gradle", "studio64", "idea64"]),
+    item("windows_update_dl", "Windows Update downloads", "🪟", WIN + "SoftwareDistribution\\Download",
+         "Downloaded updates that are already installed or waiting to be installed. Requires administrator rights.",
+         "Windows will download what it needs again. Do not clean during an update installation.", kind="contents"),
+    item("torch_cache", "PyTorch / Whisper model cache", "🧠", U + ".cache\\torch",
+         "Downloaded model weights (torch hub, checkpoints). Decide whether you need them.", "Models will be downloaded on the next code run.",
          ["python"], also=[U + ".cache\\whisper"]),
-    item("unreal_ddc", "Кэш данных Unreal Engine (DDC)", "🎮", L + "UnrealEngine\\Common\\DerivedDataCache",
-         "Производные данные ассетов. Растёт до десятков ГБ.", "Редактор пересоберёт — первое открытие проектов долгое.", ["UnrealEditor", "UE4Editor"]),
-    item("windows_old", "Предыдущая версия Windows (Windows.old)", "🪟", "%SystemDrive%\\Windows.old",
-         "Остаётся после крупного обновления Windows, обычно 10–30 ГБ. Нужна для отката.",
-         "Удаляйте через «Параметры → Система → Память → Временные файлы» или Очистку диска — вручную папку не удалить.",
+    item("unreal_ddc", "Unreal Engine data cache (DDC)", "🎮", L + "UnrealEngine\\Common\\DerivedDataCache",
+         "Derived asset data. Grows to tens of GB.", "The editor will rebuild it — the first project open is slow.", ["UnrealEditor", "UE4Editor"]),
+    item("windows_old", "Previous Windows version (Windows.old)", "🪟", "%SystemDrive%\\Windows.old",
+         "Left after a major Windows update, usually 10–30 GB. Needed for rolling back.",
+         "Delete via “Settings → System → Storage → Temporary files” or Disk Cleanup — the folder cannot be deleted by hand.",
          deletable=False),
-    item("docker_wsl", "Данные Docker Desktop (WSL)", "🐳", L + "Docker\\wsl",
-         "Виртуальный диск Docker с образами и томами — может занимать десятки ГБ.",
-         "Освобождайте командой `docker system prune -a` (удаляет неиспользуемые образы и контейнеры), а не удалением файла.", deletable=False),
-    item("android_sdk_images", "Образы эмуляторов Android", "🤖", L + "Android\\Sdk\\system-images",
-         "Образы систем для эмулятора, по 1–3 ГБ каждый.", "Удаляйте ненужные в SDK Manager (Android Studio).", deletable=False),
-    item("lmstudio_models", "Модели LM Studio", "🧠", U + ".lmstudio\\models", "Локальные языковые модели. Решите, какие ещё нужны.",
-         "Удаляйте модели в самой LM Studio (вкладка «Мои модели»).", deletable=False),
-    item("npm_logs", "Логи npm", "📦", L + "npm-cache\\_logs", "Журналы запусков npm.", "Ничего.", ["node", "npm"]),
+    item("docker_wsl", "Docker Desktop data (WSL)", "🐳", L + "Docker\\wsl",
+         "Docker virtual disk with images and volumes — can take tens of GB.",
+         "Free it with `docker system prune -a` (removes unused images and containers) rather than by deleting the file.", deletable=False),
+    item("android_sdk_images", "Android emulator images", "🤖", L + "Android\\Sdk\\system-images",
+         "System images for the emulator, 1–3 GB each.", "Delete the ones you do not need in SDK Manager (Android Studio).", deletable=False),
+    item("lmstudio_models", "LM Studio models", "🧠", U + ".lmstudio\\models", "Local language models. Decide which ones you still need.",
+         "Delete models inside LM Studio itself (the “My Models” tab).", deletable=False),
+    item("npm_logs", "npm logs", "📦", L + "npm-cache\\_logs", "npm run logs.", "Nothing.", ["node", "npm"]),
 ]
