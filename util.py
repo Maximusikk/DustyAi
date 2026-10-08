@@ -7,6 +7,17 @@ import subprocess
 import time
 
 IS_WINDOWS = os.name == "nt"
+
+if IS_WINDOWS:
+    # The app runs without a console (PyInstaller --windowed), so every child process (powershell, taskkill,
+    # py, cmd) would flash its own console window. Hide them for all subprocess calls in the app.
+    _popen_init = subprocess.Popen.__init__
+
+    def _popen_no_window(self, *args, **kwargs):
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | subprocess.CREATE_NO_WINDOW
+        _popen_init(self, *args, **kwargs)
+
+    subprocess.Popen.__init__ = _popen_no_window
 SIZE_TIMEOUT = 45  # seconds per folder measurement — protects against hanging on giant trees
 
 
