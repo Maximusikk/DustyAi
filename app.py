@@ -18,6 +18,8 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 import catalog
 import scanners
+import settings
+import winchrome
 from util import (IS_WINDOWS, drive_of, expand, expand_all, extract_icons, first_existing, folder_size, gb, list_drives,
                   close_processes, describe_lockers, find_lockers, is_admin, lp, process_names, ps_json, purge, run_ps,
                   running_blockers, running_names, system_drive, _rm)
@@ -59,14 +61,15 @@ def num_filter(v, digits=1):
 
 
 HOST, PORT = "127.0.0.1", 5000
-SCANS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans")
-HISTORY_KEEP = 20
+SCANS_DIR = os.path.join(settings.DATA_DIR, "scans")
+APP_VERSION = "1.1"
+REPO_URL = "https://github.com/Maximusikk/DustyAi"
 HISTORY_RE = re.compile(r"^scan_\d{8}_\d{6}\.json$")
 SCAN_WORKERS = 8
 
 _lock = threading.Lock()
 scan_state = {"status": "idle", "progress": 0, "message": "", "phases": [], "eta": None, "detail": ""}
-HINTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans", "hints.json")
+HINTS_FILE = os.path.join(SCANS_DIR, "hints.json")
 HDD_WORKERS = 3  # on an HDD many threads → extra head movement; 2-3 walk the drive faster
 scan_data = {}
 _drive_cache = {"t": 0.0, "v": []}
@@ -515,7 +518,7 @@ def save_history(data):
         name = time.strftime("scan_%Y%m%d_%H%M%S.json")
         with open(os.path.join(SCANS_DIR, name), "w", encoding="utf-8") as f:
             json.dump(public_data(data), f, ensure_ascii=False)
-        for old in sorted(f for f in os.listdir(SCANS_DIR) if HISTORY_RE.match(f))[:-HISTORY_KEEP]:
+        for old in sorted(f for f in os.listdir(SCANS_DIR) if HISTORY_RE.match(f))[:-settings.load()["history_keep"]]:
             os.remove(os.path.join(SCANS_DIR, old))
     except OSError:
         pass  # history is a convenience, no reason to crash the scan
@@ -626,7 +629,9 @@ def with_defaults(d):
 
 # ───────────────────────────── AI summary (Cloudflare Workers AI) ─────────────────────────────
 
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+ENV_FILE = os.path.join(settings.DATA_DIR, ".env")  # written by the Settings page
+# also read next to the program or the exe, so a hand-made .env keeps working
+ENV_FALLBACKS = [os.path.join(settings.APP_DIR, ".env"), os.path.join(os.path.dirname(sys.executable), ".env")]
 CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # can be overridden via the CF_MODEL variable (e.g. with a bigger model)
 CF_MAX_TOKENS = 700  # leave enough tokens for a full answer: 300 cut the reply off
 CF_BASE = "https://api.cloudflare.com/client/v4"
@@ -641,8 +646,14 @@ class AIError(Exception):
         self.code = code
 
 
-def read_env_file(path=ENV_FILE):
-    """Minimal .env parser (KEY=VALUE, # comments, quotes) — no external libraries."""
+def read_env_file(path=None):
+    """Minimal .env parser (KEY=VALUE, # comments, quotes) — no external libraries. Without a path the
+    Settings-page file wins over the .env files next to the program."""
+    if path is None:
+        out = {}
+        for p in reversed([ENV_FILE] + ENV_FALLBACKS):
+            out.update(read_env_file(p))
+        return out
     out = {}
     try:
         with open(path, encoding="utf-8") as f:
@@ -838,7 +849,7 @@ def export():
 
 @app.get("/history")
 def history_list():
-    return render_template("history.html", history=list_history(HISTORY_KEEP), active="history")
+    return render_template("history.html", history=list_history(settings.load()["history_keep"]), active="history")
 
 
 @app.get("/history/<name>")
@@ -1103,6 +1114,156 @@ def unlock_retry():
                    failed=[r for r in results if not r["ok"] and not r.get("locked")])
 
 
+# ───────────────────────────── settings, window controls ─────────────────────────────
+
+APP_WINDOW = {"custom": False}  # set in main(): True when the window has no system title bar
+
+
+@app.context_processor
+def inject_settings():
+    st = settings.load()
+    return {"S": st, "TITLEBAR": APP_WINDOW["custom"], "ZOOM_STEPS": settings.ZOOM_STEPS, "APP_VERSION": APP_VERSION}
+
+
+def cross_site():
+    """Requests from foreign web pages must not drive the app (window controls, keys, history)."""
+    return request.headers.get("Sec-Fetch-Site") == "cross-site"
+
+
+@app.get("/settings")
+def settings_page():
+    history = [f for f in os.listdir(SCANS_DIR) if HISTORY_RE.match(f)] if os.path.isdir(SCANS_DIR) else []
+    size = sum(os.path.getsize(os.path.join(SCANS_DIR, f)) for f in history if os.path.exists(os.path.join(SCANS_DIR, f)))
+    ai = {"account": bool(cf_setting("CF_ACCOUNT_ID")), "token": bool(cf_setting("CF_API_TOKEN")),
+          "model": cf_setting("CF_MODEL") or CF_MODEL}
+    return render_template("settings.html", active="settings", history_count=len(history),
+                           history_mb=round(size / 1024 ** 2, 1), data_dir=settings.DATA_DIR, ai=ai,
+                           history_choices=settings.HISTORY_CHOICES)
+
+
+@app.get("/api/settings")
+def api_settings_get():
+    return jsonify(settings.load())
+
+
+@app.post("/api/settings")
+def api_settings_set():
+    if cross_site():
+        return err("forbidden", 403)
+    cur, rejected = settings.update(request.get_json(silent=True) or {})
+    if rejected:
+        return jsonify(ok=False, error="Invalid value: " + ", ".join(rejected), settings=cur), 400
+    return jsonify(ok=True, settings=cur)
+
+
+@app.post("/api/history/clear")
+def api_history_clear():
+    if cross_site():
+        return err("forbidden", 403)
+    removed = 0
+    if os.path.isdir(SCANS_DIR):
+        for f in os.listdir(SCANS_DIR):
+            if HISTORY_RE.match(f):
+                try:
+                    os.remove(os.path.join(SCANS_DIR, f))
+                    removed += 1
+                except OSError:
+                    pass
+    return jsonify(ok=True, removed=removed)
+
+
+def write_env(updates):
+    """Updates KEY=VALUE pairs in the Settings-page .env (None removes a key); other lines stay as they are."""
+    lines, seen = [], set()
+    try:
+        with open(ENV_FILE, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        pass
+    out = []
+    for line in lines:
+        k = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else None
+        if k in updates:
+            seen.add(k)
+            if updates[k] is not None:
+                out.append(f"{k}={updates[k]}")
+        else:
+            out.append(line)
+    for k, v in updates.items():
+        if k not in seen and v is not None:
+            out.append(f"{k}={v}")
+    os.makedirs(os.path.dirname(ENV_FILE), exist_ok=True)
+    with open(ENV_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+
+
+@app.post("/api/ai-keys")
+def api_ai_keys():
+    """Saves the Cloudflare keys typed on the Settings page. Empty fields are left unchanged; clear=true removes them."""
+    if cross_site():
+        return err("forbidden", 403)
+    d = request.get_json(silent=True) or {}
+    if d.get("clear"):
+        updates = {"CF_ACCOUNT_ID": None, "CF_API_TOKEN": None, "CF_MODEL": None}
+    else:
+        updates = {}
+        for key, field in (("CF_ACCOUNT_ID", "account"), ("CF_API_TOKEN", "token"), ("CF_MODEL", "model")):
+            v = str(d.get(field) or "").strip()
+            if v:
+                if "\n" in v or "\r" in v or len(v) > 300:
+                    return err("Invalid value", 400)
+                updates[key] = v
+    if not updates:
+        return err("Nothing to save", 400)
+    try:
+        write_env(updates)
+    except OSError as e:
+        return err(f"Could not save: {e}", 500)
+    _ai_cache.clear()
+    return jsonify(ok=True)
+
+
+@app.post("/api/open-data")
+def api_open_data():
+    if cross_site():
+        return err("forbidden", 403)
+    os.makedirs(settings.DATA_DIR, exist_ok=True)
+    if IS_WINDOWS:
+        os.startfile(settings.DATA_DIR)  # noqa: S606 — our own data folder
+    return jsonify(ok=True, demo=not IS_WINDOWS)
+
+
+@app.post("/api/win/<action>")
+def api_window(action):
+    """Controls of the custom title bar. Only works for the frameless app window."""
+    if cross_site() or not APP_WINDOW["custom"]:
+        return err("forbidden", 403)
+    if action == "min":
+        winchrome.minimize()
+    elif action == "max":
+        winchrome.toggle_maximize()
+    elif action == "drag":
+        winchrome.start_drag()
+    elif action.startswith("resize-"):
+        winchrome.start_resize(action[7:])
+    elif action == "close":
+        try:
+            import webview
+            for w in webview.windows:
+                w.destroy()
+        except Exception:  # noqa: BLE001
+            os._exit(0)
+    else:
+        return err("Unknown action", 404)
+    return jsonify(ok=True, maximized=winchrome.is_maximized())
+
+
+@app.get("/api/win/state")
+def api_window_state():
+    return jsonify(maximized=winchrome.is_maximized())
+
+
+
 @app.post("/api/elevate")
 def elevate():
     """Restarts the app with administrator rights (Windows will show the UAC prompt)."""
@@ -1186,6 +1347,11 @@ def free_port(preferred=PORT):
 
 def window_background():
     """Window color before the page loads: no white flash at start in the Windows dark theme."""
+    theme = settings.load()["theme"]
+    if theme == "dark":
+        return "#0a0d13"
+    if theme == "light":
+        return "#f2f4f9"
     if IS_WINDOWS:
         try:
             import winreg
@@ -1210,8 +1376,13 @@ def main():
         try:
             import webview
             webview.settings["ALLOW_DOWNLOADS"] = True
-            webview.create_window(APP_NAME, url, width=1360, height=860, min_size=(1000, 640),
-                                  background_color=window_background(), text_select=True)  # paths and AI text can be copied
+            custom = IS_WINDOWS and not settings.load()["native_frame"] and "--native-frame" not in sys.argv
+            APP_WINDOW["custom"] = custom
+            window = webview.create_window(APP_NAME, url, width=1360, height=860, min_size=(1000, 640),
+                                           background_color=window_background(), text_select=True,  # paths and AI text can be copied
+                                           frameless=custom, easy_drag=False)
+            if custom:
+                window.events.shown += lambda *a: threading.Thread(target=winchrome.setup, args=(APP_NAME,), daemon=True).start()
             webview.start()  # blocks until the window is closed
             server.shutdown()
             return

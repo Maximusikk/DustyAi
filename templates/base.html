@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if S.theme != 'system' %} data-theme="{{ S.theme }}"{% endif %} style="--z:{{ S.zoom / 100 }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,6 +12,27 @@
 </head>
 <body>
 {% include "_icons.html" %}
+<div class="app" id="app">
+{% if TITLEBAR %}
+<header class="tb" id="tb">
+  <div class="tb-drag" id="tb-drag">
+    <svg class="tb-logo" aria-hidden="true"><use href="#logo"/></svg>
+    <span class="tb-title">{{ APP_NAME }}</span>
+    <span class="tb-sub">{{ {'home': 'Home', 'report': 'Report', 'history': 'History', 'settings': 'Settings'}.get(active, '') }}</span>
+  </div>
+  <div class="tb-zoom" role="group" aria-label="Interface zoom">
+    <button type="button" id="z-out" title="Zoom out (Ctrl −)" aria-label="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <button type="button" id="z-val" class="zv" title="Reset zoom (Ctrl 0)">100%</button>
+    <button type="button" id="z-in" title="Zoom in (Ctrl +)" aria-label="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button>
+  </div>
+  <div class="tb-btns">
+    <button type="button" class="tb-btn" data-win="min" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 14 14"><path d="M3 7.5h8"/></svg></button>
+    <button type="button" class="tb-btn" data-win="max" id="tb-max" title="Maximize" aria-label="Maximize"><svg viewBox="0 0 14 14"><rect x="3" y="3" width="8" height="8" rx="1.6"/></svg></button>
+    <button type="button" class="tb-btn close" data-win="close" title="Close" aria-label="Close"><svg viewBox="0 0 14 14"><path d="M3.2 3.2l7.6 7.6M10.8 3.2l-7.6 7.6"/></svg></button>
+  </div>
+</header>
+{% endif %}
+<div class="shell">
 <aside class="side">
   <a class="brand" href="/" title="Home">
     <svg class="logo" aria-hidden="true"><use href="#logo"/></svg>
@@ -22,6 +43,7 @@
     <a class="nav-i {{ 'on' if active == 'home' }}" href="/" title="Home"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></a>
     <a class="nav-i {{ 'on' if active == 'report' }}" href="/report" title="Report"><svg class="ic"><use href="#i-chart"/></svg><span>Report</span></a>
     <a class="nav-i {{ 'on' if active == 'history' }}" href="/history" title="History"><svg class="ic"><use href="#i-history"/></svg><span>History</span></a>
+    <a class="nav-i {{ 'on' if active == 'settings' }}" href="/settings" title="Settings"><svg class="ic"><use href="#i-sliders"/></svg><span>Settings</span></a>
   </nav>
   <div class="side-foot">
     {% if CAN_ELEVATE %}<button class="btn sm side-btn" id="elev" title="Needed for the system Temp and protected folders"><svg class="ic"><use href="#i-shield"/></svg><span>Run as administrator</span></button>
@@ -30,10 +52,13 @@
   </div>
 </aside>
 <main id="main"><div class="wrap">{% block body %}{% endblock %}</div></main>
+</div>
 
 <div class="modal-bg" id="modal" aria-hidden="true"><div class="modal" id="modal-body" role="dialog" aria-modal="true" tabindex="-1"></div></div>
 <div class="tip" id="tip" role="tooltip"></div>
 <div id="toasts" aria-live="polite"></div>
+</div>
+{% if TITLEBAR %}{% for e in ['n','s','e','w','ne','nw','se','sw'] %}<div class="rz {{ e }}" data-edge="{{ e }}"></div>{% endfor %}{% endif %}
 
 <script>
 /* ── shared helpers (used by all pages) ── */
@@ -66,6 +91,58 @@ function toast(msg, kind){
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 320) }, Math.min(5000 + msg.length * 45, 12000));
 }
 try{ const m = sessionStorage.getItem('toast'), k = sessionStorage.getItem('toastKind'); if(m){ sessionStorage.removeItem('toast'); sessionStorage.removeItem('toastKind'); toast(m, k || undefined) } }catch(_){}
+
+/* ── interface zoom: Ctrl + / − / 0 and Ctrl + wheel, like in a browser ── */
+const ZOOMS = {{ ZOOM_STEPS|tojson }};
+let zoom = {{ S.zoom }}, zoomSave = 0;
+function paintZoom(){
+  const v = $('#z-val'); if(v) v.textContent = zoom + '%';
+  if($('#z-out')) $('#z-out').disabled = zoom <= ZOOMS[0];
+  if($('#z-in')) $('#z-in').disabled = zoom >= ZOOMS[ZOOMS.length - 1];
+  document.dispatchEvent(new CustomEvent('zoomchange', {detail: zoom}));
+}
+function setZoom(z){
+  if(!ZOOMS.includes(z) || z === zoom) return;
+  zoom = z; document.documentElement.style.setProperty('--z', z / 100); paintZoom();
+  clearTimeout(zoomSave); zoomSave = setTimeout(() => post('/api/settings', {zoom}).catch(() => {}), 250);
+}
+function stepZoom(d){ const i = ZOOMS.indexOf(zoom); setZoom(ZOOMS[Math.min(Math.max(i + d, 0), ZOOMS.length - 1)]) }
+$('#z-out')?.addEventListener('click', () => stepZoom(-1));
+$('#z-in')?.addEventListener('click', () => stepZoom(1));
+$('#z-val')?.addEventListener('click', () => setZoom(100));
+document.addEventListener('keydown', e => {
+  if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if(e.key === '+' || e.key === '=' || e.code === 'NumpadAdd'){ e.preventDefault(); stepZoom(1) }
+  else if(e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract'){ e.preventDefault(); stepZoom(-1) }
+  else if(e.key === '0' || e.code === 'Numpad0'){ e.preventDefault(); setZoom(100) }
+});
+let wheelLock = 0;
+document.addEventListener('wheel', e => {
+  if(!e.ctrlKey) return;
+  e.preventDefault();
+  if(Date.now() - wheelLock > 90){ wheelLock = Date.now(); stepZoom(e.deltaY < 0 ? 1 : -1) }
+}, {passive: false});
+paintZoom();
+
+/* ── custom title bar of the frameless window ── */
+{% if TITLEBAR %}
+const winAct = a => fetch('/api/win/' + a, {method: 'POST'}).then(r => r.json()).then(j => { if(j && 'maximized' in j) paintMax(j.maximized) }).catch(() => {});
+const MAX_ICON = '<svg viewBox="0 0 14 14"><rect x="3" y="3" width="8" height="8" rx="1.6"/></svg>';
+const RESTORE_ICON = '<svg viewBox="0 0 14 14"><rect x="2.8" y="4.8" width="6.6" height="6.6" rx="1.4"/><path d="M5 4.8V4a1.4 1.4 0 0 1 1.4-1.4H10A1.4 1.4 0 0 1 11.4 4v3.6A1.4 1.4 0 0 1 10 9H9.4"/></svg>';
+function paintMax(m){
+  $('#app').classList.toggle('maxed', m);
+  const b = $('#tb-max'); b.innerHTML = m ? RESTORE_ICON : MAX_ICON;
+  b.title = b.ariaLabel = m ? 'Restore' : 'Maximize';
+}
+$$('[data-win]').forEach(b => b.addEventListener('click', () => winAct(b.dataset.win)));
+$('#tb-drag').addEventListener('mousedown', e => {
+  if(e.button !== 0) return;
+  if(e.detail === 2) winAct('max'); else winAct('drag');
+});
+$$('.rz').forEach(r => r.addEventListener('mousedown', e => { if(e.button === 0){ e.preventDefault(); winAct('resize-' + r.dataset.edge) } }));
+let stateT = 0;
+addEventListener('resize', () => { clearTimeout(stateT); stateT = setTimeout(() => fetch('/api/win/state').then(r => r.json()).then(j => paintMax(j.maximized)).catch(() => {}), 120) });
+{% endif %}
 
 /* ── cursor tooltip ── */
 function tipOn(e, t){ const el = $('#tip'); el.textContent = t; el.style.display = 'block';

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Settings — {{ APP_NAME }}{% endblock %}
+{% block head %}<style>
+.set{display:flex;flex-direction:column;gap:18px;max-width:820px}
+.set .card-h{margin-bottom:6px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:15px 0;border-top:1px solid var(--border)}
+.srow:first-of-type{border-top:0}
+.srow .st{font-weight:600}
+.srow .sd{color:var(--muted);font-size:13px;margin-top:2px}
+.srow .sc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.set .opts .opt{padding:15px 0}
+.set .opts .opt:first-child{padding-top:15px}.set .opts .opt:last-child{padding-bottom:5px}
+.sel,.inp{height:38px;padding:0 12px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface);color:var(--fg);font:500 13.5px/1 var(--font);min-width:0}
+.sel{cursor:pointer;padding-right:8px}
+.inp{width:100%}
+.inp:focus,.sel:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.inp::placeholder{color:var(--faint)}
+.ai-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.ai-form label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg-2)}
+.ai-form .wide{grid-column:1/-1}
+.ai-form small{font-weight:500;color:var(--muted)}
+.ai-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:99px;font-size:12px;font-weight:600}
+.pill.ok{background:var(--ok-soft);color:var(--ok-ink)}.pill.off{background:var(--surface-3);color:var(--muted)}
+.kbd{display:inline-block;min-width:24px;padding:2px 7px;border-radius:7px;border:1px solid var(--border-2);border-bottom-width:2px;background:var(--surface-2);font:600 12px/1.3 var(--mono);text-align:center}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:center;margin-top:4px;color:var(--fg-2);font-size:13.5px}
+.about{display:flex;gap:16px;align-items:center;padding:4px 0 14px}
+.about .logo{width:54px;height:54px;border-radius:16px}
+.about b{font-size:17px;font-weight:700}.about small{display:block;color:var(--muted);margin-top:1px}
+.path-box{font:12.5px/1.4 var(--mono);color:var(--muted);word-break:break-all}
+@media (max-width:720px){.srow{grid-template-columns:1fr}.srow .sc{justify-content:flex-start}.ai-form{grid-template-columns:1fr}}
+</style>{% endblock %}
+{% block body %}
+<header class="page-head">
+  <div><div class="eyebrow">{{ APP_NAME }}</div><h1>Settings</h1>
+    <p class="sub">Appearance, scan defaults and AI analysis. Changes are saved automatically.</p></div>
+</header>
+
+<div class="set">
+  <section class="card">
+    <div class="card-h"><div><h2 class="t3">Appearance</h2></div></div>
+    <div class="srow"><div><div class="st">Theme</div><div class="sd">“System” follows the Windows light/dark setting.</div></div>
+      <div class="sc"><div class="seg" id="theme-seg" role="group" aria-label="Theme">
+        {% for v, n in [('system', 'System'), ('light', 'Light'), ('dark', 'Dark')] %}<button type="button" data-theme-v="{{ v }}" class="{{ 'on' if S.theme == v }}">{{ n }}</button>{% endfor %}
+      </div></div></div>
+    <div class="srow"><div><div class="st">Interface scale</div><div class="sd">Same as the browser: <span class="kbd">Ctrl</span> <span class="kbd">+</span> / <span class="kbd">−</span> / <span class="kbd">0</span> or <span class="kbd">Ctrl</span> + mouse wheel.</div></div>
+      <div class="sc"><div class="tb-zoom" role="group" aria-label="Interface scale">
+        <button type="button" id="s-out" aria-label="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
+        <button type="button" id="s-val" class="zv" title="Reset to 100%">100%</button>
+        <button type="button" id="s-in" aria-label="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button></div></div></div>
+    <div class="srow"><div><div class="st">System title bar</div><div class="sd">Use the standard Windows window frame instead of the custom title bar. Takes effect after restarting {{ APP_NAME }}.</div></div>
+      <div class="sc"><label class="switch"><input type="checkbox" id="native" {{ 'checked' if S.native_frame }} aria-label="Use the system title bar"><i></i></label></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><div><h2 class="t3">Scan defaults</h2><div class="hint">What is ticked on the home page when you open it.</div></div></div>
+    <div class="opts">
+      <label class="opt"><span class="ico"><svg class="ic"><use href="#i-scan"/></svg></span>
+        <span><div class="opt-t">Deep scan of the system drive</div><div class="opt-d">Root folders, big files, developer junk <span class="tag">1–3 min</span></div></span>
+        <span class="switch"><input type="checkbox" data-set="scan_deep" {{ 'checked' if S.scan_deep }}><i></i></span></label>
+      <label class="opt"><span class="ico"><svg class="ic"><use href="#i-folder"/></svg></span>
+        <span><div class="opt-t">Profile and AppData</div><div class="opt-d">Largest folders — view only, no “junk” labels</div></span>
+        <span class="switch"><input type="checkbox" data-set="scan_profile" {{ 'checked' if S.scan_profile }}><i></i></span></label>
+      <label class="opt"><span class="ico"><svg class="ic"><use href="#i-copy"/></svg></span>
+        <span><div class="opt-t">Duplicate files</div><div class="opt-d">In Downloads and Documents <span class="tag">+ a few seconds</span></div></span>
+        <span class="switch"><input type="checkbox" data-set="scan_dups" {{ 'checked' if S.scan_dups }}><i></i></span></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><div><h2 class="t3">History and data</h2></div></div>
+    <div class="srow"><div><div class="st">Keep the last scans</div><div class="sd" id="hist-stat">{{ history_count }} saved · {{ history_mb }} MB. Older ones are removed automatically.</div></div>
+      <div class="sc"><select class="sel" id="keep" aria-label="How many scans to keep">
+        {% for n in history_choices %}<option value="{{ n }}" {{ 'selected' if S.history_keep == n }}>{{ n }} scans</option>{% endfor %}</select></div></div>
+    <div class="srow"><div><div class="st">Data folder</div><div class="sd path-box">{{ data_dir }}</div></div>
+      <div class="sc"><button type="button" class="btn sm" id="open-data"><svg class="ic"><use href="#i-folder"/></svg>Open</button>
+        <button type="button" class="btn sm" id="clear-hist" style="color:var(--danger-ink)" {{ 'disabled' if not history_count }}><svg class="ic"><use href="#i-trash"/></svg>Clear history</button></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><div><h2 class="t3">AI analysis</h2><div class="hint">Optional. On click, only names and sizes of the largest findings (no file paths) are sent to Cloudflare Workers AI.</div></div>
+      <span class="pill {{ 'ok' if ai.account and ai.token else 'off' }}" id="ai-pill">{{ 'Connected' if ai.account and ai.token else 'Not configured' }}</span></div>
+    <div class="ai-form">
+      <label>Account ID<input class="inp" id="ai-acc" autocomplete="off" spellcheck="false" placeholder="{{ 'Saved — type to replace' if ai.account else 'Cloudflare account ID' }}"></label>
+      <label>API token<input class="inp" id="ai-tok" type="password" autocomplete="off" placeholder="{{ 'Saved — type to replace' if ai.token else 'Token with Workers AI permission' }}"></label>
+      <label class="wide">Model <small>(optional)</small><input class="inp" id="ai-model" autocomplete="off" spellcheck="false" placeholder="{{ ai.model }}"></label>
+    </div>
+    <div class="ai-acts"><button type="button" class="btn primary sm" id="ai-save">Save keys</button>
+      <button type="button" class="btn sm" id="ai-clear" {{ 'disabled' if not (ai.account or ai.token) }}>Remove keys</button></div>
+  </section>
+
+  <section class="card">
+    <div class="about"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg>
+      <div><b>{{ APP_NAME }}</b><small>Version {{ APP_VERSION }}{% if IS_ADMIN %} · running as administrator{% endif %}</small></div></div>
+    <div class="keys"><span><span class="kbd">Ctrl</span> <span class="kbd">+</span> <span class="kbd">−</span></span><span>Zoom in / out</span>
+      <span><span class="kbd">Ctrl</span> <span class="kbd">0</span></span><span>Reset zoom to 100%</span>
+      <span><span class="kbd">Esc</span></span><span>Close a dialog</span></div>
+  </section>
+</div>
+{% endblock %}
+{% block script %}<script>
+const save = async (obj, msg) => {
+  try{
+    const j = await (await post('/api/settings', obj)).json();
+    if(!j.ok) throw new Error(j.error || 'Could not save');
+    if(msg !== false) toast(msg || 'Saved');
+    return true;
+  }catch(e){ toast(e.message, true); return false }
+};
+
+/* theme */
+$$('[data-theme-v]').forEach(b => b.addEventListener('click', async () => {
+  const v = b.dataset.themeV;
+  $$('[data-theme-v]').forEach(x => x.classList.toggle('on', x === b));
+  if(v === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = v;
+  save({theme: v});
+}));
+
+/* zoom: the same state as the title bar */
+function syncZoom(){ $('#s-val').textContent = zoom + '%'; $('#s-out').disabled = zoom <= ZOOMS[0]; $('#s-in').disabled = zoom >= ZOOMS[ZOOMS.length - 1] }
+$('#s-out').onclick = () => stepZoom(-1); $('#s-in').onclick = () => stepZoom(1); $('#s-val').onclick = () => setZoom(100);
+document.addEventListener('zoomchange', syncZoom); syncZoom();
+
+/* switches */
+$('#native').addEventListener('change', e => save({native_frame: e.target.checked}, 'Saved — restart ' + {{ APP_NAME|tojson }} + ' to apply'));
+$$('[data-set]').forEach(c => c.addEventListener('change', () => save({[c.dataset.set]: c.checked})));
+$('#keep').addEventListener('change', e => save({history_keep: +e.target.value}));
+
+/* data */
+$('#open-data').onclick = async () => {
+  const j = await (await post('/api/open-data', {})).json().catch(() => ({}));
+  if(j.demo) toast('Not available outside Windows', 'info');
+};
+$('#clear-hist').onclick = () => {
+  openModal(`<div class="modal-h"><div class="modal-ico danger">${ic('trash')}</div><div><h3>Clear scan history?</h3>
+    <p class="lead">All saved reports will be deleted from this computer. Your files are not touched.</p></div></div>
+    <div class="acts"><button class="btn" onclick="closeModal()" data-autofocus>Cancel</button><button class="btn danger" id="hist-go">Clear</button></div>`);
+  $('#hist-go').onclick = async () => {
+    const j = await (await post('/api/history/clear', {})).json().catch(() => ({ok: false}));
+    closeModal();
+    if(j.ok){ toast('Removed ' + j.removed + ' saved scans'); $('#hist-stat').textContent = '0 saved · 0 MB. Older ones are removed automatically.'; $('#clear-hist').disabled = true }
+    else toast('Could not clear the history', true);
+  };
+};
+
+/* AI keys */
+$('#ai-save').onclick = async () => {
+  const body = {account: $('#ai-acc').value, token: $('#ai-tok').value, model: $('#ai-model').value};
+  if(!body.account.trim() && !body.token.trim() && !body.model.trim()){ toast('Type a value to save', 'info'); return }
+  const j = await (await post('/api/ai-keys', body)).json().catch(() => ({ok: false, error: 'Request failed'}));
+  if(j.ok){ toast('Keys saved'); setTimeout(() => location.reload(), 600) } else toast(j.error || 'Could not save', true);
+};
+$('#ai-clear').onclick = async () => {
+  const j = await (await post('/api/ai-keys', {clear: true})).json().catch(() => ({ok: false}));
+  if(j.ok){ toast('Keys removed'); setTimeout(() => location.reload(), 600) } else toast('Could not remove the keys', true);
+};
+</script>{% endblock %}

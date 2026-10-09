@@ -47,13 +47,6 @@
 .dv.on .chk{opacity:1;transform:none}
 
 /* ── options ── */
-.opts{display:flex;flex-direction:column}
-.opt{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 0;border-top:1px solid var(--border);cursor:pointer}
-.opt:first-child{border-top:0;padding-top:2px}.opt:last-child{padding-bottom:2px}
-.opt .ico{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
-.opt .ico .ic{width:19px;height:19px}
-.opt-t{font-weight:600}.opt-d{color:var(--muted);font-size:13px;margin-top:1px}
-.opt-d .tag{margin-left:6px;vertical-align:1px}
 
 /* ── launch panel ── */
 .go-card{padding:24px;border-radius:var(--r-xl);text-align:left;
@@ -98,7 +91,7 @@ details.catalog .cat-body{padding:4px 22px 22px}
 .cat-chip .em{width:22px;text-align:center;font-size:15px;flex:none}
 
 /* ── scanning screen ── */
-#scanner{min-height:calc(100vh - 150px);display:grid;place-items:center}
+#scanner{min-height:calc(100vh / var(--z) - 190px);display:grid;place-items:center}
 .scan-card{width:min(560px,100%);padding:40px 34px 30px;text-align:center;border-radius:28px;animation:pop .35s var(--ease) both}
 .ring-wrap{position:relative;width:200px;height:200px;margin:0 auto 22px}
 .ring-wrap::before{content:"";position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(closest-side,var(--glow),transparent);animation:halo 2.4s ease-in-out infinite}
@@ -188,17 +181,17 @@ details.catalog .cat-body{padding:4px 22px 22px}
       </div>
 
       <div class="card" id="opts-card">
-        <div class="card-h" style="margin-bottom:10px"><div><h2 class="t3">Scan options</h2><div class="hint">Everything is on by default — turn off what you do not need.</div></div></div>
+        <div class="card-h" style="margin-bottom:10px"><div><h2 class="t3">Scan options</h2><div class="hint">Pick what to include. The defaults can be changed in Settings.</div></div></div>
         <div class="opts">
           <label class="opt"><span class="ico"><svg class="ic"><use href="#i-scan"/></svg></span>
             <span><div class="opt-t">Deep scan of the system drive</div><div class="opt-d">Root folders, big files, developer junk <span class="tag">1–3 min</span></div></span>
-            <span class="switch"><input type="checkbox" id="deep" checked><i></i></span></label>
+            <span class="switch"><input type="checkbox" id="deep"{{ ' checked' if S.scan_deep }}><i></i></span></label>
           <label class="opt"><span class="ico"><svg class="ic"><use href="#i-folder"/></svg></span>
             <span><div class="opt-t">Profile and AppData</div><div class="opt-d">Largest folders — view only, no “junk” labels</div></span>
-            <span class="switch"><input type="checkbox" id="profile" checked><i></i></span></label>
+            <span class="switch"><input type="checkbox" id="profile"{{ ' checked' if S.scan_profile }}><i></i></span></label>
           <label class="opt"><span class="ico"><svg class="ic"><use href="#i-copy"/></svg></span>
             <span><div class="opt-t">Duplicate files</div><div class="opt-d">In Downloads and Documents <span class="tag">+ a few seconds</span></div></span>
-            <span class="switch"><input type="checkbox" id="dups" checked><i></i></span></label>
+            <span class="switch"><input type="checkbox" id="dups"{{ ' checked' if S.scan_dups }}><i></i></span></label>
         </div>
       </div>
     </div>

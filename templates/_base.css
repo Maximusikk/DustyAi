@@ -6,6 +6,7 @@
    another brace or a percent sign (comment, expression and tag syntax) — put a space. */
 
 :root{
+  --z:1;  /* interface zoom factor, set from the saved setting */
   color-scheme:light dark;
   /* surfaces */
   --bg:#f2f4f9;--surface:#fff;--surface-2:#f6f8fc;--surface-3:#ebeff6;
@@ -52,11 +53,24 @@
   }
 }
 :root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark
+  --bg:#0a0d13;--surface:#11151d;--surface-2:#161b25;--surface-3:#1e2431;
+  --border:#222a38;--border-2:#303a4d;
+  --fg:#e9edf5;--fg-2:#bcc5d8;--muted:#8a95ac;--faint:#657187;
+  --accent:#3b78f8;--accent-ink:#8ab0ff;--accent-soft:#15213b;--accent-line:#25396a;--accent-track:#1a2a4a;
+  --glow:rgba(91,141,255,.12);--bg-glass:rgba(10,13,19,.86);
+  --ok-ink:#5fd68a;--ok-soft:#10261a;
+  --warn-ink:#f5c04a;--warn-soft:#2b2210;--warn-track:#33290f;
+  --danger-ink:#ff8d8d;--danger-soft:#33161a;--danger-track:#3b1b1e;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#6b7585;
+  --sh-1:none;--sh-2:none;--sh-3:0 30px 80px -16px rgba(0,0,0,.7);
+  --overlay:rgba(0,0,0,.62);
+}
 
 /* ───────── base ───────── */
 *,*::before,*::after{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;display:flex;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);
+html,body{height:100%;overflow:hidden}
+body{margin:0;display:block;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button,input,select{font-family:inherit}
 a{color:var(--accent-ink)}
@@ -90,8 +104,41 @@ button,.switch,.btn,.tab,.chip,.nav-i,.brand,.tag,.risk{user-select:none;-webkit
 .ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .ic.lg{width:22px;height:22px}.ic.sm{width:15px;height:15px}
 
-/* ───────── shell: sidebar + content ───────── */
-.side{width:244px;flex:none;height:100vh;position:sticky;top:0;display:flex;flex-direction:column;gap:4px;
+/* ───────── shell: zoom wrapper, title bar, sidebar + content ───────── */
+/* interface zoom (Ctrl +/−): CSS zoom on one wrapper, sized so that it always fills the window exactly */
+.app{zoom:var(--z);width:calc(100vw / var(--z));height:calc(100vh / var(--z));display:flex;flex-direction:column;overflow:hidden}
+.shell{flex:1;min-height:0;display:flex}
+/* custom title bar of the frameless app window */
+.tb{flex:none;height:44px;display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;background:var(--surface);
+  border-bottom:1px solid var(--border);position:relative;z-index:30;user-select:none;-webkit-user-select:none}
+.tb-drag{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:10px;cursor:default}
+.tb-logo{width:22px;height:22px;border-radius:7px;flex:none;box-shadow:0 4px 10px -4px rgba(79,109,245,.8)}
+.tb-title{font-weight:650;font-size:13px;letter-spacing:-.005em;color:var(--fg)}
+.tb-sub{font-size:12px;color:var(--faint)}
+.tb-zoom{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border)}
+.tb-zoom button{border:0;background:transparent;color:var(--muted);height:26px;min-width:28px;padding:0 6px;border-radius:8px;cursor:pointer;
+  font:600 12px/1 var(--font);display:inline-flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.tb-zoom button:hover:not(:disabled){background:var(--surface-3);color:var(--fg)}
+.tb-zoom button:disabled{opacity:.35;cursor:default}
+.tb-zoom .ic{width:15px;height:15px}
+.tb-zoom .zv{min-width:50px;font-variant-numeric:tabular-nums}
+.tb-btns{display:flex;align-items:center;gap:4px;margin-left:6px}
+.tb-btn{width:38px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.tb-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.tb-btn:hover{background:var(--surface-3);color:var(--fg)}
+.tb-btn:active{filter:brightness(.92)}
+.tb-btn.close:hover{background:#e5484d;color:#fff}
+.tb-btn:focus-visible,.tb-zoom button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* invisible edges for resizing the frameless window */
+.rz{position:fixed;z-index:80}
+.rz.n,.rz.s{left:8px;right:8px;height:5px;cursor:ns-resize}.rz.n{top:0}.rz.s{bottom:0}
+.rz.e,.rz.w{top:8px;bottom:8px;width:5px;cursor:ew-resize}.rz.e{right:0}.rz.w{left:0}
+.rz.ne,.rz.nw,.rz.se,.rz.sw{width:10px;height:10px}
+.rz.ne{top:0;right:0;cursor:nesw-resize}.rz.sw{bottom:0;left:0;cursor:nesw-resize}
+.rz.nw{top:0;left:0;cursor:nwse-resize}.rz.se{bottom:0;right:0;cursor:nwse-resize}
+.app.maxed ~ .rz{display:none}
+.side{width:244px;flex:none;height:100%;display:flex;flex-direction:column;gap:4px;
   padding:20px 14px 16px;background:var(--surface);border-right:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:12px;padding:4px 8px 22px;text-decoration:none;color:inherit}
 .logo{width:38px;height:38px;flex:none;display:block;border-radius:11px;box-shadow:0 8px 18px -8px rgba(79,109,245,.75)}
@@ -114,7 +161,7 @@ button,.switch,.btn,.tab,.chip,.nav-i,.brand,.tag,.risk{user-select:none;-webkit
 .side .btn.side-btn{width:100%;height:auto;min-height:38px;padding:8px 12px;justify-content:flex-start;white-space:normal;text-align:left;line-height:1.25}
 .side .btn.side-btn span{max-width:150px}
 
-main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(900px 360px at 80% -160px,var(--glow),transparent 70%) no-repeat}
+main{flex:1;min-width:0;height:100%;overflow-y:auto;background:radial-gradient(900px 360px at 80% -160px,var(--glow),transparent 70%) no-repeat}
 .wrap{max-width:1200px;margin:0 auto;padding:34px 40px 110px;animation:rise .45s var(--ease) both}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -134,7 +181,7 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:radial-gradient(
 }
 /* a top bar on a very narrow window (--browser mode) */
 @media (max-width:720px){
-  body{flex-direction:column}
+  .shell{flex-direction:column}
   .side{width:100%;height:auto;position:static;flex-direction:row;align-items:center;gap:6px;padding:10px 14px;
     border-right:0;border-bottom:1px solid var(--border)}
   .brand{padding:0 8px 0 0}
@@ -325,3 +372,12 @@ input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
   .btn,.card,.chip,.seg,.tab.on::after,.meter,.risk,.tag{border:1px solid CanvasText}
   .meter i{background:Highlight}
 }
+
+/* ───────── option rows (home and settings) ───────── */
+.opts{display:flex;flex-direction:column}
+.opt{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 0;border-top:1px solid var(--border);cursor:pointer}
+.opt:first-child{border-top:0;padding-top:2px}.opt:last-child{padding-bottom:2px}
+.opt .ico{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+.opt .ico .ic{width:19px;height:19px}
+.opt-t{font-weight:600}.opt-d{color:var(--muted);font-size:13px;margin-top:1px}
+.opt-d .tag{margin-left:6px;vertical-align:1px}

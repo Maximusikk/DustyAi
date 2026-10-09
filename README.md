@@ -41,6 +41,8 @@ On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
 ## Features
 
+- **Custom window:** its own dark/light title bar with minimize/maximize/close buttons and a zoom control; **Ctrl + / − / 0** and **Ctrl + wheel** scale the interface like in a browser. The system title bar can be restored in Settings (or with `--native-frame`)
+- **Settings:** theme (system/light/dark), interface scale, scan defaults, how many scans to keep, Cloudflare AI keys, data folder. Settings, history and keys are stored in `%LOCALAPPDATA%\DustyAi` (change with the `DUSTYAI_DATA` variable)
 - **Summary at a glance:** how much can be freed, how much of it is safe and how much free space the drive will have; the A/B/C tiles also filter the table
 - **Drive selection:** C, D or several at once; the report can switch between drives
 - **Whole-drive overview** (including the system drive, except the Windows folder): largest root folders (e.g. `C:\llama`), files of 500 MB+ with type detection (AI model, VM/WSL image, archive, dump…), `node_modules`/`venv`/`__pycache__`, recycle bin. Folders of installed programs are protected: `node_modules` inside Program Files and AppData is never offered for deletion
@@ -67,7 +69,7 @@ The **“✨ AI analysis”** button above the report tabs asks Llama 3.2 3B on 
 1. Sign up or log in at [dash.cloudflare.com](https://dash.cloudflare.com) (the free plan is enough; Workers AI has a free daily limit).
 2. **Account ID:** on the account home page, on the right, or under *Workers & Pages → Overview*.
 3. **API token:** *My Profile → API Tokens → Create Token → Create Custom Token*. Permission: **Account → Workers AI → Read** (enough to run models; on a 403 error pick the “Workers AI” template). Copy the token — it is shown only once.
-4. Copy `.env.example` to `.env` and fill in the values:
+4. Open **Settings → AI analysis** and paste the values — or copy `.env.example` to `.env` (next to `DustyAi.exe`, or into `%LOCALAPPDATA%\DustyAi`) and fill them in:
 
 ```
 CF_ACCOUNT_ID=your_account_id
@@ -92,7 +94,7 @@ Without keys the button shows `CF_API_TOKEN not set`. Endpoint: `GET /api/ai-sum
 
 ## Layout
 
-`app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py`, `catalog_extra.py` — catalog of locations · `templates/` — UI · `assets/` — logo and app icon
+`settings.py` — user settings and data folder · `winchrome.py` — move/resize of the frameless window · `app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py`, `catalog_extra.py` — catalog of locations · `templates/` — UI · `assets/` — logo and app icon
 
 ### Interface
 
