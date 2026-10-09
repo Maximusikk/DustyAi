@@ -80,7 +80,9 @@ MOCK_LOCKED = {
         {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""},
         {"pid": 1200, "app": "Windows Explorer", "proc": "explorer", "protected": True, "why": "system process"}]},
     "chrome_ai_model": {"files": ["weights.bin"], "procs": [
-        {"pid": 4242, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""}]},
+        {"pid": 4242 + i, "app": "Google Chrome", "proc": "chrome", "protected": False, "why": ""} for i in range(23)]
+        + [{"pid": 5151, "app": "PyCharm", "proc": "pycharm64", "protected": False, "why": ""},
+           {"pid": 1200, "app": "Windows Explorer", "proc": "explorer", "protected": True, "why": "system process"}]},
 }
 
 
@@ -1036,6 +1038,33 @@ def perform_delete(item_id, running=None):
     return out, 200
 
 
+def refresh_free(freed_gb):
+    """Re-reads free space of the scanned drives after a deletion, stores it in the report and returns
+    (before, after) — sums over the scanned drives, GB."""
+    with _lock:
+        sel = set(scan_data.get("scanned", []))
+        mock = scan_data.get("mock", False)
+        before = sum(d.get("FreeGB", 0) for d in scan_data.get("drives", []) if d["Name"] in sel)
+    fresh = {} if mock else {d["Name"]: d for d in get_drives(force=True)}
+    with _lock:
+        first = True
+        for d in scan_data.get("drives", []):
+            if d["Name"] not in sel:
+                continue
+            if mock:  # demo: pretend the freed space shows up on the first scanned drive
+                if first:
+                    d["FreeGB"] = round(d["FreeGB"] + freed_gb, 1)
+                    d["UsedGB"] = round(d.get("UsedGB", 0) - freed_gb, 1)
+                    d["Pct"] = round(d["UsedGB"] / d["TotalGB"] * 100) if d.get("TotalGB") else d.get("Pct")
+                first = False
+            elif d["Name"] in fresh:
+                for k in ("FreeGB", "UsedGB", "TotalGB", "Pct"):
+                    if k in fresh[d["Name"]]:
+                        d[k] = fresh[d["Name"]][k]
+        after = sum(d.get("FreeGB", 0) for d in scan_data.get("drives", []) if d["Name"] in sel)
+    return round(before, 2), round(after, 2)
+
+
 def lock_info(item_id, skipped, paths):
     """Who holds the skipped files. The process list is remembered on the server: only those
     can be closed afterwards (the client sends a pid, but we check it against this list)."""
@@ -1078,7 +1107,8 @@ def delete_batch():
         payload, _ = perform_delete(item_id, running)
         results.append(payload)
     freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 4)
-    return jsonify(ok=True, results=results, freed_gb=freed,
+    before, after = refresh_free(freed)
+    return jsonify(ok=True, results=results, freed_gb=freed, free_before=before, free_after=after,
                    failed=[r for r in results if not r["ok"] and not r.get("locked")])
 
 
@@ -1098,7 +1128,7 @@ def unlock_retry():
         for i in ids:
             allowed.update(scan_data.get("_locks", {}).get(i, {}))
     pids = sorted(want & set(allowed))
-    closed, still = [], []
+    closed, still, still_apps = [], [], []
     if pids and mock:
         closed = [allowed[p]["app"] for p in pids]
         _mock_unlocked.update(ids)
@@ -1107,11 +1137,13 @@ def unlock_retry():
         safe = [p for p in pids if now.get(p) and now[p] == (allowed[p].get("proc") or "").lower()]
         still = close_processes(safe, force)
         closed = [allowed[p]["app"] for p in safe if p not in still]
+        still_apps = sorted({allowed[p]["app"] or allowed[p]["proc"] for p in still})
     running = running_names()
     results = [perform_delete(i, running)[0] for i in ids]
     freed = round(sum(r.get("freed_gb", 0) for r in results if r["ok"]), 4)
-    return jsonify(ok=True, results=results, freed_gb=freed, closed=closed, still_running=still,
-                   failed=[r for r in results if not r["ok"] and not r.get("locked")])
+    before, after = refresh_free(freed)
+    return jsonify(ok=True, results=results, freed_gb=freed, closed=sorted(set(closed)), still_running=still, still_apps=still_apps,
+                   free_before=before, free_after=after, failed=[r for r in results if not r["ok"] and not r.get("locked")])
 
 
 # ───────────────────────────── settings, window controls ─────────────────────────────
