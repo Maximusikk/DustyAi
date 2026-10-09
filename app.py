@@ -180,9 +180,15 @@ def scan_programs():
         "Select DisplayName, DisplayVersion, InstallLocation, DisplayIcon, UninstallString,"
         "@{n='SizeMB';e={[math]::Round($_.EstimatedSize/1024,0)}} | ConvertTo-Json -Compress"
     )
+    # several programs can share one folder (Adobe apps all list C:\\Program Files\\Adobe): its size belongs to
+    # none of them in particular, so only a folder used by a single program is measured; the rest keep the registry size
+    norm = lambda l: os.path.normcase(os.path.normpath(l.strip('"'))) if l else ""
+    uses = {}
+    for p in programs:
+        uses[norm(p.get("InstallLocation"))] = uses.get(norm(p.get("InstallLocation")), 0) + 1
     for p in programs:
         loc = p.get("InstallLocation")
-        if loc and os.path.isdir(loc):  # the registry lies: take the real folder size
+        if loc and os.path.isdir(loc) and uses[norm(loc)] == 1:  # the registry lies: take the real folder size
             p["SizeMB"] = round(folder_size(loc, 10) / 1024 ** 2)
         m = re.match(r'^"?([^",]+\.(?:exe|ico))', p.get("DisplayIcon") or "", re.I)
         p["icon_src"] = m.group(1) if m else None
