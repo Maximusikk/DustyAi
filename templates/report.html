@@ -72,11 +72,12 @@
 .insights{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;margin-bottom:26px;align-items:stretch}
 .comp-total{text-align:right;line-height:1.2}.comp-total small{display:block;color:var(--muted);font-size:12px}.comp-total b{font-size:21px;font-weight:700;letter-spacing:-.01em}
 .stackbar{display:flex;gap:2px;height:18px;margin:4px 0 16px}
-.stackbar i{display:block;height:100%;min-width:4px;flex-basis:0;transition:opacity .15s,filter .15s;cursor:default}
+.stackbar i{display:block;height:100%;min-width:4px;flex-basis:0;transition:opacity .15s,filter .15s;cursor:pointer}
+.stackbar i:focus-visible,.leg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .stackbar i:first-child{border-radius:9px 3px 3px 9px}.stackbar i:last-child{border-radius:3px 9px 9px 3px}.stackbar i:only-child{border-radius:9px}
 .stackbar.dim i{opacity:.28}.stackbar.dim i.hl{opacity:1}
 .legend{display:flex;flex-direction:column;gap:1px}
-.leg{display:grid;grid-template-columns:12px minmax(0,1fr) auto 44px;gap:11px;align-items:center;padding:6px 8px;margin:0 -8px;border-radius:9px;cursor:default;transition:background .12s}
+.leg{cursor:pointer;display:grid;grid-template-columns:12px minmax(0,1fr) auto 44px;gap:11px;align-items:center;padding:6px 8px;margin:0 -8px;border-radius:9px;transition:background .12s}
 .leg:hover,.leg.hl{background:var(--surface-2)}
 .leg i{width:10px;height:10px;border-radius:3px}
 .leg b{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -123,6 +124,8 @@
 .tbl tbody tr:last-child td{border-bottom:0}
 .tbl tr.row:hover td{background:var(--surface-2)}
 .tbl tr.row.sel td{background:var(--accent-soft)}
+.tbl tr.row.flash td{animation:rowflash 2.2s var(--ease)}
+@keyframes rowflash{0%,55%{background:var(--accent-soft);box-shadow:inset 0 1px 0 var(--accent),inset 0 -1px 0 var(--accent)}100%{background:transparent;box-shadow:none}}
 .tbl .r{text-align:right}
 .tbl.ro .c-ck{display:none}
 .nm{display:flex;gap:12px;align-items:center;min-width:0}
@@ -517,24 +520,42 @@ function renderDisk(S){
 
 /* ── composition: stacked bar + legend (parts of a whole, ≤7 categories + “Other”) ── */
 function renderComp(S){
-  const base = S.rows.filter(r => r.kind !== 'temp' && r.size_gb > 0).map(r => ({name: r.name, v: r.size_gb}));
-  if(S.dupGb > 0) base.push({name: 'Duplicate files (extra copies)', v: S.dupGb});   // so the total matches “Can be freed”
+  const base = S.rows.filter(r => r.kind !== 'temp' && r.size_gb > 0).map(r => ({name: r.name, v: r.size_gb, id: r.id}));
+  if(S.dupGb > 0) base.push({name: 'Duplicate files (extra copies)', v: S.dupGb, tab: 'dups'});   // so the total matches “Can be freed”
   base.sort((a, b) => b.v - a.v);
   const top = base.slice(0, 7), rest = base.slice(7).reduce((s, r) => s + r.v, 0);
-  const parts = top.map((r, i) => ({name: r.name, v: r.v, c: `var(${SLOTS[i]})`}));
-  if(rest > 0) parts.push({name: 'Other', v: rest, c: 'var(--s8)'});
+  const parts = top.map((r, i) => ({name: r.name, v: r.v, id: r.id, tab: r.tab, c: `var(${SLOTS[i]})`}));
+  if(rest > 0) parts.push({name: 'Other', v: rest, c: 'var(--s8)', tab: 'clean'});
   const total = parts.reduce((s, p) => s + p.v, 0);
   $('#comp-total').textContent = total ? fmt(total) : '—';
   const pct = p => { const x = p.v / total * 100; return x < 1 ? '<1%' : Math.round(x) + '%' };
-  $('#comp-bar').innerHTML = parts.map((p, i) => `<i role="img" data-i="${i}" style="flex-grow:${p.v};background:${p.c}" tabindex="0" aria-label="${esc(p.name)}: ${fmt(p.v)}, ${pct(p)}"></i>`).join('');
-  $('#legend').innerHTML = parts.map((p, i) => `<div class="leg" data-i="${i}"><i style="background:${p.c}"></i><span class="cut" title="${esc(p.name)}">${esc(p.name)}</span><b>${fmt(p.v)}</b><small>${pct(p)}</small></div>`).join('')
+  $('#comp-bar').innerHTML = parts.map((p, i) => `<i role="img" data-i="${i}" style="flex-grow:${p.v};background:${p.c}" tabindex="0" role="button" aria-label="${esc(p.name)}: ${fmt(p.v)}, ${pct(p)}. Click to show in the list"></i>`).join('');
+  $('#legend').innerHTML = parts.map((p, i) => `<div class="leg" data-i="${i}" tabindex="0" role="button" title="Show in the list"><i style="background:${p.c}"></i><span class="cut" title="${esc(p.name)}">${esc(p.name)}</span><b>${fmt(p.v)}</b><small>${pct(p)}</small></div>`).join('')
     || '<div class="empty" style="padding:24px 0">No data</div>';
   const hl = (i, on) => { $('#comp-bar').classList.toggle('dim', on);
     $$('#comp-bar i').forEach(c => c.classList.toggle('hl', on && c.dataset.i == i)); $$('.leg').forEach(l => l.classList.toggle('hl', on && l.dataset.i == i)) };
   $$('#comp-bar i, .leg').forEach(el => {
     el.onmouseenter = () => hl(el.dataset.i, true); el.onmouseleave = () => { hl(0, false); tipOff() }; el.onfocus = () => hl(el.dataset.i, true); el.onblur = () => hl(0, false);
   });
-  $$('#comp-bar i').forEach(el => { const p = parts[el.dataset.i]; el.onmousemove = e => tipOn(e, `${p.name}: ${fmt(p.v)} · ${pct(p)}`) });
+  $$('#comp-bar i').forEach(el => { const p = parts[el.dataset.i]; el.onmousemove = e => tipOn(e, `${p.name}: ${fmt(p.v)} · ${pct(p)} — click to show`) });
+  $$('#comp-bar i, .leg').forEach(el => {
+    const go = () => { tipOff(); goToPart(parts[el.dataset.i]) };
+    el.onclick = go; el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go() } };
+  });
+}
+
+/* click on a chart segment / legend entry → jump to that item in the table (or to its tab) and flash it */
+function goToPart(p){
+  if(!p) return;
+  if(p.tab && p.tab !== 'clean'){ switchTab(p.tab); toTabs(); return }
+  const row = p.id && ROWS.find(r => r.id === p.id);
+  if(row && riskF !== 'ALL' && row.cat !== riskF){ riskF = 'ALL'; renderKpis(summary()); renderRiskChips(); renderRows(); updateSelBar() }
+  switchTab('clean');
+  const tr = p.id && [...document.querySelectorAll('#rows tr')].find(t => t.dataset.id === p.id);
+  if(!tr){ toTabs(); return }
+  tr.scrollIntoView({behavior: reduceMotion() ? 'auto' : 'smooth', block: 'center'});
+  tr.classList.remove('flash'); void tr.offsetWidth; tr.classList.add('flash');
+  setTimeout(() => tr.classList.remove('flash'), 2200);
 }
 
 /* ── recycle bin: one card per scanned drive ── */
