@@ -18,6 +18,7 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 import catalog
 import scanners
+import mcp_server
 import settings
 import winchrome
 from util import (IS_WINDOWS, drive_of, expand, expand_all, extract_icons, first_existing, folder_size, gb, list_drives,
@@ -783,20 +784,23 @@ def api_drives():
     return jsonify(drives=drives, system=system_drive() if IS_WINDOWS else "C")
 
 
+def start_scan(letters, dups=True, profile=True, deep_system=True):
+    """Starts a scan in a background thread. Returns False if one is already running."""
+    letters = [str(x).upper()[:1] for x in letters or []] or [system_drive() if IS_WINDOWS else "C"]
+    with _lock:
+        if scan_state["status"] == "scanning":
+            return False
+        scan_state.update(status="scanning", progress=0, message="Starting…", phases=[], eta=None, detail="")
+    opts = {"drives": letters, "dups": bool(dups), "profile": bool(profile), "deep_system": bool(deep_system)}
+    threading.Thread(target=do_scan, args=(opts,), daemon=True).start()
+    return True
+
+
 @app.post("/scan")
 def scan():
     body = request.get_json(silent=True) or {}
-    letters = [str(x).upper()[:1] for x in body.get("drives") or []]
-    if not letters:
-        letters = [system_drive() if IS_WINDOWS else "C"]
-    with _lock:
-        if scan_state["status"] == "scanning":
-            return jsonify(ok=True, already=True)
-        scan_state.update(status="scanning", progress=0, message="Starting…", phases=[], eta=None, detail="")
-    opts = {"drives": letters, "dups": bool(body.get("dups", True)), "profile": bool(body.get("profile", True)),
-            "deep_system": bool(body.get("deep_system", True))}
-    threading.Thread(target=do_scan, args=(opts,), daemon=True).start()
-    return jsonify(ok=True)
+    started = start_scan(body.get("drives"), body.get("dups", True), body.get("profile", True), body.get("deep_system", True))
+    return jsonify(ok=True) if started else jsonify(ok=True, already=True)
 
 
 @app.get("/status")
@@ -1170,7 +1174,10 @@ def settings_page():
           "model": cf_setting("CF_MODEL") or CF_MODEL}
     return render_template("settings.html", active="settings", history_count=len(history),
                            history_mb=round(size / 1024 ** 2, 1), data_dir=settings.DATA_DIR, ai=ai,
-                           history_choices=settings.HISTORY_CHOICES)
+                           history_choices=settings.HISTORY_CHOICES,
+                           mcp={"exe": sys.executable if getattr(sys, "frozen", False) else None,
+                                "script": os.path.abspath(__file__), "python": sys.executable,
+                                "url": request.host_url + "mcp", "token": mcp_server.token()})
 
 
 @app.get("/api/settings")
@@ -1364,6 +1371,46 @@ def uninstall():
         return err(f"Could not start the uninstaller: {e}", 500)
 
 
+# ─────────────────────────────── MCP: AI agents use the same engine ───────────────────────────────
+
+mcp_server.bind(sys.modules[__name__])
+
+
+@app.route("/mcp", methods=["POST", "GET", "DELETE"])
+def mcp_http():
+    """MCP over HTTP (Streamable HTTP, JSON responses only) for agents that connect to the running app by URL."""
+    if not mcp_server.authorized(request.headers, request.host):
+        return jsonify(error="unauthorized"), 401
+    if request.method != "POST":
+        return "", 405
+    resp = mcp_server.handle_payload(request.get_json(silent=True))
+    return ("", 202) if resp is None else jsonify(resp)
+
+
+@app.post("/api/open-link")
+def api_open_link():
+    """Opens an "add to Cursor / VS Code" link with the system's handler for that scheme."""
+    if cross_site():
+        return err("forbidden", 403)
+    url = str((request.get_json(silent=True) or {}).get("url") or "")
+    if not url.startswith(("cursor://anysphere.cursor-deeplink/mcp/install?", "vscode:mcp/install?")) or len(url) > 4000:
+        return err("Unsupported link", 400)
+    if not IS_WINDOWS:
+        return err("Only available on Windows — copy the config instead", 400)
+    try:
+        os.startfile(url)  # noqa: S606 — only the two fixed install-link prefixes above
+    except OSError:
+        return err("No app is registered for this link", 409)
+    return jsonify(ok=True)
+
+
+@app.post("/api/mcp-token")
+def api_mcp_token():
+    if cross_site():
+        return err("forbidden", 403)
+    return jsonify(ok=True, token=mcp_server.token(regenerate=True))
+
+
 # ─────────────────────────────── launching in a window ───────────────────────────────
 
 def free_port(preferred=PORT):
@@ -1398,6 +1445,9 @@ def window_background():
 
 def main():
     """Flask in a background thread + a native window (pywebview). Without pywebview — the browser."""
+    if "--mcp" in sys.argv:  # an AI agent started us: speak MCP over stdin/stdout, no window
+        mcp_server.run_stdio()
+        return
     from werkzeug.serving import make_server
     port = free_port()
     server = make_server(HOST, port, app, threaded=True)

@@ -27,6 +27,12 @@
 .about{display:flex;gap:16px;align-items:center;padding:4px 0 14px}
 .about .logo{width:54px;height:54px;border-radius:16px}
 .about b{font-size:17px;font-weight:700}.about small{display:block;color:var(--muted);margin-top:1px}
+.code{position:relative;margin-top:10px}
+.code pre{margin:0;padding:14px 92px 14px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font:12.5px/1.55 var(--mono);color:var(--fg-2);overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+.code .btn{position:absolute;top:8px;right:8px}
+.mcp-tabs{margin-top:12px}
+.mcp-note{display:flex;gap:10px;align-items:flex-start;margin-top:12px;color:var(--muted);font-size:13px}
+.mcp-note .ic{width:16px;height:16px;flex:none;margin-top:2px;color:var(--ok-ink)}
 .path-box{font:12.5px/1.4 var(--mono);color:var(--muted);word-break:break-all}
 @media (max-width:720px){.srow{grid-template-columns:1fr}.srow .sc{justify-content:flex-start}.ai-form{grid-template-columns:1fr}}
 </style>{% endblock %}
@@ -77,6 +83,19 @@
         <button type="button" class="btn sm" id="clear-hist" style="color:var(--danger-ink)" {{ 'disabled' if not history_count }}><svg class="ic"><use href="#i-trash"/></svg>Clear history</button></div></div>
   </section>
 
+  <section class="card" id="agents">
+    <div class="card-h"><div><h2 class="t3">AI agents (MCP)</h2><div class="hint">Let Claude, Cursor, VS Code and other AI agents look at your disk and clean it through {{ APP_NAME }}.</div></div></div>
+    <div class="opts"><label class="opt"><span class="ico"><svg class="ic"><use href="#i-sparkles"/></svg></span>
+      <span><div class="opt-t">Allow AI agents to clean up</div><div class="opt-d">Off: agents can only scan and report. On: they can delete risk-A items (caches, Temp, recycle bin) after a dry run.</div></span>
+      <span class="switch"><input type="checkbox" data-set="mcp_allow_delete" {{ 'checked' if S.mcp_allow_delete }}><i></i></span></label></div>
+    <div class="seg mcp-tabs" id="mcp-tabs" role="tablist" aria-label="Agent">
+      <button type="button" class="on" data-m="claude-desktop">Claude Desktop</button><button type="button" data-m="claude-code">Claude Code</button>
+      <button type="button" data-m="cursor">Cursor</button><button type="button" data-m="vscode">VS Code</button><button type="button" data-m="http">By URL</button></div>
+    <div class="code"><pre id="mcp-code"></pre><button type="button" class="btn sm" id="mcp-copy"><svg class="ic"><use href="#i-copy"/></svg>Copy</button></div>
+    <div class="ai-acts" id="mcp-extra"></div>
+    <div class="mcp-note"><svg class="ic"><use href="#i-shield-check"/></svg><span>Agents work with item ids from the scan, never with paths; they never close programs and cannot touch Downloads, big files, duplicates or installed programs. Every action is logged in the data folder (<span class="mono">agent_log.jsonl</span>).</span></div>
+  </section>
+
   <section class="card">
     <div class="card-h"><div><h2 class="t3">AI analysis</h2><div class="hint">Optional. On click, only names and sizes of the largest findings (no file paths) are sent to Cloudflare Workers AI.</div></div>
       <span class="pill {{ 'ok' if ai.account and ai.token else 'off' }}" id="ai-pill">{{ 'Connected' if ai.account and ai.token else 'Not configured' }}</span></div>
@@ -99,6 +118,7 @@
 </div>
 {% endblock %}
 {% block script %}<script>
+const MCP = {{ mcp|tojson }};
 const save = async (obj, msg) => {
   try{
     const j = await (await post('/api/settings', obj)).json();
@@ -142,6 +162,42 @@ $('#clear-hist').onclick = () => {
     else toast('Could not clear the history', true);
   };
 };
+
+/* AI agents (MCP) */
+const NAME = 'dusty-ai';
+const cmd = MCP.exe || MCP.python, args = MCP.exe ? ['--mcp'] : [MCP.script, '--mcp'];
+const q = x => /\s/.test(x) ? `"${x}"` : x;
+const stdioJson = key => JSON.stringify({[key]: {[NAME]: key === 'servers' ? {type: 'stdio', command: cmd, args} : {command: cmd, args}}}, null, 2);
+const MODES = {
+  'claude-desktop': {code: () => stdioJson('mcpServers'), hint: 'Add this to claude_desktop_config.json (Settings → Developer → Edit Config), then restart Claude Desktop.'},
+  'claude-code': {code: () => `claude mcp add ${NAME} -- ${[cmd, ...args].map(q).join(' ')}`, hint: 'Run this once in a terminal.'},
+  'cursor': {code: () => stdioJson('mcpServers'), hint: 'Add this to ~/.cursor/mcp.json, or use the button.', link: () => 'cursor://anysphere.cursor-deeplink/mcp/install?name=' + NAME + '&config=' + btoa(JSON.stringify({command: cmd, args})), linkLabel: 'Add to Cursor'},
+  'vscode': {code: () => stdioJson('servers'), hint: 'Add this to .vscode/mcp.json, or use the button.', link: () => 'vscode:mcp/install?' + encodeURIComponent(JSON.stringify({name: NAME, type: 'stdio', command: cmd, args})), linkLabel: 'Add to VS Code'},
+  'http': {code: () => `claude mcp add --transport http ${NAME} ${MCP.url} --header "Authorization: Bearer ${MCP.token}"\n\n` + JSON.stringify({mcpServers: {[NAME]: {url: MCP.url, headers: {Authorization: 'Bearer ' + MCP.token}}}}, null, 2),
+    hint: 'Works while the app is running. The token protects the endpoint from other programs and web pages.', token: true},
+};
+let mode = 'claude-desktop';
+function paintMcp(){
+  const m = MODES[mode];
+  $('#mcp-code').textContent = m.code();
+  $('#mcp-extra').innerHTML = `<span class="muted" style="font-size:13px;flex:1;min-width:200px">${esc(m.hint)}</span>`
+    + (m.link ? `<button type="button" class="btn sm" id="mcp-link">${esc(m.linkLabel)}</button>` : '')
+    + (m.token ? '<button type="button" class="btn sm" id="mcp-regen">New token</button>' : '');
+  $('#mcp-link')?.addEventListener('click', async () => {
+    const j = await (await post('/api/open-link', {url: m.link()})).json().catch(() => ({}));
+    if(!j.ok) toast(j.error || 'Could not open the link — copy the config instead', true);
+  });
+  $('#mcp-regen')?.addEventListener('click', async () => {
+    const j = await (await post('/api/mcp-token', {})).json().catch(() => ({}));
+    if(j.ok){ MCP.token = j.token; paintMcp(); toast('New token created — update your agent config') }
+  });
+}
+$$('#mcp-tabs button').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; $$('#mcp-tabs button').forEach(x => x.classList.toggle('on', x === b)); paintMcp() }));
+$('#mcp-copy').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText($('#mcp-code').textContent); toast('Copied') }
+  catch(_){ const r = document.createRange(); r.selectNodeContents($('#mcp-code')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Press Ctrl+C to copy', 'info') }
+});
+paintMcp();
 
 /* AI keys */
 $('#ai-save').onclick = async () => {

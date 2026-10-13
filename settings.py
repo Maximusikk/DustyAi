@@ -29,6 +29,7 @@ DEFAULTS = {
     "scan_profile": True,
     "scan_dups": True,
     "history_keep": 20,      # how many scans to keep
+    "mcp_allow_delete": False,  # AI agents (MCP) may delete safe items; off = they can only look
 }
 ZOOM_STEPS = [70, 80, 90, 100, 110, 125, 150, 175, 200]
 HISTORY_CHOICES = [5, 10, 20, 50]
@@ -46,7 +47,7 @@ def _clean(key, value):
     if key == "history_keep":
         return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) \
             and int(value) in HISTORY_CHOICES else None
-    if key in ("native_frame", "scan_deep", "scan_profile", "scan_dups"):
+    if key in ("native_frame", "scan_deep", "scan_profile", "scan_dups", "mcp_allow_delete"):
         return value if isinstance(value, bool) else None
     return None
 

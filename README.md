@@ -39,6 +39,17 @@ python app.py --browser   # same thing in a browser tab
 Build a single `.exe` locally: `build.bat` → `dist\DustyAi.exe` (PyInstaller, with the icon from `assets/dustyai.ico`).
 On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
+## Use it from AI agents (MCP)
+
+Dusty Ai is an [MCP](https://modelcontextprotocol.io) server too, so Claude, Cursor, VS Code and other agents can check your disk and clean it. The same `DustyAi.exe` does it — no second program:
+
+- **stdio:** the agent starts `DustyAi.exe --mcp` itself. **Settings → AI agents** has ready-to-copy configs (Claude Desktop, Claude Code, Cursor, VS Code) with your real path filled in.
+- **By URL:** while the app is running, agents can use `http://127.0.0.1:5000/mcp` with the bearer token shown in Settings.
+
+Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`.
+
+Safety: agents can only **look** until you switch on *Allow AI agents to clean up*. Even then they work with item ids (not paths), only for risk-A caches/Temp/recycle bin (risk B needs an explicit flag), `clean` is a dry run by default, programs are never closed, Downloads/big files/duplicates/programs are out of reach, and every action is logged to `agent_log.jsonl` in the data folder.
+
 ## Features
 
 - **Custom window:** its own dark/light title bar with minimize/maximize/close buttons and a zoom control; **Ctrl + / − / 0** and **Ctrl + wheel** scale the interface like in a browser. The system title bar can be restored in Settings (or with `--native-frame`)
@@ -94,7 +105,7 @@ Without keys the button shows `CF_API_TOKEN not set`. Endpoint: `GET /api/ai-sum
 
 ## Layout
 
-`settings.py` — user settings and data folder · `winchrome.py` — move/resize of the frameless window · `app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py`, `catalog_extra.py` — catalog of locations · `templates/` — UI · `assets/` — logo and app icon
+`mcp_server.py` — MCP server for AI agents · `settings.py` — user settings and data folder · `winchrome.py` — move/resize of the frameless window · `app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py`, `catalog_extra.py` — catalog of locations · `templates/` — UI · `assets/` — logo and app icon
 
 ### Interface
 
