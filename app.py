@@ -31,6 +31,15 @@ app = Flask(__name__)
 app.jinja_env.globals.update(APP_NAME=APP_NAME, IS_ADMIN=ADMIN, CAN_ELEVATE=IS_WINDOWS and not ADMIN)
 
 
+def _num(v):
+    """A number from whatever a saved report holds (None, a string, NaN …); 0 if it is not a usable number."""
+    try:
+        x = float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return x if x == x and abs(x) != float("inf") else 0.0
+
+
 def _group(s):
     """“1443.5” → “1,443.5”: thousands separated by commas, decimal point."""
     whole, _, frac = s.partition(".")
@@ -43,7 +52,7 @@ def size_filter(g):
     """GB → “512 MB” / “1.4 GB”: small sizes in gigabytes would look like “0.0”. The non-breaking space
     keeps the number attached to its unit when the line wraps.
     Precision: ≥100 GB — whole numbers, ≥10 — one decimal, otherwise two."""
-    g = g or 0
+    g = _num(g)
     if g < 1:
         return f"{round(g * 1024)}\u00a0MB"
     s = f"{g:.{0 if g >= 100 else 1 if g >= 10 else 2}f}"
@@ -55,7 +64,7 @@ def size_filter(g):
 @app.template_filter("num")
 def num_filter(v, digits=1):
     """Number without trailing zeros: 103.0 → “103”, 7.60 → “7.6”."""
-    s = f"{(v or 0):.{digits}f}"
+    s = f"{_num(v):.{digits}f}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
     return _group(s or "0")
@@ -508,6 +517,37 @@ def do_scan(opts):
         set_state(status="error", message=f"Scan error: {e}")
 
 
+# ───────────────────────────── errors: log them, never show a bare 500 ─────────────────────────────
+
+APP_LOG = os.path.join(settings.DATA_DIR, "app.log")
+
+
+@app.errorhandler(Exception)
+def on_error(e):
+    """The exe has no console, so an unexpected error would vanish. Write it to app.log and show what happened."""
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    import html
+    import traceback
+    tb = traceback.format_exc()
+    try:
+        os.makedirs(settings.DATA_DIR, exist_ok=True)
+        with open(APP_LOG, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {request.method} {request.path}\n{tb}\n")
+    except OSError:
+        pass
+    msg = f"{type(e).__name__}: {e}"
+    if request.path.startswith(("/api/", "/delete", "/scan", "/status", "/open", "/uninstall", "/mcp")):
+        return jsonify(ok=False, error=msg), 500
+    return ("<!doctype html><meta charset=utf-8><title>Something went wrong</title>"
+            "<body style='font:15px/1.6 Segoe UI,sans-serif;max-width:720px;margin:12vh auto;padding:0 24px;color:#222'>"
+            "<h2>Something went wrong</h2><p>The page could not be shown. The details were saved to the log, "
+            f"so the problem can be fixed.</p><p><b>{html.escape(msg)}</b></p>"
+            f"<details><summary>Technical details</summary><pre style='white-space:pre-wrap'>{html.escape(tb)}</pre></details>"
+            f"<p>Log file: <code>{html.escape(APP_LOG)}</code></p><p><a href='/'>Back to the start page</a></p>"), 500
+
+
 # ───────────────────────────── history and export ─────────────────────────────
 
 def public_data(d):
@@ -535,11 +575,11 @@ def list_history(limit=3):
         try:
             with open(os.path.join(SCANS_DIR, name), encoding="utf-8") as f:
                 d = json.load(f)
-            rows.append({"name": name, "scanned_at": d.get("scanned_at"), "total_gb": d.get("total_gb"),
+            rows.append({"name": name, "scanned_at": str(d.get("scanned_at") or ""), "total_gb": d.get("total_gb"),
                          "free_c": d.get("free_c"), "mock": d.get("mock"),
-                         "drives": ", ".join(x + ":" for x in d.get("scanned", ["C"]))})
-        except (OSError, ValueError):
-            continue
+                         "drives": ", ".join(str(x) + ":" for x in d.get("scanned") or ["C"])})
+        except (OSError, ValueError, AttributeError, TypeError):
+            continue  # an unreadable or foreign file must not break the whole page
     return rows
 
 
