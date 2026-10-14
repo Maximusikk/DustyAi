@@ -101,16 +101,11 @@
     <div class="mcp-note"><svg class="ic"><use href="#i-shield-check"/></svg><span>Agents work with item ids from the scan, never with paths; they never close programs and cannot touch Downloads, big files, duplicates or installed programs. Every action is logged in the data folder (<span class="mono">agent_log.jsonl</span>).</span></div>
   </section>
 
-  <section class="card">
-    <div class="card-h"><div><h2 class="t3">AI analysis</h2><div class="hint">Optional. On click, only names and sizes of the largest findings (no file paths) are sent to Cloudflare Workers AI.</div></div>
-      <span class="pill {{ 'ok' if ai.account and ai.token else 'off' }}" id="ai-pill">{{ 'Connected' if ai.account and ai.token else 'Not configured' }}</span></div>
-    <div class="ai-form">
-      <label>Account ID<input class="inp" id="ai-acc" autocomplete="off" spellcheck="false" placeholder="{{ 'Saved — type to replace' if ai.account else 'Cloudflare account ID' }}"></label>
-      <label>API token<input class="inp" id="ai-tok" type="password" autocomplete="off" placeholder="{{ 'Saved — type to replace' if ai.token else 'Token with Workers AI permission' }}"></label>
-      <label class="wide">Model <small>(optional)</small><input class="inp" id="ai-model" autocomplete="off" spellcheck="false" placeholder="{{ ai.model }}"></label>
-    </div>
-    <div class="ai-acts"><button type="button" class="btn primary sm" id="ai-save">Save keys</button>
-      <button type="button" class="btn sm" id="ai-clear" {{ 'disabled' if not (ai.account or ai.token) }}>Remove keys</button></div>
+  <section class="card" id="ai">
+    <div class="card-h"><div><h2 class="t3">AI analysis</h2><div class="hint">Optional. The “AI analysis” button on the report asks a model to explain the results. Only names and sizes of the largest findings are sent — never file paths — and with a local model nothing leaves your PC.</div></div>
+      <span class="pill off" id="ai-pill">Not set up</span></div>
+    <div class="mcp-groups" id="ai-groups"></div>
+    <div id="ai-form"></div>
   </section>
 
   <section class="card">
@@ -207,15 +202,41 @@ $('#mcp-copy').addEventListener('click', async () => {
 });
 paintMcp();
 
-/* AI keys */
-$('#ai-save').onclick = async () => {
-  const body = {account: $('#ai-acc').value, token: $('#ai-tok').value, model: $('#ai-model').value};
-  if(!body.account.trim() && !body.token.trim() && !body.model.trim()){ toast('Type a value to save', 'info'); return }
-  const j = await (await post('/api/ai-keys', body)).json().catch(() => ({ok: false, error: 'Request failed'}));
-  if(j.ok){ toast('Keys saved'); setTimeout(() => location.reload(), 600) } else toast(j.error || 'Could not save', true);
-};
-$('#ai-clear').onclick = async () => {
-  const j = await (await post('/api/ai-keys', {clear: true})).json().catch(() => ({ok: false}));
-  if(j.ok){ toast('Keys removed'); setTimeout(() => location.reload(), 600) } else toast('Could not remove the keys', true);
-};
+/* AI provider */
+const GROUPS = [['free', 'Free tiers'], ['local', 'On this PC'], ['paid', 'Your own key'], ['custom', 'Other']];
+let AI = null, aiSel = null;
+async function loadAi(){ AI = await (await fetch('/api/ai-config')).json(); aiSel = aiSel || AI.selected || 'cloudflare'; paintAi() }
+const aiP = id => AI.providers.find(p => p.id === id);
+function paintAi(){
+  const pill = $('#ai-pill'); pill.textContent = AI.ready ? 'Ready · ' + (aiP(AI.selected) || {}).name : 'Not set up';
+  pill.className = 'pill ' + (AI.ready ? 'ok' : 'off');
+  $('#ai-groups').innerHTML = GROUPS.map(([g, label]) => {
+    const ps = AI.providers.filter(p => p.group === g); if(!ps.length) return '';
+    return `<div><small>${label}</small><div class="seg" role="group" aria-label="${label}">${ps.map(p =>
+      `<button type="button" data-p="${p.id}" class="${p.id === aiSel ? 'on' : ''}">${esc(p.name)}${p.id === AI.selected && AI.ready ? ' ✓' : ''}</button>`).join('')}</div></div>`;
+  }).join('');
+  $$('#ai-groups button').forEach(b => b.onclick = () => { aiSel = b.dataset.p; paintAi() });
+  const p = aiP(aiSel);
+  const saved = (has, txt) => has ? `<small>${txt}</small>` : '';
+  $('#ai-form').innerHTML = `<p class="sd" style="margin:14px 0 4px">${esc(p.note)}${p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Get a key / install</a>` : ''}</p>
+    <div class="ai-form">
+      ${p.needs_account ? `<label>Account ID${saved(p.has_account, ' (saved — type to replace)')}<input class="inp" id="f-account" autocomplete="off" spellcheck="false" placeholder="Cloudflare account ID"></label>` : ''}
+      ${p.needs_key ? `<label>API key${saved(p.has_key, ' (saved — type to replace)')}<input class="inp" id="f-key" type="password" autocomplete="off" placeholder="${p.has_key ? '••••••••' : 'Paste your key'}"></label>` : ''}
+      ${p.base_editable ? `<label class="${p.needs_key ? '' : 'wide'}">Address <small>${p.default_base ? '(default ' + esc(p.default_base) + ')' : '(required, e.g. http://localhost:1234/v1)'}</small><input class="inp" id="f-base" autocomplete="off" spellcheck="false" value="${esc(p.base)}" placeholder="${esc(p.default_base || 'https://…/v1')}"></label>` : ''}
+      <label class="wide">Model <small>(default ${esc(p.default_model || 'none — required')})</small><input class="inp" id="f-model" autocomplete="off" spellcheck="false" value="${esc(p.model)}" placeholder="${esc(p.default_model)}"></label>
+    </div>
+    <div class="ai-acts"><button type="button" class="btn primary sm" id="ai-save">Save and use</button>
+      <button type="button" class="btn sm" id="ai-test">Test</button>
+      <button type="button" class="btn sm" id="ai-clear">Forget this provider</button></div>`;
+  const vals = () => ({key: $('#f-key')?.value, account: $('#f-account')?.value, base: $('#f-base')?.value, model: $('#f-model')?.value});
+  const call = async body => { const j = await (await post('/api/ai-config', body)).json().catch(() => ({ok: false, error: 'Request failed'})); if(!j.ok) throw new Error(j.error || 'Could not save'); AI = j };
+  $('#ai-save').onclick = async () => { try{ await call({provider: aiSel, settings: {[aiSel]: vals()}}); toast('Saved — ' + p.name + ' will be used for AI analysis'); paintAi() }catch(e){ toast(e.message, true) } };
+  $('#ai-test').onclick = async e => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Testing…';
+    try{ await call({settings: {[aiSel]: vals()}}); const j = await (await post('/api/ai-test', {})).json(); if(!j.ok) throw new Error(j.error); toast('Works: ' + j.provider + ' · ' + j.model) }
+    catch(err){ toast(err.message, true) } finally { b.disabled = false; b.textContent = 'Test' }
+  };
+  $('#ai-clear').onclick = async () => { try{ await call({clear: aiSel}); toast('Removed'); paintAi() }catch(e){ toast(e.message, true) } };
+}
+loadAi();
 </script>{% endblock %}

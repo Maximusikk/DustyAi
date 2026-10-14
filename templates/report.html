@@ -271,7 +271,7 @@
         <li><svg class="ic"><use href="#i-lock"/></svg>what is better not to touch without thinking</li>
       </ul></div>
     <div class="ai-f"><button class="btn soft" id="ai-btn"><svg class="ic"><use href="#i-sparkles"/></svg><span>Run AI analysis</span></button>
-      <small>On click, only the names and sizes of the few largest findings are sent to Cloudflare Workers AI — no file paths.</small></div>
+      <small>On click, only names and sizes of the few largest findings go to the AI provider you chose in Settings — no file paths. A local model sends nothing out.</small></div>
   </div>
 </div>
 
@@ -699,7 +699,8 @@ async function aiRun(){
       lbl.textContent = 'Refresh analysis';
     }else{
       out.className = 'ai-body err';
-      out.textContent = (j.error || 'Could not get the summary') + (/not set/.test(j.error || '') ? '. Add your Cloudflare keys to the .env file — see the README, section “AI analysis”.' : '');
+      if(/not set up/.test(j.error || '')) out.innerHTML = 'AI is not set up yet. <a href="/settings#ai">Choose a provider in Settings</a> — there are free options and a local one.';
+      else out.textContent = j.error || 'Could not get the summary';
     }
   }catch(e){ out.className = 'ai-body err'; out.textContent = 'Error: ' + e.message }
   b.disabled = false;

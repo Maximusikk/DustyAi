@@ -18,6 +18,7 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 import catalog
 import scanners
+import ai_providers
 import mcp_server
 import settings
 import winchrome
@@ -670,14 +671,11 @@ def with_defaults(d):
 
 
 
-# ───────────────────────────── AI summary (Cloudflare Workers AI) ─────────────────────────────
+# ───────────────────────────── AI summary (any provider) ─────────────────────────────
 
 ENV_FILE = os.path.join(settings.DATA_DIR, ".env")  # written by the Settings page
 # also read next to the program or the exe, so a hand-made .env keeps working
 ENV_FALLBACKS = [os.path.join(settings.APP_DIR, ".env"), os.path.join(os.path.dirname(sys.executable), ".env")]
-CF_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # can be overridden via the CF_MODEL variable (e.g. with a bigger model)
-CF_MAX_TOKENS = 700  # leave enough tokens for a full answer: 300 cut the reply off
-CF_BASE = "https://api.cloudflare.com/client/v4"
 _ai_cache = {}
 
 
@@ -766,41 +764,20 @@ def tidy_summary(text):
     return text.rstrip("* \n")
 
 
-def cloudflare_ai_summary(data, drive=None):
-    """Asks Cloudflare Workers AI for a short summary of the scan results."""
-    account, token = cf_setting("CF_ACCOUNT_ID"), cf_setting("CF_API_TOKEN")
-    if not token:
-        raise AIError("CF_API_TOKEN not set", 400)
-    if not account:
-        raise AIError("CF_ACCOUNT_ID not set", 400)
-    base = os.environ.get("CF_API_BASE", CF_BASE).rstrip("/")
-    model = cf_setting("CF_MODEL") or CF_MODEL
-    url = f"{base}/accounts/{account}/ai/run/{model}"
-    body = json.dumps({"messages": [{"role": "system", "content": CF_SYSTEM},
-                                    {"role": "user", "content": build_prompt(data, drive)}],
-                       "max_tokens": CF_MAX_TOKENS, "temperature": 0.2}).encode("utf-8")
-    req = urllib.request.Request(url, data=body, method="POST", headers={
-        "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+def legacy_cloudflare():
+    """Keys typed into the old .env file keep working for the Cloudflare provider."""
+    return {"key": cf_setting("CF_API_TOKEN"), "account": cf_setting("CF_ACCOUNT_ID"), "model": cf_setting("CF_MODEL")}
+
+
+def ai_summary(data, drive=None):
+    """Asks the selected AI provider for a short summary of the scan results."""
+    prov, cfg = ai_providers.resolve(legacy_cloudflare)
+    if not prov or not cfg:
+        raise AIError("AI is not set up", 400)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            payload = json.load(resp)
-    except urllib.error.HTTPError as e:
-        try:
-            msgs = [x.get("message", "") for x in json.load(e).get("errors", [])]
-        except (ValueError, OSError):
-            msgs = []
-        hint = {401: "the token is invalid", 403: "the token lacks Workers AI permission",
-                429: "request limit exceeded"}.get(e.code, "")
-        raise AIError(f"Cloudflare returned {e.code}" + (f": {hint}" if hint else "")
-                      + (f" ({'; '.join(m for m in msgs if m)[:200]})" if any(msgs) else ""))
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise AIError(f"Cannot reach Cloudflare: {getattr(e, 'reason', e)}")
-    except ValueError:
-        raise AIError("Cloudflare returned an invalid response")
-    text = ((payload.get("result") or {}).get("response") or "").strip()
-    if not payload.get("success", True) or not text:
-        errs = "; ".join(x.get("message", "") for x in payload.get("errors") or [])[:200]
-        raise AIError("Empty model response" + (f": {errs}" if errs else ""))
+        text = ai_providers.complete(prov, cfg, CF_SYSTEM, build_prompt(data, drive))
+    except ai_providers.AIError as e:
+        raise AIError(str(e), e.code)
     return tidy_summary(text)
 
 
@@ -874,7 +851,7 @@ def api_ai_summary():
     if not request.args.get("refresh") and key in _ai_cache:
         return jsonify(summary=_ai_cache[key], cached=True)
     try:
-        summary = cloudflare_ai_summary(d, drive)
+        summary = ai_summary(d, drive)
     except AIError as e:
         return jsonify(summary=None, error=str(e)), e.code
     _ai_cache.clear()
@@ -1210,8 +1187,7 @@ def cross_site():
 def settings_page():
     history = [f for f in os.listdir(SCANS_DIR) if HISTORY_RE.match(f)] if os.path.isdir(SCANS_DIR) else []
     size = sum(os.path.getsize(os.path.join(SCANS_DIR, f)) for f in history if os.path.exists(os.path.join(SCANS_DIR, f)))
-    ai = {"account": bool(cf_setting("CF_ACCOUNT_ID")), "token": bool(cf_setting("CF_API_TOKEN")),
-          "model": cf_setting("CF_MODEL") or CF_MODEL}
+    ai = ai_providers.public_state(legacy_cloudflare)
     return render_template("settings.html", active="settings", history_count=len(history),
                            history_mb=round(size / 1024 ** 2, 1), data_dir=settings.DATA_DIR, ai=ai,
                            history_choices=settings.HISTORY_CHOICES,
@@ -1251,55 +1227,39 @@ def api_history_clear():
     return jsonify(ok=True, removed=removed)
 
 
-def write_env(updates):
-    """Updates KEY=VALUE pairs in the Settings-page .env (None removes a key); other lines stay as they are."""
-    lines, seen = [], set()
-    try:
-        with open(ENV_FILE, encoding="utf-8") as f:
-            lines = f.read().splitlines()
-    except OSError:
-        pass
-    out = []
-    for line in lines:
-        k = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else None
-        if k in updates:
-            seen.add(k)
-            if updates[k] is not None:
-                out.append(f"{k}={updates[k]}")
-        else:
-            out.append(line)
-    for k, v in updates.items():
-        if k not in seen and v is not None:
-            out.append(f"{k}={v}")
-    os.makedirs(os.path.dirname(ENV_FILE), exist_ok=True)
-    with open(ENV_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(out) + "\n")
+@app.get("/api/ai-config")
+def api_ai_config():
+    return jsonify(ai_providers.public_state(legacy_cloudflare))
 
 
-@app.post("/api/ai-keys")
-def api_ai_keys():
-    """Saves the Cloudflare keys typed on the Settings page. Empty fields are left unchanged; clear=true removes them."""
+@app.post("/api/ai-config")
+def api_ai_config_save():
+    """Select a provider and/or save its settings (key, model, address, account). Keys are never returned."""
     if cross_site():
         return err("forbidden", 403)
-    d = request.get_json(silent=True) or {}
-    if d.get("clear"):
-        updates = {"CF_ACCOUNT_ID": None, "CF_API_TOKEN": None, "CF_MODEL": None}
-    else:
-        updates = {}
-        for key, field in (("CF_ACCOUNT_ID", "account"), ("CF_API_TOKEN", "token"), ("CF_MODEL", "model")):
-            v = str(d.get(field) or "").strip()
-            if v:
-                if "\n" in v or "\r" in v or len(v) > 300:
-                    return err("Invalid value", 400)
-                updates[key] = v
-    if not updates:
-        return err("Nothing to save", 400)
     try:
-        write_env(updates)
+        ai_providers.save(request.get_json(silent=True) or {})
+    except ai_providers.AIError as e:
+        return err(str(e), e.code)
     except OSError as e:
         return err(f"Could not save: {e}", 500)
     _ai_cache.clear()
-    return jsonify(ok=True)
+    return jsonify(ok=True, **ai_providers.public_state(legacy_cloudflare))
+
+
+@app.post("/api/ai-test")
+def api_ai_test():
+    """A tiny request to check that the selected provider answers."""
+    if cross_site():
+        return err("forbidden", 403)
+    prov, cfg = ai_providers.resolve(legacy_cloudflare)
+    if not prov or not cfg:
+        return err("Fill in the provider's settings first", 400)
+    try:
+        ai_providers.complete(prov, cfg, "Reply with one word.", "Say OK.")
+    except ai_providers.AIError as e:
+        return err(str(e), e.code)
+    return jsonify(ok=True, provider=prov["name"], model=cfg["model"])
 
 
 @app.post("/api/open-data")
