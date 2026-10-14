@@ -5,6 +5,11 @@ on:
     branches: [main, "claude/**"]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Publish a GitHub Release with this tag (e.g. v1.0.0). Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -26,10 +31,18 @@ jobs:
         with:
           name: DustyAi-windows
           path: dist/DustyAi.exe
+      - name: Work out the release tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"; fi
       - name: Publish release
+        if: steps.tag.outputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('Dusty Ai build {0}', github.run_number) }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Dusty Ai ${{ steps.tag.outputs.tag }}
           target_commitish: ${{ github.sha }}
+          generate_release_notes: true
           files: dist/DustyAi.exe

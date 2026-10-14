@@ -1,30 +1,43 @@
+<div align="center">
+
 # 🧹 Dusty Ai
 
-A Windows disk cleaner that explains **what** is in a folder and **what happens if you delete it**.
-It finds developer caches (npm, Gradle, pip, NuGet, Cargo), installer leftovers, crash dumps and AI models
-(Hugging Face, Ollama, Playwright). Runs locally and sends nothing anywhere.
+**A Windows disk cleaner that explains _what_ is eating your space and _what happens_ if you delete it.**
+Built for developers and local-AI folks — and usable by AI agents through MCP.
 
-## What it looks like
+[**⬇ Download for Windows**](https://github.com/Maximusikk/DustyAi/releases/latest) · [Use with AI agents](#use-it-from-ai-agents-mcp) · [Safety](#safety)
 
-The interface follows the Windows theme (light/dark) and works fully offline — no fonts or scripts from the internet.
+![Dusty Ai: scan, pick the safe items, clean — in about a minute](docs/demo.gif)
+
+</div>
+
+## Why Dusty Ai
+
+- **Every finding is explained.** Not “delete this folder?” but *what it is* and *what is restored afterwards* — risk **A** (safe), **B** (your call), **C** (manual only).
+- **Knows what developers leave behind:** npm/pnpm/Gradle/NuGet/Cargo/pip caches, `.venv` and `node_modules`, Visual Studio and JetBrains leftovers — plus **AI-model folders** (Ollama, Hugging Face, LM Studio, PyTorch) and browser, game and messenger caches.
+- **Careful by design.** Whitelist-only deletion, files in use are skipped (and you see *which program* holds them), programs are never closed behind your back, big files and duplicates need your confirmation.
+- **Local and private.** No account, no telemetry. The only thing that can leave your PC is the optional AI summary — names and sizes only, and not at all with a local model.
+- **Agent-ready.** One `DustyAi.exe` is also an [MCP](https://modelcontextprotocol.io) server: Claude, Cursor, VS Code and others can scan, explain and (if you allow it) clean up, with a dry run by default.
+
+## Download
+
+1. Get **`DustyAi.exe`** from the [latest release](https://github.com/Maximusikk/DustyAi/releases/latest) — one file, no installer, no Python needed.
+2. Run it. Windows may show a **SmartScreen** warning (“Windows protected your PC”) because the app is not code-signed yet: click **More info → Run anyway**. The code is open and the exe is built by [GitHub Actions](.github/workflows/build-exe.yml) from this repository.
+3. Pick the drives, press **Start scan**, review the report, tick what you no longer need.
+
+Settings, history and keys live in `%LOCALAPPDATA%\DustyAi`. Deleting is permanent (nothing goes to the Recycle Bin) — that is why every item shows what it is and what comes back.
+
+## Screenshots
 
 | Home | Report |
 |---|---|
 | ![Home](docs/screenshots/home.png) | ![Report](docs/screenshots/report.png) |
-| **Cleanup table** — selection, risk, explanation | **Dark theme** |
+| **Cleanup table** — risk, explanation, selection | **Dark theme** |
 | ![Cleanup table](docs/screenshots/report-table.png) | ![Dark theme](docs/screenshots/report-dark.png) |
-
-If a file is in use by a program, Dusty Ai shows which one and offers to close it and retry:
-
-![File in use](docs/screenshots/locked-dark.png)
+| **File in use** — which programs hold it, one line per app | **Settings** — theme, scale, AI provider, agent connection |
+| ![File in use](docs/screenshots/locked-dark.png) | ![Settings](docs/screenshots/settings.png) |
 
 > Screenshots were taken in demo mode with sample data.
-
-## Download
-
-Get the ready-made `DustyAi.exe` (no Python needed) from the **Releases** page, or from the latest
-**Build Windows exe** run under *Actions → Artifacts* (`DustyAi-windows`). Releases are created automatically
-when a `v*` tag is pushed (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
 
 ## Run from source
 
@@ -45,6 +58,8 @@ Dusty Ai is an [MCP](https://modelcontextprotocol.io) server too, so Claude, Cur
 
 - **stdio:** the agent starts `DustyAi.exe mcp` itself (`--mcp` works too). **Settings → AI agents** has ready-to-copy configs (Claude Desktop, Claude Code, Cursor, VS Code) with your real path filled in.
 - **By URL:** while the app is running, agents can use `http://127.0.0.1:5000/mcp` with the bearer token shown in Settings.
+
+![Connect an AI agent: ready-to-copy configs](docs/screenshots/settings-agents.png)
 
 Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`.
 
@@ -102,3 +117,7 @@ The **Test** button checks that the provider answers. Model names are editable, 
 - `templates/_icons.html` — SVG icon sprite and brand mark; use as `<svg class="ic"><use href="#i-name"/></svg>`
 - `templates/index.html`, `report.html`, `history.html` — pages; the page styles and script live in the same file
 - See the interface without Windows: `python app.py --browser` (demo mode, nothing is deleted)
+
+## License
+
+[MIT](LICENSE) © 2026 Maximusikk

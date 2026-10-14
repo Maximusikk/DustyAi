@@ -113,8 +113,6 @@ SAFE_EXTRA = [
     # ── Windows and Office ──
     item("minidump", "Blue screen minidumps", "💥", WIN + "Minidump", "Memory snapshots after critical Windows crashes. Only needed to analyze the causes.",
          "Nothing. New ones appear only after new crashes.", kind="contents"),
-    item("livekernel", "Kernel reports (LiveKernelReports)", "💥", WIN + "LiveKernelReports", "Crash dumps of drivers and hardware.",
-         "Nothing.", kind="contents"),
     item("wer_system", "System error reports", "📋", PD + "Microsoft\\Windows\\WER\\ReportArchive",
          "Archive of crash reports collected at the system level.", "Nothing.", kind="contents", also=[PD + "Microsoft\\Windows\\WER\\ReportQueue"]),
     item("delivery_opt", "Windows Delivery Optimization cache", "🪟",
@@ -145,6 +143,8 @@ SAFE_EXTRA = [
 ]
 
 REVIEW_EXTRA = [
+    item("livekernel", "Kernel reports (LiveKernelReports)", "💥", WIN + "LiveKernelReports", "Crash dumps of drivers and hardware. System folder: needs administrator rights, so it is your call.",
+         "Nothing.", kind="contents"),
     *[chromium_sw(*b[:5]) for b in BROWSERS if not b[5]],
     item("jetbrains_caches", "JetBrains IDE caches and indexes", "🧰", L + "JetBrains\\*\\caches",
          "Project indexes of PyCharm, IntelliJ, WebStorm and others. Take 1–10 GB.",
