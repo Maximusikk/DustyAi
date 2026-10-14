@@ -1,9 +1,11 @@
 name: Build variants (antivirus false-positive comparison)
 
-# Manual only. Builds the app in three packagings so each can be scanned on virustotal.com and the one with the
+# Manual (or when this file changes). Builds the app in three packagings so each can be scanned on virustotal.com and the one with the
 # fewest false positives can become the release format.
 on:
   workflow_dispatch:
+  push:
+    paths: [".github/workflows/build-variants.yml"]
 
 jobs:
   variant:
