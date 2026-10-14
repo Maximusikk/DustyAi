@@ -2,7 +2,7 @@
 disk usage and clean up. It reuses the engine of the app, so every safety rule of the GUI applies here too.
 
 Two ways to connect, same tools:
-  * stdio  - the agent starts `DustyAi.exe --mcp` itself (no window, nothing to configure);
+  * stdio  - the agent starts `DustyAi.exe mcp` itself (no window, nothing to configure);
   * HTTP   - the agent talks to the running app at http://127.0.0.1:5000/mcp with a bearer token.
 
 Agents can only look by default. Deleting needs the "Allow AI agents to clean up" switch in Settings, covers only

@@ -30,7 +30,8 @@
 .code{position:relative;margin-top:10px}
 .code pre{margin:0;padding:14px 92px 14px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font:12.5px/1.55 var(--mono);color:var(--fg-2);overflow-x:auto;white-space:pre-wrap;word-break:break-all}
 .code .btn{position:absolute;top:8px;right:8px}
-.mcp-tabs{margin-top:12px}
+.mcp-groups{display:flex;flex-wrap:wrap;gap:12px 18px;margin-top:14px}
+.mcp-groups small{display:block;margin:0 0 5px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mcp-note{display:flex;gap:10px;align-items:flex-start;margin-top:12px;color:var(--muted);font-size:13px}
 .mcp-note .ic{width:16px;height:16px;flex:none;margin-top:2px;color:var(--ok-ink)}
 .path-box{font:12.5px/1.4 var(--mono);color:var(--muted);word-break:break-all}
@@ -88,9 +89,13 @@
     <div class="opts"><label class="opt"><span class="ico"><svg class="ic"><use href="#i-sparkles"/></svg></span>
       <span><div class="opt-t">Allow AI agents to clean up</div><div class="opt-d">Off: agents can only scan and report. On: they can delete risk-A items (caches, Temp, recycle bin) after a dry run.</div></span>
       <span class="switch"><input type="checkbox" data-set="mcp_allow_delete" {{ 'checked' if S.mcp_allow_delete }}><i></i></span></label></div>
-    <div class="seg mcp-tabs" id="mcp-tabs" role="tablist" aria-label="Agent">
-      <button type="button" class="on" data-m="claude-desktop">Claude Desktop</button><button type="button" data-m="claude-code">Claude Code</button>
-      <button type="button" data-m="cursor">Cursor</button><button type="button" data-m="vscode">VS Code</button><button type="button" data-m="http">By URL</button></div>
+    <div class="mcp-groups" id="mcp-tabs">
+      <div><small>Desktop apps</small><div class="seg" role="group" aria-label="Desktop apps">
+        <button type="button" class="on" data-m="claude-desktop">Claude Desktop</button><button type="button" data-m="cursor">Cursor</button><button type="button" data-m="vscode">VS Code</button></div></div>
+      <div><small>Command line</small><div class="seg" role="group" aria-label="Command line">
+        <button type="button" data-m="claude-code">Claude Code</button><button type="button" data-m="codex">Codex</button><button type="button" data-m="gemini">Gemini CLI</button></div></div>
+      <div><small>Any agent</small><div class="seg" role="group" aria-label="Any agent"><button type="button" data-m="http">By URL</button></div></div>
+    </div>
     <div class="code"><pre id="mcp-code"></pre><button type="button" class="btn sm" id="mcp-copy"><svg class="ic"><use href="#i-copy"/></svg>Copy</button></div>
     <div class="ai-acts" id="mcp-extra"></div>
     <div class="mcp-note"><svg class="ic"><use href="#i-shield-check"/></svg><span>Agents work with item ids from the scan, never with paths; they never close programs and cannot touch Downloads, big files, duplicates or installed programs. Every action is logged in the data folder (<span class="mono">agent_log.jsonl</span>).</span></div>
@@ -165,12 +170,15 @@ $('#clear-hist').onclick = () => {
 
 /* AI agents (MCP) */
 const NAME = 'dusty-ai';
-const cmd = MCP.exe || MCP.python, args = MCP.exe ? ['--mcp'] : [MCP.script, '--mcp'];
+// the word `mcp` instead of `--mcp`: the Claude CLI / PowerShell take a dashed flag after the command for their own option
+const cmd = MCP.exe || MCP.python, args = MCP.exe ? ['mcp'] : [MCP.script, 'mcp'];
 const q = x => /\s/.test(x) ? `"${x}"` : x;
 const stdioJson = key => JSON.stringify({[key]: {[NAME]: key === 'servers' ? {type: 'stdio', command: cmd, args} : {command: cmd, args}}}, null, 2);
 const MODES = {
   'claude-desktop': {code: () => stdioJson('mcpServers'), hint: 'Add this to claude_desktop_config.json (Settings → Developer → Edit Config), then restart Claude Desktop.'},
-  'claude-code': {code: () => `claude mcp add ${NAME} -- ${[cmd, ...args].map(q).join(' ')}`, hint: 'Run this once in a terminal.'},
+  'claude-code': {code: () => `claude mcp add ${NAME} ${[cmd, ...args].map(q).join(' ')}`, hint: 'Run this once in PowerShell, cmd or any terminal. Check with: claude mcp list'},
+  'codex': {code: () => `[mcp_servers.${NAME}]\ncommand = ${JSON.stringify(cmd)}\nargs = ${JSON.stringify(args)}`, hint: 'Add this to ~/.codex/config.toml.'},
+  'gemini': {code: () => stdioJson('mcpServers'), hint: 'Add this to ~/.gemini/settings.json.'},
   'cursor': {code: () => stdioJson('mcpServers'), hint: 'Add this to ~/.cursor/mcp.json, or use the button.', link: () => 'cursor://anysphere.cursor-deeplink/mcp/install?name=' + NAME + '&config=' + btoa(JSON.stringify({command: cmd, args})), linkLabel: 'Add to Cursor'},
   'vscode': {code: () => stdioJson('servers'), hint: 'Add this to .vscode/mcp.json, or use the button.', link: () => 'vscode:mcp/install?' + encodeURIComponent(JSON.stringify({name: NAME, type: 'stdio', command: cmd, args})), linkLabel: 'Add to VS Code'},
   'http': {code: () => `claude mcp add --transport http ${NAME} ${MCP.url} --header "Authorization: Bearer ${MCP.token}"\n\n` + JSON.stringify({mcpServers: {[NAME]: {url: MCP.url, headers: {Authorization: 'Bearer ' + MCP.token}}}}, null, 2),

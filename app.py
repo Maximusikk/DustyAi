@@ -1445,7 +1445,9 @@ def window_background():
 
 def main():
     """Flask in a background thread + a native window (pywebview). Without pywebview — the browser."""
-    if "--mcp" in sys.argv:  # an AI agent started us: speak MCP over stdin/stdout, no window
+    # an AI agent started us: speak MCP over stdin/stdout, no window. `mcp` without dashes exists because
+    # `claude mcp add name exe --mcp` fails: the Claude CLI (and PowerShell's handling of `--`) mistake --mcp for its own option
+    if "--mcp" in sys.argv or sys.argv[1:2] == ["mcp"]:
         mcp_server.run_stdio()
         return
     from werkzeug.serving import make_server

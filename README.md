@@ -43,7 +43,7 @@ On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
 Dusty Ai is an [MCP](https://modelcontextprotocol.io) server too, so Claude, Cursor, VS Code and other agents can check your disk and clean it. The same `DustyAi.exe` does it — no second program:
 
-- **stdio:** the agent starts `DustyAi.exe --mcp` itself. **Settings → AI agents** has ready-to-copy configs (Claude Desktop, Claude Code, Cursor, VS Code) with your real path filled in.
+- **stdio:** the agent starts `DustyAi.exe mcp` itself (`--mcp` works too). **Settings → AI agents** has ready-to-copy configs (Claude Desktop, Claude Code, Cursor, VS Code) with your real path filled in.
 - **By URL:** while the app is running, agents can use `http://127.0.0.1:5000/mcp` with the bearer token shown in Settings.
 
 Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`.
