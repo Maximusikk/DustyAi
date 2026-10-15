@@ -5,7 +5,7 @@
 **A Windows disk cleaner that explains _what_ is eating your space and _what happens_ if you delete it.**
 Built for developers and local-AI folks — and usable by AI agents through MCP.
 
-[**⬇ Download for Windows**](https://github.com/Maximusikk/DustyAi/releases/latest) · [Use with AI agents](#use-it-from-ai-agents-mcp) · [Safety](#safety)
+[**⬇ Download for Windows (zip)**](https://github.com/Maximusikk/DustyAi/releases/latest) · [Use with AI agents](#use-it-from-ai-agents-mcp) · [Safety](#safety)
 
 ![Dusty Ai: scan, pick the safe items, clean — in about a minute](docs/demo.gif)
 
@@ -21,9 +21,10 @@ Built for developers and local-AI folks — and usable by AI agents through MCP.
 
 ## Download
 
-1. Get **`DustyAi.exe`** from the [latest release](https://github.com/Maximusikk/DustyAi/releases/latest) — one file, no installer, no Python needed.
-2. Run it. Windows may show a **SmartScreen** warning (“Windows protected your PC”) because the app is not code-signed yet: click **More info → Run anyway**. The code is open and the exe is built by [GitHub Actions](.github/workflows/build-exe.yml) from this repository.
-3. Pick the drives, press **Start scan**, review the report, tick what you no longer need.
+1. Get **`DustyAi-windows.zip`** from the [latest release](https://github.com/Maximusikk/DustyAi/releases/latest) and **extract it** (right-click → *Extract All*).
+2. Open the extracted `DustyAi` folder and run **`DustyAi.exe`**. No installer, no Python needed. Keep the folder together — the app needs the files next to the exe.
+3. Windows may show a **SmartScreen** warning (“Windows protected your PC”) because the app is not code-signed yet: click **More info → Run anyway**. The code is open and the zip is built by [GitHub Actions](.github/workflows/build-exe.yml) from this repository; the build had **0 detections on VirusTotal** when it was published.
+4. Pick the drives, press **Start scan**, review the report, tick what you no longer need.
 
 Settings, history and keys live in `%LOCALAPPDATA%\DustyAi`. Deleting is permanent (nothing goes to the Recycle Bin) — that is why every item shows what it is and what comes back.
 
@@ -49,7 +50,7 @@ python app.py             # app window
 python app.py --browser   # same thing in a browser tab
 ```
 
-Build a single `.exe` locally: `build.bat` → `dist\DustyAi.exe` (PyInstaller, with the icon from `assets/dustyai.ico`).
+Build locally: `build.bat` → `dist\DustyAi\DustyAi.exe` (PyInstaller, one folder, with the icon from `assets/dustyai.ico`).
 On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
 ## Use it from AI agents (MCP)
