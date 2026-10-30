@@ -62,7 +62,7 @@ Dusty Ai is an [MCP](https://modelcontextprotocol.io) server too, so Claude, Cur
 
 ![Connect an AI agent: ready-to-copy configs](docs/screenshots/settings-agents.png)
 
-Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`.
+Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`, plus read-only `list_big_files` (with creation dates, e.g. what appeared in the last days) and `list_folders` after a deep scan.
 
 Safety: agents can only **look** until you switch on *Allow AI agents to clean up*. Even then they work with item ids (not paths), only for risk-A caches/Temp/recycle bin (risk B needs an explicit flag), `clean` is a dry run by default, programs are never closed, Downloads/big files/duplicates/programs are out of reach, and every action is logged to `agent_log.jsonl` in the data folder.
 

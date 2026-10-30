@@ -208,6 +208,50 @@ def tool_clean(args):
     return out
 
 
+def _overview():
+    with _A._lock:
+        ov = dict((_A.scan_data or {}).get("overview") or {})
+    if not ov:
+        raise ToolError("No disk overview yet. Call start_scan with deep_scan=true, then scan_status until it is done.")
+    return ov
+
+
+def tool_list_big_files(args):
+    ov = _overview()
+    min_gb = float(args.get("min_size_gb") or 0)
+    days = args.get("created_within_days")
+    days = None if days is None else int(days)
+    limit = min(int(args.get("limit") or 25), 100)
+    seen, out = set(), []
+    for letter, o in ov.items():
+        for f in list(o.get("big_files", [])) + list(o.get("recent_files", [])):
+            if f["path"] in seen or f["size_gb"] < min_gb:
+                continue
+            seen.add(f["path"])
+            cd = f.get("created_days")
+            if days is not None and (cd is None or cd > days):
+                continue
+            out.append({"name": f["name"], "path": f["path"], "size_gb": round(f["size_gb"], 2), "drive": letter,
+                        "type": f.get("kind"), "modified": f.get("date"), "created": f.get("created"),
+                        "created_days_ago": cd, "view_only_reason": f.get("why") or None,
+                        "warning": f.get("warn") or None})
+    out.sort(key=lambda r: -r["size_gb"])
+    return {"total_matching": len(out), "files": out[:limit],
+            "note": "Read-only: agents cannot delete big files. The list holds the largest files of each drive plus "
+                    "big files created in the last 7 days."}
+
+
+def tool_list_folders(args):
+    ov = _overview()
+    limit = min(int(args.get("limit") or 20), 50)
+    out = {}
+    for letter, o in ov.items():
+        out[letter] = {"partial": bool(o.get("partial")),
+                       "folders": [{"name": t["name"], "path": t["path"], "size_gb": round(t["size_gb"], 2),
+                                    "partial": bool(t.get("partial"))} for t in o.get("top_dirs", [])[:limit]]}
+    return {"drives": out, "note": "Largest top-level folders. Read-only: shown for information, agents do not clean them."}
+
+
 TOOLS = [
     ("disk_status", "Free and total space of every drive. Start here.", {}, tool_disk_status, True),
     ("start_scan", "Start scanning drives for caches, temp files and developer junk (read-only, nothing is deleted). "
@@ -231,6 +275,12 @@ TOOLS = [
       "description": "Shortcut for every risk-A finding."}, "dry_run": {"type": "boolean"},
       "include_review": {"type": "boolean", "description": "Allow risk B items (ask the user first)."}},
      tool_clean, False),
+    ("list_big_files", "Files of 500 MB and larger from the last deep_scan (start_scan with deep_scan=true), with type, "
+     "modified and created dates. created_within_days shows what appeared lately. Read-only.",
+     {"min_size_gb": {"type": "number"}, "created_within_days": {"type": "integer"},
+      "limit": {"type": "integer", "description": "Default 25, max 100."}}, tool_list_big_files, True),
+    ("list_folders", "Largest top-level folders of each scanned drive from the last deep_scan. Read-only.",
+     {"limit": {"type": "integer", "description": "Default 20, max 50."}}, tool_list_folders, True),
 ]
 
 
@@ -268,7 +318,9 @@ def handle(msg):
                        "serverInfo": {"name": SERVER_NAME, "version": getattr(_A, "APP_VERSION", "1")},
                        "instructions": "Dusty Ai finds disk space taken by caches and junk and explains it. "
                                        "Workflow: disk_status → start_scan → scan_status → list_findings → "
-                                       "clean (dry run first, show the plan to the user)."})
+                                       "clean (dry run first, show the plan to the user). After a deep_scan, "
+                                        "list_big_files and list_folders show what takes space outside the "
+                                        "catalog (read-only)."})
     if method == "ping":
         return _ok(i, {})
     if method == "tools/list":
