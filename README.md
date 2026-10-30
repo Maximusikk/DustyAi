@@ -1,72 +1,124 @@
+<div align="center">
+
 # 🧹 Dusty Ai
 
-Очистка диска Windows, которая объясняет, **что** лежит в папке и **что будет, если удалить**.
-Находит кэши разработчика (npm, Gradle, pip, NuGet, Cargo), остатки установщиков, дампы сбоев и ИИ-модели
-(Hugging Face, Ollama, Playwright). Работает локально, ничего никуда не отправляет.
+**A Windows disk cleaner that explains _what_ is eating your space and _what happens_ if you delete it.**
+Built for developers and local-AI folks — and usable by AI agents through MCP.
 
-## Запуск
+[**⬇ Download for Windows (zip)**](https://github.com/Maximusikk/DustyAi/releases/latest) · [Use with AI agents](#use-it-from-ai-agents-mcp) · [Safety](#safety)
 
-Windows, Python 3.10+: двойной клик по `run.bat` — откроется **отдельное окно приложения** (Flask внутри нативного окна через pywebview/WebView2).
+![Dusty Ai: scan, pick the safe items, clean — in about a minute](docs/demo.gif)
+
+</div>
+
+## Why Dusty Ai
+
+- **Every finding is explained.** Not “delete this folder?” but *what it is* and *what is restored afterwards* — risk **A** (safe), **B** (your call), **C** (manual only).
+- **Knows what developers leave behind:** npm/pnpm/Gradle/NuGet/Cargo/pip caches, `.venv` and `node_modules`, Visual Studio and JetBrains leftovers — plus **AI-model folders** (Ollama, Hugging Face, LM Studio, PyTorch) and browser, game and messenger caches.
+- **Careful by design.** Whitelist-only deletion, files in use are skipped (and you see *which program* holds them), programs are never closed behind your back, big files and duplicates need your confirmation.
+- **Local and private.** No account, no telemetry. The only thing that can leave your PC is the optional AI summary — names and sizes only, and not at all with a local model.
+- **Agent-ready.** One `DustyAi.exe` is also an [MCP](https://modelcontextprotocol.io) server: Claude, Cursor, VS Code and others can scan, explain and (if you allow it) clean up, with a dry run by default.
+
+## Download
+
+1. Get **`DustyAi-windows.zip`** from the [latest release](https://github.com/Maximusikk/DustyAi/releases/latest) and **extract it** (right-click → *Extract All*).
+2. Open the extracted `DustyAi` folder and run **`DustyAi.exe`**. No installer, no Python needed. Keep the folder together — the app needs the files next to the exe.
+3. Windows may show a **SmartScreen** warning (“Windows protected your PC”) because the app is not code-signed yet: click **More info → Run anyway**. The code is open and the zip is built by [GitHub Actions](.github/workflows/build-exe.yml) from this repository; the build had **0 detections on VirusTotal** when it was published.
+4. Pick the drives, press **Start scan**, review the report, tick what you no longer need.
+
+Settings, history and keys live in `%LOCALAPPDATA%\DustyAi`. Deleting is permanent (nothing goes to the Recycle Bin) — that is why every item shows what it is and what comes back.
+
+## Screenshots
+
+| Home | Report |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Report](docs/screenshots/report.png) |
+| **Cleanup table** — risk, explanation, selection | **Dark theme** |
+| ![Cleanup table](docs/screenshots/report-table.png) | ![Dark theme](docs/screenshots/report-dark.png) |
+| **File in use** — which programs hold it, one line per app | **Settings** — theme, scale, AI provider, agent connection |
+| ![File in use](docs/screenshots/locked-dark.png) | ![Settings](docs/screenshots/settings.png) |
+
+> Screenshots were taken in demo mode with sample data.
+
+## Run from source
+
+Windows, Python 3.10+: double-click `run.bat` — the app opens in its **own window** (Flask inside a native window via pywebview/WebView2).
 
 ```
 pip install -r requirements.txt
-python app.py             # окно приложения
-python app.py --browser   # то же самое во вкладке браузера
+python app.py             # app window
+python app.py --browser   # same thing in a browser tab
 ```
 
-Один `.exe` без установки Python: `build.bat` → `dist\DustyAi.exe` (PyInstaller).
-На Linux/macOS приложение стартует в демо-режиме с примерными данными и ничего не удаляет.
+Build locally: `build.bat` → `dist\DustyAi\DustyAi.exe` (PyInstaller, one folder, with the icon from `assets/dustyai.ico`).
+On Linux/macOS the app starts in demo mode with sample data and deletes nothing.
 
-## Что умеет
+## Use it from AI agents (MCP)
 
-- **Выбор дисков:** C, D или несколько сразу; на переключаемом отчёте можно смотреть каждый диск отдельно
-- **Обзор диска целиком** (в том числе системного, кроме папки Windows): крупнейшие папки в корне (например `C:\llama`), файлы от 500 МБ с определением типа (ИИ-модель, образ ВМ/WSL, архив, дамп…), `node_modules`/`venv`/`__pycache__`, корзина. Папки установленных программ защищены: `node_modules` внутри Program Files и AppData не предлагается к удалению
-- **Крупные файлы** — отдельная вкладка по всем просканированным дискам: тип (ИИ-модель, образ ВМ, архив…), дата изменения, фильтр по типу. Удалить можно любой файл (с подтверждением и предупреждением, если он часть программы или Python-пакета); блокируются только папка Windows и файлы подкачки/гибернации
-- **Фильтр по риску** над таблицей очистки (Все / A / B / C)
-- **Загрузки:** самые крупные файлы с датами, пометка «старый установщик», удаление выбранных
-- **Обзор профиля и AppData:** крупнейшие папки без пометок «мусор» — видно любые программы, которых нет в каталоге
-- Кнопка **«Удалить…»** у программ запускает штатный деинсталлятор Windows
-- Кэши и мусор из каталога (`catalog.py`) с описанием и пояснением, что восстановится
-- **Умный Temp** — папки-остатки установщиков (`*vs_*`, `*setup*`, `*installer*`, либо >500 МБ) старше 7 дней
-- **Python** — установки из `py -0p`, тяжёлые пакеты, предупреждение, если установка занята процессом (в т.ч. MCP-сервером)
-- **Дубликаты** — файлы >50 МБ в Загрузках и Документах (MD5); всегда остаётся одна копия
-- **Иконки приложений** (из exe/реестра), диаграммы, таблица с выбором и пакетным удалением, категории A/B/C
-- **Экспорт** отчёта в JSON и **история** сканирований (`scans/`, последние 3 на главной, открываются только для просмотра)
+Dusty Ai is an [MCP](https://modelcontextprotocol.io) server too, so Claude, Cursor, VS Code and other agents can check your disk and clean it. The same `DustyAi.exe` does it — no second program:
 
-## AI-анализ
+- **stdio:** the agent starts `DustyAi.exe mcp` itself (`--mcp` works too). **Settings → AI agents** has ready-to-copy configs (Claude Desktop, Claude Code, Cursor, VS Code) with your real path filled in.
+- **By URL:** while the app is running, agents can use `http://127.0.0.1:5000/mcp` with the bearer token shown in Settings.
 
-Кнопка **«✨ AI-анализ»** над вкладками отчёта просит модель Llama 3.2 3B на Cloudflare Workers AI коротко объяснить результаты: главный вывод, что удалить первым и что не трогать. Работает без новых зависимостей (только `urllib`).
+![Connect an AI agent: ready-to-copy configs](docs/screenshots/settings-agents.png)
 
-> **Приватность.** Это единственное, что приложение отправляет наружу, и только по вашему клику. Уходят названия и размеры до семи крупнейших находок (сгруппированных как «безопасно / решать вам / только вручную») и общий объём безопасного мусора — **без путей к файлам**.
+Tools: `disk_status`, `start_scan`, `scan_status`, `list_findings`, `explain_finding`, `clean`, plus read-only `list_big_files` (with creation dates, e.g. what appeared in the last days) and `list_folders` after a deep scan.
 
-### Как получить токен
+Safety: agents can only **look** until you switch on *Allow AI agents to clean up*. Even then they work with item ids (not paths), only for risk-A caches/Temp/recycle bin (risk B needs an explicit flag), `clean` is a dry run by default, programs are never closed, Downloads/big files/duplicates/programs are out of reach, and every action is logged to `agent_log.jsonl` in the data folder.
 
-1. Зарегистрируйтесь или войдите на [dash.cloudflare.com](https://dash.cloudflare.com) (бесплатного плана достаточно, у Workers AI есть бесплатный дневной лимит).
-2. **Account ID:** на главной странице аккаунта, справа или в разделе *Workers & Pages → Overview*.
-3. **API-токен:** *My Profile → API Tokens → Create Token → Create Custom Token*. Право: **Account → Workers AI → Read** (достаточно для запуска моделей; при ошибке 403 выберите шаблон «Workers AI»). Скопируйте токен — показывается один раз.
-4. Скопируйте `.env.example` в `.env` и впишите значения:
+## Features
 
-```
-CF_ACCOUNT_ID=ваш_account_id
-CF_API_TOKEN=ваш_токен
-```
+- **Custom window:** its own dark/light title bar with minimize/maximize/close buttons and a zoom control; **Ctrl + / − / 0** and **Ctrl + wheel** scale the interface like in a browser. The system title bar can be restored in Settings (or with `--native-frame`)
+- **Settings:** theme (system/light/dark), interface scale, scan defaults, how many scans to keep, AI provider, AI-agent (MCP) connection, data folder. Settings, history and keys are stored in `%LOCALAPPDATA%\DustyAi` (change with the `DUSTYAI_DATA` variable)
+- **Summary at a glance:** how much can be freed, how much of it is safe and how much free space the drive will have; the A/B/C tiles also filter the table
+- **Drive selection:** C, D or several at once; the report can switch between drives
+- **Whole-drive overview** (including the system drive, except the Windows folder): largest root folders (e.g. `C:\llama`), files of 500 MB+ with type detection (AI model, VM/WSL image, archive, dump…), `node_modules`/`venv`/`__pycache__`, recycle bin. Folders of installed programs are protected: `node_modules` inside Program Files and AppData is never offered for deletion
+- **Big files** — a separate tab across all scanned drives: type, modification date, type filter. Any file can be deleted (with confirmation and a warning if it is part of a program or Python package); only the Windows folder and page/hibernation files are blocked
+- **Risk filter** above the cleanup table (All / A / B / C) and a **“Select the safe ones”** button: it ticks everything in category A, and deletion still requires confirmation. The selection is collected in a floating bar “N items · X GB”
+- **Downloads:** largest files with dates, an “old installer” marker, deletion of the selected ones
+- **Profile and AppData overview:** largest folders with no “junk” labels — shows any program the catalog does not know about
+- **Programs:** every installed program (not just the top 20), largest first; the **Uninstall…** button launches the standard Windows uninstaller
+- Caches and junk from the catalog (`catalog.py`) with a description and an explanation of what gets restored
+- **Smart Temp** — installer leftover folders (`*vs_*`, `*setup*`, `*installer*`, or >500 MB) older than 7 days
+- **Python** — installations from `py -0p`, heavy packages, a warning if an installation is in use by a process (including an MCP server)
+- **Duplicates** — files >50 MB in Downloads and Documents (MD5); one copy always remains
+- **App icons** (from exe/registry), charts, a table with selection and batch deletion, categories A/B/C
+- **Export** of the report to JSON and a **history** of scans (`scans/`, the last 3 on the home page, view-only)
 
-Если ответ кажется слабым (3B-модель путается в русском), в `.env` можно указать модель побольше: `CF_MODEL=@cf/meta/llama-3.1-8b-instruct` (или другую из каталога Workers AI).
+## AI analysis (optional)
 
-Те же переменные можно задать в окружении Windows — они важнее `.env`. Файл `.env` в git не попадает (он в `.gitignore`); не публикуйте токен.
+The **“✨ AI analysis”** button above the report tabs asks a model to explain the results in a few sentences: the main takeaway, what to delete first and what to leave alone. Choose the provider in **Settings → AI analysis**:
 
-Если ключей нет, кнопка покажет `CF_API_TOKEN not set`. Эндпоинт: `GET /api/ai-summary` (`?drive=D` — сводка по одному диску, `?refresh=1` — игнорировать кэш).
+- **Free tiers:** Cloudflare Workers AI, Groq, OpenRouter, Google Gemini — each needs a free key (the Settings page links to where to get it)
+- **On this PC:** Ollama (or any local OpenAI-compatible server) — no key, nothing leaves your computer
+- **Your own key:** OpenAI (ChatGPT), Anthropic (Claude), or any OpenAI-compatible endpoint (LM Studio, DeepSeek, Mistral, Together…)
 
-## Безопасность
+The **Test** button checks that the provider answers. Model names are editable, so you can pick a bigger one. Keys are stored only on your computer (`ai.json` in the data folder) and never shown again.
 
-- Путь для удаления берётся только из `catalog.py`; клиент присылает лишь `id` из белого списка (`DELETABLE_IDS`), иначе 403.
-- Кэши удаляются сразу, даже если IDE или браузер открыты. Если часть файлов занята, приложение показывает, **какие программы их держат** (Windows Restart Manager), и вы сами решаете: закрыть выбранные и повторить, повторить без закрытия или оставить как есть. Программы сначала закрываются мягко (как крестик), принудительное завершение — отдельной галочкой. Системные процессы закрыть нельзя, а закрываются только программы из списка блокировщиков, который определил сервер. Жёстко блокируется только чистка Temp во время установки (`vs_installer`).
-- Для системного Temp и защищённых папок нужны права администратора — кнопка «🛡 Запустить от администратора» в боковой панели.
-- Удаляется содержимое/конкретная папка кэша, а не корень программы.
-- Двойное подтверждение в UI (сброс через 4 с).
-- Динамические пункты (Temp, дубликаты) перед удалением проверяются заново: путь внутри Temp/Загрузок/Документов, возраст, наличие идентичной копии.
-- Модели ИИ и браузеры Playwright показываются, но удаляются только вручную.
+> **Privacy.** This is the only thing the app can send out, and only when you click. It sends names and sizes of up to seven of the largest findings (grouped as “safe / your call / manual only”) and the total amount of safe junk — **no file paths**. With a local model nothing is sent anywhere.
 
-## Структура
+## Safety
 
-`app.py` — Flask, скан, `/delete`, история, экспорт · `scanners.py` — Temp, Python, дубликаты · `util.py` — PowerShell и размеры · `catalog.py` — каталог мест · `templates/` — UI
+- The deletion path is taken only from `catalog.py`; the client sends just an `id` from the whitelist (`DELETABLE_IDS`), otherwise 403.
+- Caches are deleted right away, even if an IDE or browser is open. If some files are in use, the app shows **which programs hold them** (Windows Restart Manager) and you decide: close the selected ones and retry, retry without closing, or leave as is. Programs are first asked to close gently (like clicking the X); forced termination is a separate checkbox. System processes cannot be closed, and only programs from the server-determined blocker list can be. The only hard block is cleaning Temp during an installation (`vs_installer`).
+- The system Temp and protected folders need administrator rights — use the “🛡 Run as administrator” button in the sidebar.
+- Only the cache contents/specific folder is deleted, never a program's root.
+- Double confirmation in the UI (resets after 4 s).
+- Dynamic items (Temp, duplicates) are re-validated before deletion: path inside Temp/Downloads/Documents, age, presence of an identical copy.
+- AI models and Playwright browsers are shown but can only be deleted manually.
+
+## Layout
+
+`mcp_server.py` — MCP server for AI agents · `settings.py` — user settings and data folder · `winchrome.py` — move/resize of the frameless window · `app.py` — Flask, scan, `/delete`, history, export · `scanners.py` — Temp, Python, duplicates · `util.py` — PowerShell and sizes · `catalog.py`, `catalog_extra.py` — catalog of locations · `templates/` — UI · `assets/` — logo and app icon
+
+### Interface
+
+- `templates/base.html` — shell (sidebar, modal window, notifications) and shared JS helpers
+- `templates/_base.css` — design system: color tokens of the light and dark themes, buttons, cards, tabs, forms. Colors and sizes are changed in the `:root` block at the top of the file
+- `templates/_icons.html` — SVG icon sprite and brand mark; use as `<svg class="ic"><use href="#i-name"/></svg>`
+- `templates/index.html`, `report.html`, `history.html` — pages; the page styles and script live in the same file
+- See the interface without Windows: `python app.py --browser` (demo mode, nothing is deleted)
+
+## License
+
+[MIT](LICENSE) © 2026 Maximusikk

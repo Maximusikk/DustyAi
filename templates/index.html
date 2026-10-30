@@ -1,99 +1,349 @@
 {% extends "base.html" %}
+{% from "_macros.html" import day, hm %}
 {% block head %}<style>
-.hero{padding:36px 0 22px}.hero p{max-width:620px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:16px 0 22px}
-.chip{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
-.bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
-.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s;border-radius:99px}
-#msg{margin-top:10px;color:var(--muted);min-height:22px;font-size:13px}
-.tbl-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
-.quick{display:flex;gap:8px}.btn.sm{padding:6px 12px;font-size:13px}
-.drives{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-.dv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;padding:14px;border:1.5px solid var(--border);border-radius:14px;cursor:pointer;background:var(--surface);transition:.15s}
-.dv:hover{border-color:var(--muted)}.dv.on{border-color:var(--accent);background:var(--accent-soft)}
-.dv.off{opacity:.5;cursor:not-allowed}
-.dv .ltr{width:40px;height:40px;border-radius:11px;background:var(--surface-2);display:grid;place-items:center;font-weight:700;font-size:16px}
-.dv.on .ltr{background:var(--accent);color:#fff}
-.dv .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dv .nm small{color:var(--muted);font-weight:400}
-.dv .meter{grid-column:1/-1;height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:6px}
-.dv .meter i{display:block;height:100%;border-radius:99px}
-.dv .cap{grid-column:1/-1;font-size:12px;color:var(--muted)}
-.opt{display:flex;gap:10px;align-items:center;margin-top:14px;cursor:pointer}
-.opt input{width:16px;height:16px;accent-color:var(--accent)}.opt .sub{color:var(--muted);font-size:12px}
-.empty{color:var(--muted);padding:12px 0}
-.hist{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--border);color:var(--fg);text-decoration:none}
-.hist:hover{color:var(--accent)}
+/* ── hero ── */
+.hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:28px;align-items:center;
+  padding:38px 40px;margin-bottom:18px;border-radius:var(--r-xl);
+  background:linear-gradient(125deg,var(--surface) 0%,var(--surface) 46%,var(--accent-soft) 150%)}
+.hero::after{content:"";position:absolute;right:-140px;bottom:-190px;width:460px;height:460px;border-radius:50%;
+  background:radial-gradient(closest-side,var(--glow),transparent);pointer-events:none}
+.hero h1{font-size:34px;line-height:1.15;margin:8px 0 12px;max-width:640px;text-wrap:balance}
+.hero .lead{color:var(--muted);font-size:15px;line-height:1.55;max-width:560px}
+.points{display:flex;flex-wrap:wrap;gap:10px 24px;margin:22px 0 0;padding:0;list-style:none}
+.points li{display:flex;align-items:center;gap:9px;color:var(--fg-2);font-weight:500;font-size:13.5px}
+.points .ic{width:18px;height:18px;color:var(--accent-ink)}
+.radar{position:relative;z-index:1;width:100%;max-width:270px;justify-self:end;aspect-ratio:1}
+.radar>svg{display:block;width:100%;height:100%;overflow:visible}
+.r-ring{fill:none;stroke:var(--border-2);stroke-width:1}
+.r-fill{fill:var(--surface-2);fill-opacity:.55;stroke:var(--border);stroke-width:1}
+.r-sweep{transform-origin:120px 120px;animation:spin 5.5s linear infinite}
+.r-blip{animation:blip 5.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes blip{0%,100%{opacity:.25;transform:scale(.8)}12%{opacity:1;transform:scale(1.25)}40%{opacity:.5;transform:scale(1)}}
+
+/* ── layout ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+.col-main{display:flex;flex-direction:column;gap:18px;min-width:0}
+.col-side{display:flex;flex-direction:column;gap:18px;position:sticky;top:0;align-self:start}
+
+/* ── drive selection ── */
+.quick{display:flex;gap:8px;flex-wrap:wrap}
+.drives{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.dv{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 13px;align-items:center;width:100%;text-align:left;
+  padding:15px 16px 14px;border:1.5px solid var(--border);border-radius:16px;background:var(--surface);color:inherit;font:inherit;
+  cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.dv:hover{border-color:var(--border-2);background:var(--surface-2)}
+.dv.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px var(--accent-track)}
+.dv.off{opacity:.55;cursor:not-allowed}
+.dv .ltr{grid-row:1/3;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;
+  background:var(--surface-3);color:var(--fg-2);font-weight:700;font-size:16px;transition:background .15s,color .15s}
+.dv.on .ltr{background:linear-gradient(135deg,var(--btn-1),var(--cta-2));color:#fff}
+.dv .nm{display:flex;gap:4px 7px;align-items:center;flex-wrap:wrap;font-weight:600;min-width:0}
+.dv .nm span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dv .cap{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv .use{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:11px;font-size:12px;font-weight:600;color:var(--fg-2)}
+.dv .chk{position:absolute;top:-8px;right:-8px;width:24px;height:24px;box-shadow:0 0 0 3px var(--surface);border-radius:50%;display:grid;place-items:center;
+  background:var(--accent);color:#fff;opacity:0;transform:scale(.6);transition:opacity .15s,transform .2s var(--ease)}
+.dv .chk .ic{width:13px;height:13px;stroke-width:2.6}
+.dv.on .chk{opacity:1;transform:none}
+
+/* ── options ── */
+
+/* ── launch panel ── */
+.go-card{padding:24px;border-radius:var(--r-xl);text-align:left;
+  background:linear-gradient(160deg,var(--surface) 0%,var(--surface) 55%,var(--accent-soft) 160%)}
+.go-card h2{font-size:17px;margin:14px 0 4px}
+.go-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--cta-1),var(--cta-2));box-shadow:0 12px 22px -10px rgba(90,80,240,.8)}
+.go-ico .ic{width:23px;height:23px}
+#go-sum{color:var(--muted);font-size:13px;line-height:1.5;min-height:40px;margin-bottom:16px}
+#go-sum b{color:var(--fg);font-weight:600}
+#go{width:100%}
+.notes{display:flex;flex-direction:column;gap:9px;margin:18px 0 0;padding:16px 0 0;border-top:1px solid var(--border);list-style:none;color:var(--muted);font-size:12.5px}
+.notes li{display:flex;gap:9px;align-items:flex-start;line-height:1.4}
+.notes .ic{width:15px;height:15px;margin-top:1px;color:var(--ok-ink);stroke-width:2.2}
+
+/* ── recent scans ── */
+.rs{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 8px;margin:0 -8px;border-radius:12px;
+  color:var(--fg);text-decoration:none;transition:background .15s}
+.rs:hover{background:var(--surface-2)}
+.rs .ico{width:34px;height:34px;border-radius:10px;color:var(--muted)}
+.rs .ico .ic{width:17px;height:17px}
+.rs-t b{font-weight:600}.rs-t small{color:var(--muted);font-size:12px}
+.rs-v{font-weight:600;text-align:right;white-space:nowrap}
+.rs-v small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+.rs-all{display:flex;justify-content:space-between;align-items:center;margin:8px -8px -4px;padding:10px 8px;border-top:1px solid var(--border);
+  color:var(--accent-ink);text-decoration:none;font-weight:600;font-size:13px}
+.rs-all:hover .ic{transform:translateX(3px)}.rs-all .ic{transition:transform .15s;width:16px;height:16px}
+
+/* ── catalog of checks ── */
+details.catalog{margin-top:18px;padding:0}
+details.catalog summary{display:flex;align-items:center;gap:14px;padding:18px 22px;cursor:pointer;list-style:none;border-radius:var(--r-lg)}
+details.catalog summary::-webkit-details-marker{display:none}
+details.catalog summary:hover{background:var(--surface-2)}
+details.catalog summary .ico{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+details.catalog summary .ic.chev{margin-left:auto;transition:transform .2s var(--ease);color:var(--muted)}
+details.catalog[open] summary .ic.chev{transform:rotate(180deg)}
+details.catalog .cat-body{padding:4px 22px 22px}
+.cat-sec{margin-top:16px}
+.cat-sec h3{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--muted);font-weight:600}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.cat-chip{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);font-size:13px;line-height:1.3;min-width:0}
+.cat-chip .em{width:22px;text-align:center;font-size:15px;flex:none}
+
+/* ── scanning screen ── */
+#scanner{min-height:calc(100vh / var(--z) - 190px);display:grid;place-items:center}
+.scan-card{width:min(560px,100%);padding:40px 34px 30px;text-align:center;border-radius:28px;animation:pop .35s var(--ease) both}
+.ring-wrap{position:relative;width:200px;height:200px;margin:0 auto 22px}
+.ring-wrap::before{content:"";position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(closest-side,var(--glow),transparent);animation:halo 2.4s ease-in-out infinite}
+@keyframes halo{0%,100%{opacity:.55;transform:scale(.96)}50%{opacity:1;transform:scale(1.06)}}
+.ring-wrap svg{position:relative;width:100%;height:100%;transform:rotate(-90deg)}
+.ring-wrap .trk{fill:none;stroke:var(--surface-3);stroke-width:12}
+.ring-wrap .val{fill:none;stroke:url(#ring-g);stroke-width:12;stroke-linecap:round;stroke-dasharray:603.2;stroke-dashoffset:603.2;transition:stroke-dashoffset .6s var(--ease)}
+.pct{position:absolute;inset:0;display:grid;place-content:center;text-align:center;font-family:var(--font-display)}
+.pct .n{display:flex;align-items:baseline;justify-content:center;gap:2px}
+.pct b{font-size:54px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.pct i{font-style:normal;font-size:24px;font-weight:700;color:var(--muted)}
+.pct small{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:6px}
+.scan-card h2{font-size:21px}
+#msg{color:var(--muted);margin-top:6px;min-height:22px}
+.steps{list-style:none;margin:22px auto 0;padding:10px 16px;max-width:400px;text-align:left;border-radius:14px;
+  background:var(--surface-2);border:1px solid var(--border);height:176px;overflow-y:auto}
+.steps li{display:flex;gap:10px;align-items:center;height:26px;font-size:13px;color:var(--muted)}
+.steps li .ic{width:15px;height:15px;flex:none;stroke-width:2.4;color:var(--ok-ink);opacity:0}
+.steps li.done .ic{opacity:1}
+.steps li.running{color:var(--fg);font-weight:600}
+.steps li.running .ic{opacity:1;color:var(--accent);animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.25}}
+.scan-meta{display:flex;justify-content:space-between;gap:12px;max-width:400px;margin:10px auto 0;font-size:12.5px;color:var(--muted);
+  font-variant-numeric:tabular-nums;min-height:18px}
+.scan-note{margin-top:20px;font-size:12.5px;color:var(--muted)}
+
+/* ── narrow window: everything after the base rules so it wins the cascade ── */
+@media (max-width:1180px){
+  .hero{grid-template-columns:1fr}.radar{display:none}
+  /* single column: drives → launch → options → history, so the button stays visible */
+  .layout{display:flex;flex-direction:column;align-items:stretch;gap:18px}
+  .col-main,.col-side{display:contents}
+  #drives-card{order:1}.go-card{order:2}#opts-card{order:3}#recent-card{order:4}
+  .go-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:18px;align-items:center;padding:18px 22px}
+  .go-card .go-ico{grid-row:1/3}
+  .go-card h2{margin:0}
+  #go-sum{grid-column:2;min-height:0;margin:0}
+  #go{grid-column:3;grid-row:1/3;width:auto}
+  .notes{display:none}
+}
+@media (max-width:720px){
+  .go-card{grid-template-columns:1fr;row-gap:12px}.go-card .go-ico{grid-row:auto}
+  #go-sum,#go{grid-column:1;grid-row:auto}#go{width:100%}
+  .hero{padding:26px 22px}.hero h1{font-size:28px}
+}
 </style>{% endblock %}
+
 {% block body %}
-<div class="hero"><div class="eyebrow">{{ APP_NAME }}</div><h1>Узнайте, что занимает место на диске</h1>
-<p class="sub">Не «удалить всё», а «вот что здесь лежит и почему». Находит кэши, остатки установщиков, дубликаты и ИИ-модели, объясняет что это и удаляет с подстраховкой.</p></div>
-<div class="card" style="margin-bottom:16px">
-  <div class="tbl-head"><div><h3>Какие диски сканировать</h3><div class="hint" style="margin:2px 0 0">Можно выбрать один или несколько. Сетевые диски не трогаем.</div></div>
-    <div class="quick"><button class="btn sm" onclick="pick('sys')">Только системный</button><button class="btn sm" onclick="pick('all')">Все локальные</button></div></div>
-  <div class="drives" id="drives"><div class="empty">Определяю диски…</div></div>
-  <label class="opt"><input type="checkbox" id="deep" checked> Глубокий скан системного диска целиком: папки в корне, крупные файлы, мусор разработчика <span class="sub">(дольше: 1–3 минуты)</span></label>
-  <label class="opt"><input type="checkbox" id="profile" checked> Показать, что занимает место в профиле и AppData <span class="sub">(крупнейшие папки, только просмотр)</span></label>
-  <label class="opt"><input type="checkbox" id="dups" checked> Искать дубликаты файлов в Загрузках и Документах <span class="sub">(дольше на несколько секунд)</span></label>
-</div>
-<div class="card">
-  <h3>Что проверяется</h3>
-  <div class="grid">
-  {% for i in catalog.SAFE + catalog.REVIEW %}<div class="chip"><span class="app-ico">{{ i.icon }}</span>{{ i.name }}</div>{% endfor %}
-  <div class="chip"><span class="app-ico">📁</span>Остатки установщиков в Temp</div>
-  <div class="chip"><span class="app-ico">🐍</span>Установки Python</div>
-  <div class="chip"><span class="app-ico">🧬</span>Дубликаты файлов</div>
-  <div class="chip"><span class="app-ico">⬇️</span>Крупные файлы в Загрузках</div>
-  <div class="chip"><span class="app-ico">🔎</span>Обзор профиля и AppData</div>
-  <div class="chip"><span class="app-ico">🧠</span>Крупные файлы и папки по всему диску</div>
-  <div class="chip"><span class="app-ico">🧩</span>Тяжёлые программы</div>
+<section id="setup">
+  <header class="hero card">
+    <div>
+      <div class="eyebrow">{{ APP_NAME }}</div>
+      <h1>Find out what is taking up your disk space</h1>
+      <p class="lead">Not “delete everything”, but “here is what lies here and why”. Finds caches, installer leftovers, duplicates and AI models, explains what they are and deletes with safeguards.</p>
+      <ul class="points">
+        <li><svg class="ic"><use href="#i-shield-check"/></svg>Every finding explained</li>
+        <li><svg class="ic"><use href="#i-eye"/></svg>Risk rating A / B / C</li>
+        <li><svg class="ic"><use href="#i-lock"/></svg>Everything runs locally</li>
+      </ul>
+    </div>
+    <div class="radar" aria-hidden="true">
+      <svg viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="sweep-g" x1="120" y1="8" x2="226" y2="82" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#6a52ea" stop-opacity="0"/><stop offset="1" stop-color="#4f6df5" stop-opacity=".42"/>
+          </linearGradient>
+        </defs>
+        <circle class="r-fill" cx="120" cy="120" r="112"/>
+        <circle class="r-ring" cx="120" cy="120" r="84"/>
+        <circle class="r-ring" cx="120" cy="120" r="56"/>
+        <path class="r-sweep" d="M120 120 L120 8 A112 112 0 0 1 226 82 Z" fill="url(#sweep-g)"/>
+        <circle class="r-blip" cx="176" cy="60" r="5" fill="var(--s2)" style="animation-delay:.3s"/>
+        <circle class="r-blip" cx="58" cy="96" r="4.5" fill="var(--s3)" style="animation-delay:2.2s"/>
+        <circle class="r-blip" cx="150" cy="186" r="5.5" fill="var(--s4)" style="animation-delay:3.6s"/>
+        <circle class="r-blip" cx="84" cy="168" r="4" fill="var(--s5)" style="animation-delay:4.4s"/>
+        <use href="#logo" x="82" y="82" width="76" height="76"/>
+      </svg>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="col-main">
+      <div class="card" id="drives-card">
+        <div class="card-h"><div><h2 class="t3">Which drives to scan</h2><div class="hint">Pick one or several. Network drives are not touched.</div></div>
+          <div class="quick"><button class="btn sm" onclick="pick('sys')">System drive only</button><button class="btn sm" onclick="pick('all')">All local</button></div></div>
+        <div class="drives" id="drives"><div class="empty" style="grid-column:1/-1;padding:24px"><span class="spin"></span>Detecting drives…</div></div>
+      </div>
+
+      <div class="card" id="opts-card">
+        <div class="card-h" style="margin-bottom:10px"><div><h2 class="t3">Scan options</h2><div class="hint">Pick what to include. The defaults can be changed in Settings.</div></div></div>
+        <div class="opts">
+          <label class="opt"><span class="ico"><svg class="ic"><use href="#i-scan"/></svg></span>
+            <span><div class="opt-t">Deep scan of the system drive</div><div class="opt-d">Root folders, big files, developer junk <span class="tag">1–3 min</span></div></span>
+            <span class="switch"><input type="checkbox" id="deep"{{ ' checked' if S.scan_deep }}><i></i></span></label>
+          <label class="opt"><span class="ico"><svg class="ic"><use href="#i-folder"/></svg></span>
+            <span><div class="opt-t">Profile and AppData</div><div class="opt-d">Largest folders — view only, no “junk” labels</div></span>
+            <span class="switch"><input type="checkbox" id="profile"{{ ' checked' if S.scan_profile }}><i></i></span></label>
+          <label class="opt"><span class="ico"><svg class="ic"><use href="#i-copy"/></svg></span>
+            <span><div class="opt-t">Duplicate files</div><div class="opt-d">In Downloads and Documents <span class="tag">+ a few seconds</span></div></span>
+            <span class="switch"><input type="checkbox" id="dups"{{ ' checked' if S.scan_dups }}><i></i></span></label>
+        </div>
+      </div>
+    </div>
+
+    <aside class="col-side">
+      <div class="card go-card">
+        <div class="go-ico"><svg class="ic"><use href="#i-scan"/></svg></div>
+        <h2 class="t3">Ready to scan</h2>
+        <p id="go-sum">Detecting drives…</p>
+        <button class="btn cta lg" id="go" onclick="go()" disabled><svg class="ic"><use href="#i-play"/></svg><span id="go-t">Start scan</span></button>
+        <ul class="notes">
+          <li><svg class="ic"><use href="#i-check"/></svg>Nothing is deleted without your confirmation</li>
+          <li><svg class="ic"><use href="#i-check"/></svg>Files in use? We show which programs hold them</li>
+        </ul>
+      </div>
+      {% if history %}
+      <div class="card" id="recent-card"><div class="card-h" style="margin-bottom:8px"><div><h2 class="t3">Recent scans</h2><div class="hint">Open in view-only mode</div></div></div>
+        {% for h in history %}<a href="/history/{{ h.name }}" class="rs"><span class="ico"><svg class="ic"><use href="#i-history"/></svg></span>
+          <span class="rs-t"><b>{{ day(h.scanned_at) }}</b>{% if h.mock %} <span class="tag">demo</span>{% endif %}<br><small class="num">{{ hm(h.scanned_at) }} · drives: {{ h.drives }}</small></span>
+          <span class="rs-v num">{{ h.total_gb|size }}<small>can be freed</small></span></a>{% endfor %}
+        <a href="/history" class="rs-all">Full history <svg class="ic"><use href="#i-arrow-right"/></svg></a>
+      </div>
+      {% endif %}
+    </aside>
   </div>
-  <button class="btn primary" id="go" onclick="go()" disabled style="margin-top:6px">Начать сканирование</button>
-  <div class="bar" id="bar"><i id="fill"></i></div><div id="msg"></div>
-</div>
-{% if history %}
-<div class="card" style="margin-top:16px"><h3>Последние сканирования</h3><div class="hint">Откроются только для просмотра</div>
-{% for h in history %}<a href="/history/{{ h.name }}" class="hist"><span class="mono">{{ h.scanned_at }}</span>
-<span class="mono">{{ h.total_gb }} ГБ можно освободить{% if h.mock %} · демо{% endif %}</span></a>{% endfor %}
-<a href="/history" class="hist" style="color:var(--accent)">Вся история →</a></div>
-{% endif %}
+
+  <details class="card catalog">
+    <summary><span class="ico"><svg class="ic"><use href="#i-list"/></svg></span>
+      <span><h2 class="t3">What is checked</h2><div class="hint" style="color:var(--muted);font-size:13px">{{ (catalog.SAFE|length) + (catalog.REVIEW|length) }} known locations and 7 more smart checks</div></span>
+      <svg class="ic chev"><use href="#i-chevron-down"/></svg></summary>
+    <div class="cat-body">
+      <div class="cat-sec"><h3 class="t4"><span class="risk A"><b>A</b>Safe</span> restores itself</h3>
+        <div class="cat-grid">{% for i in catalog.SAFE %}<div class="cat-chip"><span class="em">{{ i.icon }}</span><span>{{ i.name }}</span></div>{% endfor %}</div></div>
+      <div class="cat-sec"><h3 class="t4"><span class="risk B"><b>B</b>Your call</span> better check before deleting</h3>
+        <div class="cat-grid">{% for i in catalog.REVIEW %}<div class="cat-chip"><span class="em">{{ i.icon }}</span><span>{{ i.name }}</span></div>{% endfor %}</div></div>
+      <div class="cat-sec"><h3 class="t4">Smart checks</h3>
+        <div class="cat-grid">
+          <div class="cat-chip"><span class="em">📁</span><span>Installer leftovers in Temp</span></div>
+          <div class="cat-chip"><span class="em">🐍</span><span>Python installations</span></div>
+          <div class="cat-chip"><span class="em">🧬</span><span>Duplicate files</span></div>
+          <div class="cat-chip"><span class="em">⬇️</span><span>Big files in Downloads</span></div>
+          <div class="cat-chip"><span class="em">🔎</span><span>Profile and AppData overview</span></div>
+          <div class="cat-chip"><span class="em">🧠</span><span>Big files and folders across the whole drive</span></div>
+          <div class="cat-chip"><span class="em">🧩</span><span>Heavy programs</span></div>
+        </div></div>
+    </div>
+  </details>
+</section>
+
+<section id="scanner" hidden aria-live="polite">
+  <div class="card scan-card">
+    <div class="ring-wrap">
+      <svg viewBox="0 0 220 220"><defs><linearGradient id="ring-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d8bff"/><stop offset="1" stop-color="#7b5cf0"/></linearGradient></defs>
+        <circle class="trk" cx="110" cy="110" r="96"/><circle class="val" id="ring" cx="110" cy="110" r="96"/></svg>
+      <div class="pct"><span class="n"><b id="pct">0</b><i>%</i></span><small>complete</small></div>
+    </div>
+    <h2 id="scan-title">Scanning drives…</h2>
+    <p id="msg">Starting…</p>
+    <ul class="steps" id="steps"></ul>
+    <div class="scan-meta"><span id="detail"></span><span id="eta"></span></div>
+    <p class="scan-note">Nothing is deleted — read-only. You can keep this window open.</p>
+  </div>
+</section>
 {% endblock %}
+
 {% block script %}<script>
 let DRIVES = [], SYS = 'C';
-const pickedSet = new Set();
-const cls = p => p < 70 ? 'var(--a)' : p <= 85 ? 'var(--s4)' : 'var(--c)';
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const picked = new Set();
+const usage = p => p > 85 ? 'crit' : p >= 70 ? 'warn' : '';
+
+function slowNote(d){
+  if(d.last_scan_sec) return ` · last scan: ${fmtDur(d.last_scan_sec)}`;
+  return d.Media === 'HDD' && d.UsedGB > 300 ? ' · HDD: the scan may take many minutes' : '';
+}
 function drawDrives(){
-  $('drives').innerHTML = DRIVES.map(d => `<div class="dv ${pickedSet.has(d.Name)?'on':''} ${d.scannable?'':'off'}" data-n="${d.Name}" ${d.scannable?'':'title="Сетевые диски не сканируются"'}>
-    <div class="ltr">${d.Name}:</div>
-    <div><div class="nm">${esc(d.Label || 'Локальный диск')} <small>${d.Type==='network'?'· сетевой':d.Type==='removable'?'· съёмный':''}</small></div></div>
-    <div class="meter"><i style="width:${d.Pct}%;background:${cls(d.Pct)}"></i></div>
-    <div class="cap">Свободно ${d.FreeGB} из ${d.TotalGB} ГБ · занято ${d.Pct}%${d.scannable?'':' · не сканируется'}</div></div>`).join('');
-  document.querySelectorAll('.dv:not(.off)').forEach(el => el.onclick = () => {
-    const n = el.dataset.n; pickedSet.has(n) ? pickedSet.delete(n) : pickedSet.add(n); drawDrives(); updateGo() });
+  $('#drives').innerHTML = DRIVES.map(d => {
+    const on = picked.has(d.Name), type = d.Type === 'network' ? 'network' : d.Type === 'removable' ? 'removable' : (d.Name === SYS ? 'system' : 'data');
+    return `<button type="button" class="dv ${on ? 'on' : ''} ${d.scannable ? '' : 'off'}" data-n="${esc(d.Name)}" aria-pressed="${on}" ${d.scannable ? '' : 'disabled title="Network drives are not scanned"'}>
+      <span class="ltr">${esc(d.Name)}:</span>
+      <span class="nm"><span>${esc(d.Label || 'Local disk')}</span>${type ? `<span class="tag ${d.Name === SYS && d.Type !== 'network' ? 'info' : ''}">${type}</span>` : ''}${d.Media ? `<span class="tag">${d.Media}</span>` : ''}</span>
+      <span class="cap num">${nf(d.FreeGB, 0)} of ${nf(d.TotalGB, 0)}${NB}GB free${slowNote(d)}</span>
+      <span class="use"><span class="meter ${usage(d.Pct)}"><i style="width:${d.Pct}%"></i></span><span class="num">${d.Pct}%</span></span>
+      <span class="chk">${ic('check')}</span></button>`;
+  }).join('') || '<div class="empty" style="grid-column:1/-1">No drives found</div>';
+  $$('.dv:not(.off)').forEach(el => el.onclick = () => {
+    const n = el.dataset.n; picked.has(n) ? picked.delete(n) : picked.add(n); drawDrives(); updateGo();
+  });
 }
 function pick(mode){
-  pickedSet.clear();
-  DRIVES.filter(d => d.scannable && (mode === 'all' || d.Name === SYS)).forEach(d => pickedSet.add(d.Name));
+  picked.clear();
+  DRIVES.filter(d => d.scannable && (mode === 'all' || d.Name === SYS)).forEach(d => picked.add(d.Name));
   drawDrives(); updateGo();
 }
-function updateGo(){ $('go').disabled = !pickedSet.size; $('go').textContent = pickedSet.size > 1 ? `Сканировать ${pickedSet.size} диска` : 'Начать сканирование';
-  if(pickedSet.size > 4) $('go').textContent = `Сканировать ${pickedSet.size} дисков`; }
-const $ = id => document.getElementById(id);
+function updateGo(){
+  const n = picked.size, btn = $('#go'), t = $('#go-t');
+  btn.disabled = !n;
+  t.textContent = n > 1 ? `Scan ${n} ${plural(n, ['drive', 'drives'])}` : 'Start scan';
+  if(!n){ $('#go-sum').textContent = 'Select at least one drive on the left.'; return }
+  const on = id => $('#' + id).checked, parts = [];
+  if(on('deep') && picked.has(SYS)) parts.push('deep scan'); if(on('profile')) parts.push('profile'); if(on('dups')) parts.push('duplicates');
+  $('#go-sum').innerHTML = `Drives: <b>${[...picked].sort().map(x => x + ':').join(', ')}</b>${parts.length ? ' · ' + parts.join(' · ') : ''}`;
+}
+['deep', 'profile', 'dups'].forEach(id => $('#' + id).addEventListener('change', updateGo));
+
 (async () => {
   try{ const j = await (await fetch('/api/drives')).json(); DRIVES = j.drives; SYS = j.system; pick('sys'); }
-  catch(e){ $('drives').innerHTML = '<div class="empty">Не удалось определить диски</div>' }
+  catch(e){ $('#drives').innerHTML = '<div class="empty" style="grid-column:1/-1">Could not detect drives</div>' }
+  // returned to the page in the middle of a scan — show the progress, not an empty form
+  try{ const s = await (await fetch('/status')).json(); if(s.status === 'scanning'){ showScanner(); poll() } }catch(_){}
 })();
+
+/* ── scanning ── */
+function showScanner(){ $('#setup').hidden = true; $('#scanner').hidden = false; scroller.scrollTop = 0 }
+function showSetup(){ $('#scanner').hidden = true; $('#setup').hidden = false; updateGo() }
+const scroller = $('#main');
 async function go(){
-  $('go').disabled = true; $('bar').style.display = 'block';
-  const r = await fetch('/scan', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({drives:[...pickedSet], dups: $('dups').checked, profile: $('profile').checked, deep_system: $('deep').checked})});
-  if(r.ok) poll();
+  $('#go').disabled = true;
+  try{
+    const r = await post('/scan', {drives:[...picked], dups: $('#dups').checked, profile: $('#profile').checked, deep_system: $('#deep').checked});
+    if(!r.ok) throw new Error('the server returned ' + r.status);
+    phKey = ''; showScanner(); poll();
+  }catch(e){ updateGo(); toast('Could not start the scan: ' + e.message, true) }
+}
+function fmtDur(sec){
+  if(sec < 45) return 'under a minute';
+  const m = Math.round(sec / 60);
+  return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+}
+let phKey = '';
+function paint(s){
+  const p = Math.max(0, Math.min(100, Math.round(s.progress || 0)));
+  $('#pct').textContent = p; $('#ring').style.strokeDashoffset = 603.2 * (1 - p / 100);
+  $('#msg').textContent = s.message || '';
+  const ph = s.phases || [], key = ph.map(x => x.label).join('|');
+  if(key !== phKey){  // rows are created once and never recreated: the text does not jump
+    phKey = key;
+    $('#steps').innerHTML = ph.map(x => `<li><svg class="ic"><use href="#i-check"/></svg><span class="cut">${esc(x.label)}</span></li>`).join('');
+  }
+  [...$('#steps').children].forEach((li, n) => { li.className = ph[n].state });
+  $('#detail').textContent = s.detail || '';
+  $('#eta').textContent = s.eta == null || !ph.length ? '' : s.eta < 5 ? 'almost done'
+    : (s.eta_live ? 'remaining: ' : 'last time: ') + fmtDur(s.eta);
 }
 async function poll(){
-  const s = await (await fetch('/status')).json();
-  $('fill').style.width = s.progress + '%'; $('msg').textContent = s.message;
-  if(s.status === 'done'){ location.href = '/report'; return }
-  if(s.status === 'error'){ updateGo(); toast(s.message, true); return }
-  setTimeout(poll, 600);
+  let s;
+  try{ s = await (await fetch('/status')).json() }catch(e){ setTimeout(poll, 1200); return }
+  paint(s);
+  if(s.status === 'done'){
+    $('#scan-title').textContent = 'Done!'; $('#pct').textContent = 100; $('#ring').style.strokeDashoffset = 0;
+    setTimeout(() => { location.href = '/report' }, reduceMotion() ? 0 : 550); return;
+  }
+  if(s.status === 'error'){ showSetup(); toast(s.message || 'Scan error', true); return }
+  setTimeout(poll, 1000);
 }
 </script>{% endblock %}
