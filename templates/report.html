@@ -309,7 +309,7 @@
       {% elif not d.readonly %}<span class="lockic" title="View only: {{ f.why }}"><svg class="ic"><use href="#i-lock"/></svg></span>{% endif %}
       <span class="ico">{{ f.icon or '📄' }}</span>
       <div class="lr-m"><div class="lr-t cut" title="{{ f.path }}">{{ f.name }}</div>
-        <div class="lr-s">{{ f.kind or 'File' }}{% if f.date %} · modified <span class="num">{{ f.date }}</span>{% if f.age_days is not none %} ({{ f.age_days }} days ago){% endif %}{% endif %}</div>
+        <div class="lr-s">{{ f.kind or 'File' }}{% if f.date %} · modified <span class="num">{{ f.date }}</span>{% if f.age_days is not none %} ({{ f.age_days }} days ago){% endif %}{% endif %}{% if f.created_days is defined and f.created_days is not none and f.created_days < 30 %} &middot; created <span class="num">{{ f.created }}</span> ({{ f.created_days }} days ago){% endif %}</div>
         <div class="lr-p mono">{{ f.path }}</div>
         {% if not f.deletable %}<div class="callout"><svg class="ic"><use href="#i-lock"/></svg><span>View only: {{ f.why }}</span></div>{% elif f.warn %}<div class="callout"><svg class="ic"><use href="#i-alert"/></svg><span>{{ f.warn }}</span></div>{% endif %}</div></div>
     <div class="lr-r"><b class="num">{{ f.size_gb|size }}</b><button class="btn sm" data-reveal="{{ f.id }}"><svg class="ic"><use href="#i-folder"/></svg>Show</button></div></div>

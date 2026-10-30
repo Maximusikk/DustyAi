@@ -256,6 +256,11 @@ def junk_what(path, name):
     low = name.lower()
     if low in JUNK_NAMES:
         return JUNK_NAMES[low]
+    try:  # a virtual environment under any name (chatterbox_env, bench_qwen3 ...) is recognised by its marker file
+        if os.path.isfile(os.path.join(path, "pyvenv.cfg")):
+            return JUNK_NAMES[".venv"]
+    except OSError:
+        pass
     need = JUNK_NEEDS.get(low)
     if need:
         parent = os.path.dirname(path.rstrip("\\/"))
@@ -356,7 +361,7 @@ def _walk(path, stop, counter=None):
                     sz = st.st_size
                     size += sz
                     if sz >= BIG_FILE_MB * 1024 ** 2:
-                        big.append(dict(id=short_id("big_", e.path), name=e.name, path=e.path, size=sz, mt=st.st_mtime))
+                        big.append(_big_entry(e.path, e.name, st))
             except OSError:
                 continue
         if counter:
@@ -367,8 +372,29 @@ def _walk(path, stop, counter=None):
 DEEP_HARD_CAP = 1800  # seconds: a safeguard against hanging; a normal drive, even a slow one, finishes sooner
 
 
+def _birth(st):
+    """When the file appeared on this PC. mtime can be years old (SDK images are stamped 2008), so "what is new"
+    has to look at the creation time."""
+    return getattr(st, "st_birthtime", None) or st.st_ctime
+
+
 def _big_entry(path, name, st):
-    return dict(id=short_id("big_", path), name=name, path=path, size=st.st_size, mt=st.st_mtime)
+    return dict(id=short_id("big_", path), name=name, path=path, size=st.st_size, mt=st.st_mtime, ct=_birth(st))
+
+
+RECENT_DAYS = 7  # big files created within this many days are also listed separately ("what appeared lately")
+
+
+def _big_out(f):
+    """A big-file entry as it goes into the report: type, modification and creation dates."""
+    now = time.time()
+    label, icon = classify_file(f["name"])
+    mt, ct = f.pop("mt", None), f.pop("ct", None)
+    return dict(f, size_gb=gb(f.pop("size")), kind=label, icon=icon,
+                date=time.strftime("%Y-%m-%d", time.localtime(mt)) if mt else "",
+                age_days=int((now - mt) / 86400) if mt else None,
+                created=time.strftime("%Y-%m-%d", time.localtime(ct)) if ct else "",
+                created_days=int((now - ct) / 86400) if ct else None)
 
 
 def _recall_hints(hint, big, junk, found):
@@ -482,14 +508,10 @@ def scan_drive_deep(letter, deadline=DEEP_HARD_CAP, system=False, workers=8, roo
                 for n, s in sorted(top.items(), key=lambda x: -x[1])[:(20 if system else 12)] if s > 0]
     big.sort(key=lambda f: -f["size"])
     junk.sort(key=lambda j: -j["size"])
-    big_out = []
-    for f in big[:20]:
-        label, icon = classify_file(f["name"])
-        mt = f.pop("mt", None)
-        big_out.append(dict(f, size_gb=gb(f.pop("size")), kind=label, icon=icon,
-                            date=time.strftime("%Y-%m-%d", time.localtime(mt)) if mt else "",
-                            age_days=int((time.time() - mt) / 86400) if mt else None))
-    return dict(top_dirs=top_dirs, partial=partial, big_files=big_out,
+    cutoff = time.time() - RECENT_DAYS * 86400
+    recent_out = [_big_out(dict(f)) for f in big if (f.get("ct") or 0) >= cutoff][:20]  # big is sorted by size
+    big_out = [_big_out(f) for f in big[:20]]
+    return dict(top_dirs=top_dirs, partial=partial, big_files=big_out, recent_files=recent_out,
                 junk=[dict(j, size_gb=gb(j.pop("size"))) for j in junk[:40]],
                 # for the next scan: sizes of ALL top-level folders, not only the displayed ones
                 _dirs={n: s for n, s in top.items() if s > 0})
@@ -594,6 +616,8 @@ def scan_profile_overview(top=12, deadline=25):
 
 BIG_MIN_DELETE_MB = 100
 SYSTEM_FILES = {"pagefile.sys", "hiberfil.sys", "swapfile.sys"}
+# parts of paths that belong to caches the catalog already lists as safe: no scary "program may stop working" warning
+SAFE_CACHE_PARTS = ("\\pip\\cache\\", "\\npm-cache\\", "\\uv\\cache\\")
 
 
 def big_deletable(path):
@@ -602,6 +626,10 @@ def big_deletable(path):
     the user's decision, and big_warning tells them about the consequences."""
     if os.path.basename(path).lower() in SYSTEM_FILES:
         return False, "page/hibernation file — managed by Windows (can be disabled in system settings)"
+    low = os.path.normcase(path)
+    if low.endswith("ext4.vhdx") or (low.endswith(".vhdx") and ("\\wsl\\" in low or "\\docker\\" in low)):
+        return False, ("disk of a WSL/Docker distribution - all its Linux files live inside. Remove it with "
+                       "`wsl --unregister <name>` or Docker's own cleanup, not by hand")
     root = os.path.normcase(expand("%SystemRoot%"))
     if "%" not in root and os.path.normcase(path).startswith(root + os.sep):
         return False, "Windows folder — deleting it may break the system"
@@ -612,6 +640,13 @@ def big_warning(path):
     """A warning if the file is part of something installed. An empty string means an ordinary user file."""
     p = os.path.normcase(path)
     ext = os.path.splitext(p)[1]
+    if any(s in p for s in SAFE_CACHE_PARTS):
+        return ""  # part of a cache that the catalog already lists as safe (pip, npm, uv)
+    if "\\.android\\avd\\" in p and "\\snapshots\\" in p:
+        return "Android emulator snapshot - safe to delete: the emulator will just cold-boot next time."
+    if "\\.android\\avd\\" in p or "\\android\\sdk\\system-images\\" in p:
+        return ("Android emulator data - better removed in Android Studio (Device Manager / SDK Manager); "
+                "deleting a file by hand leaves a broken emulator.")
     if "site-packages" in p:
         return "Part of an installed Python package — the package will stop working after deletion (reinstall: pip install --force-reinstall)."
     if any(p.startswith(pre + os.sep) for pre in protected_prefixes()):

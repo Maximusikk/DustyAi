@@ -331,7 +331,13 @@ def assemble_extras(data, deep, recycle):
         for t in res["top_dirs"]:
             t["id"] = scanners.short_id("td_", t["path"])
             dyn[t["id"]] = {"type": "bigfile", "path": t["path"]}  # only reveal in Explorer
-        data["overview"][letter] = {"top_dirs": res["top_dirs"], "big_files": res["big_files"], "partial": res["partial"]}
+        for f in res.get("recent_files", []):  # big files created lately (may also be in big_files)
+            f["drive"] = letter
+            ok, why = scanners.big_deletable(f["path"]) if not data["mock"] else _mock_big_deletable(f)
+            f["why"] = why
+            f["warn"] = (scanners.big_warning(f["path"]) if not data["mock"] else _mock_big_warning(f)) if ok else ""
+        data["overview"][letter] = {"top_dirs": res["top_dirs"], "big_files": res["big_files"], "partial": res["partial"],
+                                    "recent_files": res.get("recent_files", [])}
     data["bigfiles"].sort(key=lambda f: -f["size_gb"])
     for letter, size in recycle.items():
         if size > 0:

@@ -186,5 +186,15 @@ REVIEW_EXTRA = [
          "System images for the emulator, 1–3 GB each.", "Delete the ones you do not need in SDK Manager (Android Studio).", deletable=False),
     item("lmstudio_models", "LM Studio models", "🧠", U + ".lmstudio\\models", "Local language models. Decide which ones you still need.",
          "Delete models inside LM Studio itself (the “My Models” tab).", deletable=False),
+    item("avd_snapshots", "Android emulator snapshots", "\U0001F916", U + ".android\\avd\\*\\snapshots",
+         "Saved RAM state of emulators (2+ GB each). It only speeds up the emulator start. The devices themselves "
+         "can be removed in Android Studio (Device Manager).",
+         "The emulator will cold-boot once; devices and their data are kept.", ["qemu-system-x86_64", "emulator", "studio64"]),
+    item("android_sdk_temp", "Android SDK temp downloads", "\U0001F916", L + "Android\\Sdk\\.temp",
+         "Half-downloaded SDK archives that Android Studio did not clean up.",
+         "Nothing - Android Studio downloads them again when needed.", ["studio64", "java"], kind="contents"),
+    item("tts_models", "TTS models", "\U0001F5E3", L + "tts",
+         "Downloaded speech-synthesis models (Coqui TTS and similar). Decide which ones you still need.",
+         "Models are downloaded again on next use.", deletable=False),
     item("npm_logs", "npm logs", "📦", L + "npm-cache\\_logs", "npm run logs.", "Nothing.", ["node", "npm"]),
 ]
